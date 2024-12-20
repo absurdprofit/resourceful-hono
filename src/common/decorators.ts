@@ -1,5 +1,5 @@
 import { BODY_METADATA_KEY, PATH_METADATA_KEY, QUERY_METADATA_KEY, ACCEPT_METADATA_KEY, ROUTE_METADATA_KEY } from './constants.ts';
-import type { z } from 'https://deno.land/x/zod@v3.23.8/mod.ts';
+import type { z } from 'npm:zod@3.24.1';
 import { Reflect } from 'https://deno.land/x/reflect_metadata@v0.1.12/mod.ts';
 import { type ContentTypes, RequestMethod } from "./enums.ts";
 import type { IResource, ResourceLikeConstructor, ResourceMethods } from "../Resource.ts";

@@ -1,12 +1,11 @@
 import type { HonoRequest, Handler } from 'jsr:@hono/hono@4.6.14';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
-import type { z } from 'https://deno.land/x/zod@v3.23.8/mod.ts';
+import type { z } from 'npm:zod@3.24.1';
 import { Reflect } from 'https://deno.land/x/reflect_metadata@v0.1.12/mod.ts';
 import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, PATH_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
 import type { ParameterMetadata, ResourceResult } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { match, P } from 'ts-pattern';
 import { literalToLowerCase } from "./common/utils.ts";
 
 type ResourceMethodReturn =
@@ -126,7 +125,7 @@ export abstract class Resource implements IResource {
     return (this.constructor as typeof Resource).path;
   }
 
-  public get HEAD() {
+  public get HEAD(): ((...args: unknown[]) => ResourceMethodReturn) | undefined {
     return (this as IResource)['GET'];
   }
 

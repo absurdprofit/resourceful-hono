@@ -1,4 +1,4 @@
-import type { z } from 'https://deno.land/x/zod@v3.23.8/mod.ts';
+import type { z } from 'npm:zod@3.24.1';
 import type { HttpStatusCodes } from "./enums.ts";
 
 export type Constructor<T = unknown> = abstract new (...args: never[]) => T;

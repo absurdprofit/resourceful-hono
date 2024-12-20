@@ -1,5 +1,5 @@
-import { expandGlob } from 'jsr:@std/fs';
-import { toFileUrl } from 'jsr:@std/path';
+import { expandGlob } from 'jsr:@std/fs@1.0.8';
+import { toFileUrl } from 'jsr:@std/path@1.0.8';
 import { Headers } from './enums.ts';
 import { HttpRequestLog } from "./types.ts";
 
