@@ -28,6 +28,9 @@ export function Result<T extends BodyInit | (() => Iterable<unknown, unknown, un
     if (contentType) headers.set(Headers.ContentType, contentType);
     if (typeof content === "function") {
       body = createReadableFromIterable(content());
+      if (contentType?.startsWith('text/')) {
+        body = body.pipeThrough(new TextEncoderStream());
+      }
     } else {
       body = content;
     }
