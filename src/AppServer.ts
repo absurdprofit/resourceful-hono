@@ -14,14 +14,14 @@ export class AppServer {
   private constructor(instanceId: string) {
     if (instanceId !== AppServer.#instanceId)
       throw new TypeError('Illegal constructor');
-    AppServer.#instanceId = instanceId;
     AppServer.#app = Resource.app;
     this.#services.set(Hono, AppServer.#app);
   }
 
   public static get instance(): AppServer {
     if (!AppServer.#instance) {
-      AppServer.#instance = new AppServer(crypto.randomUUID());
+      AppServer.#instanceId = crypto.randomUUID();
+      AppServer.#instance = new AppServer(AppServer.#instanceId);
     }
     return AppServer.#instance;
   }
