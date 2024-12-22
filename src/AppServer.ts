@@ -1,4 +1,4 @@
-import type { MiddlewareHandler } from 'jsr:@hono/hono@4.6.14';
+import type { MiddlewareHandler, ErrorHandler as HonoErrorHandler } from 'jsr:@hono/hono@4.6.14';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import { Resource } from './Resource.ts';
 import { importGlob } from "./common/utils.ts";
@@ -50,7 +50,7 @@ export class AppServer {
     middlewares.forEach((middleware) => this.app.use(middleware));
   }
 
-  public registerErrorHandler(errorHandler: ErrorHandler) {
+  public registerErrorHandler(errorHandler: HonoErrorHandler) {
     this.app.onError(errorHandler);
   }
 
