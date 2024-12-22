@@ -3,14 +3,14 @@ import { Hono } from 'jsr:@hono/hono@4.6.14';
 import type { z } from 'npm:zod@3.24.1';
 import { Reflect } from 'https://deno.land/x/reflect_metadata@v0.1.12/mod.ts';
 import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, PATH_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
-import type { ParameterMetadata, ResourceResult } from './common/types.ts';
+import type { ParameterMetadata } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { literalToLowerCase } from "./common/utils.ts";
+import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
 
 type ResourceMethodReturn =
-  Promise<ResourceResult | void>
-  | ResourceResult | void;
+  Promise<Response | void>
+  | Response | void;
 export function isBodyInit(value: unknown): value is BodyInit {
   return typeof value === 'string'
     || value instanceof Blob
@@ -18,19 +18,24 @@ export function isBodyInit(value: unknown): value is BodyInit {
     || value instanceof FormData || value instanceof URLSearchParams
     || value instanceof ReadableStream;
 }
-export function Result<T extends BodyInit | number | boolean | object | undefined = never>(
+export function Result<T extends BodyInit | (() => Iterable<unknown, unknown, unknown>) | number | boolean | object | undefined = never>(
   status: HttpStatusCodes,
   content?: T,
   contentType?: ContentTypes
-): ResourceResult {
-  let body;
-  if (!isBodyInit(content) || contentType === ContentTypes.Json) {
-    body = JSON.stringify(content);
-    contentType ??= ContentTypes.Json;
+): Response {
+  if ((isBodyInit(content) && contentType !== ContentTypes.Json) || typeof content === "function") {
+    const headers = new globalThis.Headers();
+    let body;
+    if (contentType) headers.set(Headers.ContentType, contentType);
+    if (typeof content === "function") {
+      body = createReadableFromIterable(content());
+    } else {
+      body = content;
+    }
+    return new Response(body, { status, headers });
   } else {
-    body = content;
+    return Response.json(content);
   }
-  return { status, body, contentType };
 }
 export type ResourceMethods = keyof Omit<IResource, 'connection' | 'path' | 'request' | 'response'>;
 export interface IResource {
@@ -147,12 +152,13 @@ export abstract class Resource implements IResource {
 
       if (issues.length)
         throw new BadRequestError('There were issues in your request.', { issues });
-      const result = await methodHandler(...args, context.req.raw.signal);
+      const response = await methodHandler(...args, context.req.raw.signal);
       // if the response has already been sent, don't send it again (this is to prevent errors from being sent twice
-      if (result) {
-        const headers = context.res.headers;
-        if (result.contentType) headers.set(Headers.ContentType, result.contentType);
-        return new Response(result.body, { headers, status: result.status });
+      if (response) {
+        const contentType = response.headers.get(Headers.ContentType);
+        if (contentType) context.res.headers.set(Headers.ContentType, contentType);
+        Object.defineProperty(response, 'headers', { value: context.res.headers });
+        return response;
       } else {
         context.status(HttpStatusCodes.NoContent);
         return context.res;

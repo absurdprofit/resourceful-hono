@@ -5,3 +5,4 @@ export * from './common/constants.ts';
 export * from './AppServer.ts';
 export * from './Resource.ts';
 export * from './ServiceMap.ts';
+export * from './ServerSentEvent.ts';
