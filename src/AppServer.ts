@@ -6,7 +6,6 @@ import { ServiceMap } from "./ServiceMap.ts";
 import { isResourceConstructor } from "./common/types.ts";
 
 export class AppServer {
-  static #app: Hono;
   static #instance: AppServer;
   static #instanceId: string | null = null;
   readonly #services = new ServiceMap();
@@ -14,8 +13,6 @@ export class AppServer {
   private constructor(instanceId: string) {
     if (instanceId !== AppServer.#instanceId)
       throw new TypeError('Illegal constructor');
-    AppServer.#app = Resource.app;
-    this.#services.set(Hono, AppServer.#app);
   }
 
   public static get instance(): AppServer {
@@ -51,7 +48,7 @@ export class AppServer {
   }
 
   public get app(): Hono {
-    return AppServer.#app;
+    return Resource.app;
   }
 
   public get services(): ServiceMap {

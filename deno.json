@@ -1,6 +1,6 @@
 {
   "name": "@resourceful-hono/core",
-  "version": "0.1.2-beta",
+  "version": "0.1.2-beta.1",
   "license": "MIT",
   "exports": "./src/index.ts",
   "compilerOptions": {
