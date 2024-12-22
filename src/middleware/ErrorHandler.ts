@@ -4,7 +4,7 @@ import { ContentTypes, Headers } from "../common/enums.ts";
 
 export const ErrorHandler: HonoErrorHandler = (error, context) => {
   if ((error instanceof HttpError) === false) {
-    error = new InternalServerError('There was an error. Please contact support@queued-in.com.', { cause: error });
+    error = new InternalServerError('There was an error.', { cause: error });
     context.error = error;
   }
 

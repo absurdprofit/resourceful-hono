@@ -1,9 +1,10 @@
-import type { MiddlewareHandler, ErrorHandler } from 'jsr:@hono/hono@4.6.14';
+import type { MiddlewareHandler } from 'jsr:@hono/hono@4.6.14';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import { Resource } from './Resource.ts';
 import { importGlob } from "./common/utils.ts";
 import { ServiceMap } from "./ServiceMap.ts";
 import { isResourceConstructor } from "./common/types.ts";
+import { ErrorHandler, NotFoundHandler, ResponseTime } from "./middleware/index.ts";
 
 export class AppServer {
   static #instance: AppServer;
@@ -13,6 +14,12 @@ export class AppServer {
   private constructor(instanceId: string) {
     if (instanceId !== AppServer.#instanceId)
       throw new TypeError('Illegal constructor');
+
+    this.registerMiddleware([
+      ResponseTime,
+    ]);
+    this.app.notFound(NotFoundHandler);
+    this.registerErrorHandler(ErrorHandler);
   }
 
   public static get instance(): AppServer {
