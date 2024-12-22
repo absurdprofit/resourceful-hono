@@ -15,7 +15,7 @@ export class ServerSentEvent extends Event {
     this.comment = eventInitDict?.comment;
   }
 
-  override toString() {
+  override toString(): string {
     let event = '';
     if (this.type)
       event += `event: ${this.type}\n`;

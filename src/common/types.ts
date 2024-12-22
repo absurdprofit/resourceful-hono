@@ -1,4 +1,5 @@
-import type { z } from 'npm:zod@3.24.1';
+import { unknown, type z } from 'npm:zod@3.24.1';
+import { NonAbstractResourceLikeConstructor, Resource } from "../Resource.ts";
 
 export type Constructor<T = unknown> = abstract new (...args: never[]) => T;
 export type PrimitiveType = z.ZodString | z.ZodNumber | z.ZodBoolean;
@@ -17,4 +18,8 @@ export interface HttpRequestLog {
   userAgent: string;
   timestamp: string;
   responseTimeMs: number;
+}
+
+export function isResourceConstructor(value: unknown): value is NonAbstractResourceLikeConstructor {
+  return Object.getPrototypeOf(Resource).isPrototypeOf(Object.getPrototypeOf(value));
 }

@@ -3,7 +3,7 @@ import { toFileUrl } from 'jsr:@std/path@1.0.8';
 import { Headers } from './enums.ts';
 import { HttpRequestLog } from "./types.ts";
 
-export async function importGlob(pattern: string, exclude: string[] = []) {
+export async function importGlob(pattern: string, exclude: string[] = []): Promise<{ default: unknown }[]> {
   const results = await Array.fromAsync(expandGlob(pattern, { exclude }));
   const imports = results
     .filter(result => result.isFile)
@@ -12,7 +12,7 @@ export async function importGlob(pattern: string, exclude: string[] = []) {
   return modules;
 }
 
-export function literalToLowerCase<T extends string>(value: T) {
+export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
 }
 
@@ -35,7 +35,7 @@ export function createHttpRequestLog(req: Request, res: Response): HttpRequestLo
   };
 }
 
-export function createReadableFromIterable<T, TReturn, TNext>(iterable: Iterable<T, TReturn, TNext> | AsyncIterable<T, TReturn, TNext>) {
+export function createReadableFromIterable<T, TReturn, TNext>(iterable: Iterable<T, TReturn, TNext> | AsyncIterable<T, TReturn, TNext>): ReadableStream {
   const iterator = Symbol.iterator in iterable ? iterable[Symbol.iterator]() : iterable[Symbol.asyncIterator]();
   return new ReadableStream({
     async pull(controller) {

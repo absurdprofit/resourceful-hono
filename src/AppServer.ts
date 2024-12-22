@@ -1,8 +1,9 @@
 import type { MiddlewareHandler, ErrorHandler } from 'jsr:@hono/hono@4.6.14';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
-import { Resource, type NonAbstractResourceLikeConstructor } from './Resource.ts';
+import { Resource } from './Resource.ts';
 import { importGlob } from "./common/utils.ts";
 import { ServiceMap } from "./ServiceMap.ts";
+import { isResourceConstructor } from "./common/types.ts";
 
 export class AppServer {
   static #app: Hono;
@@ -29,13 +30,16 @@ export class AppServer {
     this.app.route(path, app);
   }
 
-  public async registerResources() {
-    const resources = await importGlob(
-      './src/resources/**/*.ts'
-    );
+  public async registerResources(glob: string) {
+    const resources = await importGlob(glob);
     resources
       .map(module => module.default)
-      .map((Resource: NonAbstractResourceLikeConstructor) => new Resource());
+      .forEach((MaybeResourceConstructor: unknown) => {
+        if (isResourceConstructor(MaybeResourceConstructor))
+          return new MaybeResourceConstructor();
+        else
+          throw new Error(`Expected Resource but received:\n${MaybeResourceConstructor}`);
+      });
   }
 
   public registerMiddleware(middlewares: (MiddlewareHandler)[]) {
@@ -46,11 +50,11 @@ export class AppServer {
     this.app.onError(errorHandler);
   }
 
-  public get app() {
+  public get app(): Hono {
     return AppServer.#app;
   }
 
-  public get services() {
+  public get services(): ServiceMap {
     return this.#services;
   }
 }

@@ -1,7 +1,6 @@
 import type { HonoRequest, Handler } from 'jsr:@hono/hono@4.6.14';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import type { z } from 'npm:zod@3.24.1';
-import { Reflect } from 'https://deno.land/x/reflect_metadata@v0.1.12/mod.ts';
 import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, PATH_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
 import type { ParameterMetadata } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
@@ -118,15 +117,15 @@ export abstract class Resource implements IResource {
     return Object.getPrototypeOf(this.constructor);
   }
 
-  public get methods() {
+  public get methods(): RequestMethod[] {
     return Object.values(RequestMethod).filter((method => method in this));
   }
 
-  public static get path() {
+  public static get path(): string {
     return Reflect.getMetadata(`${this.name}${ROUTE_METADATA_KEY}`, this) ?? this.name.toLowerCase().replace('resource', '');
   }
 
-  public get path() {
+  public get path(): string {
     return (this.constructor as typeof Resource).path;
   }
 
