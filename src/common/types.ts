@@ -1,5 +1,5 @@
-import { unknown, type z } from 'npm:zod@3.24.1';
-import { NonAbstractResourceLikeConstructor, Resource } from "../Resource.ts";
+import type { z } from 'npm:zod@3.24.1';
+import { type NonAbstractResourceLikeConstructor, Resource } from "../Resource.ts";
 
 export type Constructor<T = unknown> = abstract new (...args: never[]) => T;
 export type PrimitiveType = z.ZodString | z.ZodNumber | z.ZodBoolean;
