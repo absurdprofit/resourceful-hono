@@ -80,4 +80,4 @@ jobs:
         if: ${{ steps.version.outputs.versioned == 'true' }}
         run: |
           TAG_NAME=${{ env.TAG_NAME }}
-          deno publish --dist-tag $TAG_NAME
+          deno publish --dry-run
