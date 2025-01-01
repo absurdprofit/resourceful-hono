@@ -1,6 +1,17 @@
 {
   "workspace": ["packages/*"],
   "tasks": {
-    "list": "deno run --allow-all list.ts"
+    "list": "deno run --allow-all tasks/list.ts"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "lib": [
+      "deno.window",
+      "esnext",
+      "dom",
+      "dom.iterable"
+    ]
   }
 }
