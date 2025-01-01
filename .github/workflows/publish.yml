@@ -58,14 +58,14 @@ jobs:
             exit 0
           fi
 
-          echo $CHANGED_PACKAGES_JSON | jq -r '.[].location' | while read -r package; do
+          echo $CHANGED_PACKAGES_JSON | jq -r '.[].path' | while read -r package; do
             CURRENT_VERSION=$(jq -r '.version' $package/deno.json)
             NEW_VERSION="${CURRENT_VERSION}-${TAG_NAME}.sha-${COMMIT_HASH}"
             jq ".version = \"${NEW_VERSION}\"" $package/deno.json > $package/deno.json.tmp && mv $package/deno.json.tmp $package/deno.json
           done
 
-          echo $ALL_PACKAGES_JSON | jq -r '.[].location' | while read -r package; do
-            if ! echo $CHANGED_PACKAGES_JSON | jq -r '.[].location' | grep -q "$package"; then
+          echo $ALL_PACKAGES_JSON | jq -r '.[].path' | while read -r package; do
+            if ! echo $CHANGED_PACKAGES_JSON | jq -r '.[].path' | grep -q "$package"; then
               jq ".workspace += [\"$package\"]" $ROOT_DENO_JSON > $ROOT_DENO_JSON.tmp && mv $ROOT_DENO_JSON.tmp $ROOT_DENO_JSON
             fi
           done
