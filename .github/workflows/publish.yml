@@ -1,0 +1,84 @@
+name: Publish to jsr
+
+on:
+  push:
+    branches:
+      - main
+      - next
+      - beta
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Get tag name and commit hash
+        id: git-info
+        run: |
+          if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+            echo "TAG_NAME=latest" >> $GITHUB_ENV
+          else
+            echo "TAG_NAME=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          fi
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          LAST_COMMIT_HASH=$(git rev-parse --short HEAD~1)
+          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
+          echo "LAST_COMMIT_HASH=${LAST_COMMIT_HASH}" >> $GITHUB_ENV
+
+      - name: Conditional Version Update
+        id: version
+        if: startsWith(env.TAG_NAME, 'next') || startsWith(env.TAG_NAME, 'beta')
+        run: |
+          TAG_NAME=${{ env.TAG_NAME }}
+          COMMIT_HASH=${{ env.COMMIT_HASH }}
+          LAST_COMMIT_HASH=${{ env.LAST_COMMIT_HASH }}
+          ALL_PACKAGES_JSON=$(deno task list)
+          CHANGED_PACKAGES_JSON=$(deno task list --since ${LAST_COMMIT_HASH})
+          CHANGED_PACKAGES_COUNT=$(echo $CHANGED_PACKAGES_JSON | jq '. | length')
+          ROOT_DENO_JSON="deno.json"
+
+          if [[ $CHANGED_PACKAGES_COUNT -eq 0 ]]; then
+            echo "No packages changed. Exiting..."
+            echo "versioned=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo $CHANGED_PACKAGES_JSON | jq -r '.[].location' | while read -r package; do
+            CURRENT_VERSION=$(jq -r '.version' $package/deno.json)
+            NEW_VERSION="${CURRENT_VERSION}-${TAG_NAME}.sha-${COMMIT_HASH}"
+            jq ".version = \"${NEW_VERSION}\"" $package/deno.json > $package/deno.json.tmp && mv $package/deno.json.tmp $package/deno.json
+          done
+
+          echo $ALL_PACKAGES_JSON | jq -r '.[].location' | while read -r package; do
+            if ! echo $CHANGED_PACKAGES_JSON | jq -r '.[].location' | grep -q "$package"; then
+              jq ".workspace += [\"$package\"]" $ROOT_DENO_JSON > $ROOT_DENO_JSON.tmp && mv $ROOT_DENO_JSON.tmp $ROOT_DENO_JSON
+            fi
+          done
+
+          echo "versioned=true" >> "$GITHUB_OUTPUT"
+
+      - name: Assume unchanged for all deno.json files
+        run: |
+          git ls-files -m | grep 'deno.json' | xargs -I {} git update-index --assume-unchanged {}
+
+      - name: Publish packages
+        if: ${{ steps.version.outputs.versioned == 'true' }}
+        env:
+          JSR_AUTH_TOKEN: ${{ secrets.JSR_TOKEN }}
+        run: |
+          TAG_NAME=${{ env.TAG_NAME }}
+          deno publish --token $JSR_AUTH_TOKEN --dist-tag $TAG_NAME
