@@ -7,7 +7,7 @@ export async function importGlob(pattern: string, exclude: string[] = []): Promi
   const results = await Array.fromAsync(expandGlob(pattern, { exclude }));
   const imports = results
     .filter(result => result.isFile)
-    .map(({ path }) => import(toFileUrl(path).href));
+    .map(({ path }) => import(new URL(toFileUrl(path).href, import.meta.url).href));
   const modules = await Promise.all(imports);
   return modules;
 }
