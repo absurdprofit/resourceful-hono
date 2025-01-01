@@ -13,6 +13,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       id-token: write
 
     steps:
@@ -77,8 +78,6 @@ jobs:
 
       - name: Publish packages
         if: ${{ steps.version.outputs.versioned == 'true' }}
-        env:
-          JSR_AUTH_TOKEN: ${{ secrets.JSR_TOKEN }}
         run: |
           TAG_NAME=${{ env.TAG_NAME }}
-          deno publish --token $JSR_AUTH_TOKEN --dist-tag $TAG_NAME
+          deno publish --dry-run
