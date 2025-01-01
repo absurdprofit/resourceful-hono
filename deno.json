@@ -1,17 +1,3 @@
 {
-  "name": "@resourceful-hono/core",
-  "version": "0.1.2-beta.3",
-  "license": "MIT",
-  "exports": "./src/index.ts",
-  "compilerOptions": {
-    "strict": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "lib": [
-      "deno.window",
-      "esnext",
-      "dom",
-      "dom.iterable"
-    ]
-  }
+  "workspace": ["packages/*"]
 }

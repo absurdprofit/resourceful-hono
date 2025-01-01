@@ -1,16 +1,10 @@
-const nx = require('@nx/eslint-plugin');
-
 module.exports = [
-  ...nx.configs['flat/base'],
-  ...nx.configs['flat/typescript'],
-  ...nx.configs['flat/javascript'],
   {
     ignores: ['**/dist', 'libs/prisma/.generated'],
   },
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
     rules: {
-      '@nx/workspace-ts-pattern-require-exhaustive': 'error',
       'no-magic-numbers': [
         'error',
         {
@@ -40,19 +34,6 @@ module.exports = [
         {
           arrays: 'always-multiline',
           objects: 'always-multiline',
-        },
-      ],
-      '@nx/enforce-module-boundaries': [
-        'error',
-        {
-          enforceBuildableLibDependency: true,
-          allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?js$'],
-          depConstraints: [
-            {
-              sourceTag: '*',
-              onlyDependOnLibsWithTags: ['*'],
-            },
-          ],
         },
       ],
     },
