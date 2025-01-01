@@ -1,3 +1,6 @@
 {
-  "workspace": ["packages/*"]
+  "workspace": ["packages/*"],
+  "tasks": {
+    "list": "deno run --allow-all list.ts --since fc73aa22f5b61a18963cf378e4ed77f230cdc1e3"
+  }
 }
