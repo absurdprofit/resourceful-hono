@@ -1,7 +1,6 @@
 import type { MiddlewareHandler, ErrorHandler as HonoErrorHandler } from 'jsr:@hono/hono@4.6.14';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import { Resource } from './Resource.ts';
-import { importGlob } from "./common/utils.ts";
 import { ServiceMap } from "./ServiceMap.ts";
 import { isResourceConstructor } from "./common/types.ts";
 import { ErrorHandler, NotFoundHandler, ResponseTime } from "./middleware/index.ts";
@@ -34,10 +33,8 @@ export class AppServer {
     this.app.route(path, app);
   }
 
-  public async registerResources(glob: string) {
-    const resources = await importGlob(glob);
+  public registerResources(resources: Resource[]) {
     resources
-      .map(module => module.default)
       .forEach((MaybeResourceConstructor: unknown) => {
         if (isResourceConstructor(MaybeResourceConstructor))
           return new MaybeResourceConstructor();
