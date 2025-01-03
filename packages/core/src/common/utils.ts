@@ -1,16 +1,5 @@
-import { expandGlob } from 'jsr:@std/fs@1.0.8';
-import { toFileUrl } from 'jsr:@std/path@1.0.8';
 import { Headers } from './enums.ts';
-import { HttpRequestLog } from "./types.ts";
-
-export async function importGlob(pattern: string, exclude: string[] = []): Promise<{ default: unknown }[]> {
-  const results = await Array.fromAsync(expandGlob(pattern, { exclude }));
-  const imports = results
-    .filter(result => result.isFile)
-    .map(({ path }) => import(new URL(toFileUrl(path).href, import.meta.url).href));
-  const modules = await Promise.all(imports);
-  return modules;
-}
+import type { HttpRequestLog } from "./types.ts";
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;

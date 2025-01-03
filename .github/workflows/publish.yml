@@ -64,11 +64,10 @@ jobs:
             jq ".version = \"${NEW_VERSION}\"" $package/deno.json > $package/deno.json.tmp && mv $package/deno.json.tmp $package/deno.json
           done
 
-          echo $ALL_PACKAGES_JSON | jq -r '.[].path' | while read -r package; do
-            if ! echo $CHANGED_PACKAGES_JSON | jq -r '.[].path' | grep -q "$package"; then
-              jq ".workspace += [\"$package\"]" $ROOT_DENO_JSON > $ROOT_DENO_JSON.tmp && mv $ROOT_DENO_JSON.tmp $ROOT_DENO_JSON
-            fi
-          done
+          # update root deno.json workspace field
+          CHANGED_PACKAGE_PATHS=$(echo "$CHANGED_PACKAGES_JSON" | jq -r '.[].path')
+          RELATIVE_PATHS=$(echo "$CHANGED_PACKAGE_PATHS" | sed "s|$(pwd)/||g" | jq -R -s 'split("\n") | map(select(length > 0))')
+          jq ".workspace = $RELATIVE_PATHS" $ROOT_DENO_JSON > $ROOT_DENO_JSON.tmp && mv $ROOT_DENO_JSON.tmp $ROOT_DENO_JSON
 
           echo "versioned=true" >> "$GITHUB_OUTPUT"
 
@@ -80,4 +79,4 @@ jobs:
         if: ${{ steps.version.outputs.versioned == 'true' }}
         run: |
           TAG_NAME=${{ env.TAG_NAME }}
-          deno publish --dry-run
+          deno publish
