@@ -8,7 +8,7 @@ import { AsyncEventTarget } from "./common/async-event-target.ts";
 import { BeforeReady } from "./middleware/BeforeReady.ts";
 
 interface AppServerEventMap {
-  "beforeready": Event;
+  "ready": Event;
 }
 
 export class AppServer extends AsyncEventTarget<AppServerEventMap> {
@@ -28,14 +28,16 @@ export class AppServer extends AsyncEventTarget<AppServerEventMap> {
     this.app.notFound(NotFoundHandler);
     this.registerErrorHandler(ErrorHandler);
 
-    // dispatch beforeready
-    this.dispatchEvent(
-      new Event('beforeready', {
-        cancelable: false,
-        bubbles: false, 
-        composed: false }
-      )
-    );
+    // dispatch ready
+    queueMicrotask(() => {
+      this.dispatchEvent(
+        new Event('ready', {
+          cancelable: false,
+          bubbles: false, 
+          composed: false }
+        )
+      );
+    });
   }
 
   public static get instance(): AppServer {
@@ -50,7 +52,7 @@ export class AppServer extends AsyncEventTarget<AppServerEventMap> {
     this.app.route(path, app);
   }
 
-  public registerResources(resources: Resource[]) {
+  public registerResources(resources: typeof Resource[]) {
     resources
       .forEach((MaybeResourceConstructor: unknown) => {
         if (isResourceConstructor(MaybeResourceConstructor))

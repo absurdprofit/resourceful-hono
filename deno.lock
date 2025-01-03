@@ -2,18 +2,29 @@
   "version": "4",
   "specifiers": {
     "jsr:@hono/hono@4.6.14": "4.6.14",
+    "jsr:@resourceful-hono/core@0.1.2-beta.3": "0.1.2-beta.3",
     "jsr:@std/cli@1.0.9": "1.0.9",
     "jsr:@std/fs@*": "1.0.8",
     "jsr:@std/fs@1.0.8": "1.0.8",
     "jsr:@std/path@*": "1.0.8",
     "jsr:@std/path@1.0.8": "1.0.8",
     "jsr:@std/path@^1.0.8": "1.0.8",
+    "npm:reflect-metadata@0.2.2": "0.2.2",
     "npm:ts-pattern@5.5.0": "5.5.0",
     "npm:zod@3.24.1": "3.24.1"
   },
   "jsr": {
     "@hono/hono@4.6.14": {
       "integrity": "b39a5488266adf448fb1081bc3071a0d05145e72f3ab3ff83cf140e780c6c1de"
+    },
+    "@resourceful-hono/core@0.1.2-beta.3": {
+      "integrity": "37c392c69f57bf09b169670866c124f8906fa62563da7ff5499227574e98a80b",
+      "dependencies": [
+        "jsr:@hono/hono",
+        "jsr:@std/fs@1.0.8",
+        "jsr:@std/path@1.0.8",
+        "npm:reflect-metadata"
+      ]
     },
     "@std/cli@1.0.9": {
       "integrity": "557e5865af000efbf3f737dcfea5b8ab86453594f4a9cd8d08c9fa83d8e3f3bc"
@@ -29,6 +40,9 @@
     }
   },
   "npm": {
+    "reflect-metadata@0.2.2": {
+      "integrity": "sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q=="
+    },
     "ts-pattern@5.5.0": {
       "integrity": "sha512-jqbIpTsa/KKTJYWgPNsFNbLVpwCgzXfFJ1ukNn4I8hMwyQzHMJnk/BqWzggB0xpkILuKzaO/aMYhS0SkaJyKXg=="
     },
