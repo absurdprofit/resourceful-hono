@@ -4,21 +4,38 @@ import { Resource } from './Resource.ts';
 import { ServiceMap } from "./ServiceMap.ts";
 import { isResourceConstructor } from "./common/types.ts";
 import { ErrorHandler, NotFoundHandler, ResponseTime } from "./middleware/index.ts";
+import { AsyncEventTarget } from "./common/async-event-target.ts";
+import { BeforeReady } from "./middleware/BeforeReady.ts";
 
-export class AppServer {
+interface AppServerEventMap {
+  "beforeready": Event;
+}
+
+export class AppServer extends AsyncEventTarget<AppServerEventMap> {
   static #instance: AppServer;
   static #instanceId: string | null = null;
   readonly #services = new ServiceMap();
 
   private constructor(instanceId: string) {
+    super();
     if (instanceId !== AppServer.#instanceId)
       throw new TypeError('Illegal constructor');
 
-    this.registerMiddleware([
+    this.registerMiddlewares([
+      BeforeReady,
       ResponseTime,
     ]);
     this.app.notFound(NotFoundHandler);
     this.registerErrorHandler(ErrorHandler);
+
+    // dispatch beforeready
+    this.dispatchEvent(
+      new Event('beforeready', {
+        cancelable: false,
+        bubbles: false, 
+        composed: false }
+      )
+    );
   }
 
   public static get instance(): AppServer {
@@ -43,7 +60,7 @@ export class AppServer {
       });
   }
 
-  public registerMiddleware(middlewares: (MiddlewareHandler)[]) {
+  public registerMiddlewares(middlewares: (MiddlewareHandler)[]) {
     middlewares.forEach((middleware) => this.app.use(middleware));
   }
 
