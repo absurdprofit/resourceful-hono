@@ -1,6 +1,6 @@
 import { PromiseWrapper } from "./promise-wrapper.ts";
 
-export class AsyncEventTarget<EventMap extends Record<string, Event>> implements EventTarget {
+export class AsyncEventTarget<EventMap extends { [K in keyof EventMap]: Event }> implements EventTarget {
   readonly #listeners: Map<keyof EventMap, Set<EventListenerOrEventListenerObject>>;
   readonly #eventPromises: Map<keyof EventMap, PromiseWrapper<void>>;
 
@@ -22,13 +22,14 @@ export class AsyncEventTarget<EventMap extends Record<string, Event>> implements
     this.#listeners.get(type)?.delete(listener);
   }
 
-  dispatchEvent(event: Event): boolean {
-    const listeners = this.#listeners.get(event.type);
+  dispatchEvent<K extends keyof EventMap>(event: Event): boolean {
+    const type = event.type as K;
+    const listeners = this.#listeners.get(type);
     if (!listeners || listeners.size === 0) return true;
 
-    const promiseWrapper = this.#eventPromises.get(event.type) || new PromiseWrapper<void>();
-    if (!this.#eventPromises.has(event.type)) {
-      this.#eventPromises.set(event.type, promiseWrapper);
+    const promiseWrapper = this.#eventPromises.get(type) || new PromiseWrapper<void>();
+    if (!this.#eventPromises.has(type)) {
+      this.#eventPromises.set(type, promiseWrapper);
     }
 
     const promises = Array.from(listeners).map((listener) => {
@@ -39,14 +40,14 @@ export class AsyncEventTarget<EventMap extends Record<string, Event>> implements
           return listener.handleEvent(event);
         }
       } catch (error) {
-        console.error(`Error in listener for event type '${event.type}':`, error);
+        console.error(`Error in listener for event type '${type.toString()}':`, error);
       }
       return undefined;
     });
 
     Promise.all(promises).then(() => {
       promiseWrapper.resolve();
-      this.#eventPromises.delete(event.type);
+      this.#eventPromises.delete(type);
     });
 
     return true;
