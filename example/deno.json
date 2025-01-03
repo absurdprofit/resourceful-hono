@@ -1,5 +1,8 @@
 {
   "name": "@resourceful-hono/example",
   "version": "1.0.0",
-  "exports": {}
+  "exports": {},
+  "tasks": {
+    "serve": "deno serve -A --watch-hmr --inspect index.ts"
+  }
 }
