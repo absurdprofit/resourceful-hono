@@ -40,11 +40,22 @@ async function getChangedPackages(sinceHash: string) {
 
   for (const pattern of DenoJSON.workspace) {
     if (isGlob(pattern)) {
-      const regex = new RegExp(globToRegExp(pattern).source.replace(/\$$/, ''));
+      const regex = new RegExp(
+        globToRegExp(pattern)
+          .source
+          .replace(/\$$/, '') // remove end of line assertion
+      );
       for (const path of changedFilePaths) {
         const [match] = regex.exec(path) ?? [];
         if (match) {
-          list.push(await summaryFromPackage(match));
+          list.push(
+            await summaryFromPackage(
+              join(
+                Deno.cwd(),
+                match.replace(/\/$/, '') // remove trailing slash
+              )
+            )
+          );
           break;
         }
       }
