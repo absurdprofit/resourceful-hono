@@ -25,9 +25,12 @@ export class AsyncEventTarget<EventMap extends { [K in keyof EventMap]: Event }>
   dispatchEvent<K extends keyof EventMap>(event: Event): boolean {
     const type = event.type as K;
     const listeners = this.#listeners.get(type);
-    if (!listeners || listeners.size === 0) return true;
-
     const promiseWrapper = this.#eventPromises.get(type) || new PromiseWrapper<void>();
+    if (!listeners || listeners.size === 0) {
+      promiseWrapper.resolve();
+      return true
+    };
+
     if (!this.#eventPromises.has(type)) {
       this.#eventPromises.set(type, promiseWrapper);
     }
