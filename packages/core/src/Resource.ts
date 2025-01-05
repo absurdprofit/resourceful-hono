@@ -7,10 +7,14 @@ import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } fro
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
 
-export function Result<T extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | undefined | null>(
-  status: HttpStatusCodes,
-  content: T,
-  contentType?: ContentTypes
+export function Result<
+  S extends HttpStatusCodes | number,
+  C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | undefined | null,
+  T extends ContentTypes | string
+>(
+  status: S,
+  content: C,
+  contentType?: T
 ): Response {
   if ((isBodyInit(content) && contentType !== ContentTypes.Json) || typeof content === "function") {
     const headers = new globalThis.Headers();
