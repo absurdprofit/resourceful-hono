@@ -13,7 +13,8 @@ export enum ContentTypes {
   ProblemDetails = 'application/problem+json',
   Json = 'application/json',
   MultipartFormData = 'multipart/form-data',
-  FormUrlEncoded = 'application/x-www-form-urlencoded'
+  FormUrlEncoded = 'application/x-www-form-urlencoded',
+  ServerSentEvent = 'text/event-stream'
 }
 
 export enum RequestMethod {

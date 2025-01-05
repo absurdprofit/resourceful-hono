@@ -2,24 +2,14 @@ import type { HonoRequest, Handler } from 'jsr:@hono/hono@4.6.14';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import type { z } from 'npm:zod@3.24.1';
 import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, PATH_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
-import type { ParameterMetadata } from './common/types.ts';
+import { type ParameterMetadata, type ResourceMethodReturn, isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
 
-type ResourceMethodReturn =
-  Promise<Response | void>
-  | Response | void;
-export function isBodyInit(value: unknown): value is BodyInit {
-  return typeof value === 'string'
-    || value instanceof Blob
-    || value instanceof ArrayBuffer
-    || value instanceof FormData || value instanceof URLSearchParams
-    || value instanceof ReadableStream;
-}
-export function Result<T extends BodyInit | (() => Iterable<unknown, unknown, unknown>) | number | boolean | object | undefined = never>(
+export function Result<T extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | undefined | null>(
   status: HttpStatusCodes,
-  content?: T,
+  content: T,
   contentType?: ContentTypes
 ): Response {
   if ((isBodyInit(content) && contentType !== ContentTypes.Json) || typeof content === "function") {

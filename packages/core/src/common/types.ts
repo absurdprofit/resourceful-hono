@@ -23,3 +23,15 @@ export interface HttpRequestLog {
 export function isResourceConstructor(value: unknown): value is NonAbstractResourceLikeConstructor {
   return Object.getPrototypeOf(Resource).isPrototypeOf(Object.getPrototypeOf(value));
 }
+
+export function isBodyInit(value: unknown): value is BodyInit {
+  return typeof value === 'string'
+    || value instanceof Blob
+    || value instanceof ArrayBuffer
+    || value instanceof FormData || value instanceof URLSearchParams
+    || value instanceof ReadableStream;
+}
+
+export type ResourceMethodReturn =
+  Promise<Response | void>
+  | Response | void;

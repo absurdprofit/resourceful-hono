@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Debug Example",
+      "port": 9229,  // Ensure the port matches the one specified in the task
+      "restart": true,  // Keep the session alive
+      "timeout": 10000,  // Optional: wait time to attach the debugger
+      "address": "localhost"  // Ensure this matches your local address
+    }
+  ]
+}

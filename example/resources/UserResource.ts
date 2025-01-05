@@ -1,4 +1,4 @@
-import { Result } from "../../packages/core/src/index.ts";
+import { Result } from "@resourceful-hono/core";
 import BaseResource from "./BaseResource.ts";
 
 export default class UserResource extends BaseResource {

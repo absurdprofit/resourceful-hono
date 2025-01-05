@@ -1,4 +1,4 @@
-import { AppServer } from '../packages/core/src/index.ts';
+import { AppServer } from '@resourceful-hono/core';
 import BaseResource from "./resources/BaseResource.ts";
 import SSEResource from './resources/SSEResource.ts';
 
@@ -7,7 +7,6 @@ appServer.registerResources([BaseResource, SSEResource]);
 
 appServer.addEventListener('ready', async () => {
   await new Promise(resolve => setTimeout(resolve, 5000));
-  console.log(appServer.app);
 });
 
 export default {
