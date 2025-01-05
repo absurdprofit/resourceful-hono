@@ -29,7 +29,7 @@ export function Result<T extends BodyInit | (() => Iterator<unknown, unknown, un
     return Response.json(content);
   }
 }
-export type ResourceMethods = keyof Omit<IResource, 'connection' | 'path' | 'request' | 'response'>;
+export type ResourceMethods = keyof Omit<IResource, 'path' | 'request' | 'response'>;
 export interface IResource {
   readonly path: string;
   readonly request: Request;
