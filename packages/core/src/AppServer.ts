@@ -1,20 +1,27 @@
 import type { MiddlewareHandler, ErrorHandler as HonoErrorHandler } from 'jsr:@hono/hono@4.6.14';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import { Resource } from './Resource.ts';
-import { ServiceMap } from "./ServiceMap.ts";
+import { type Service, ServiceMap } from "./ServiceMap.ts";
 import { type Constructor, isResourceConstructor } from "./common/types.ts";
 import { ErrorHandler, NotFoundHandler, ResponseTime } from "./middleware/index.ts";
-import { AsyncEventTarget } from "./common/async-event-target.ts";
 import { BeforeReady } from "./middleware/BeforeReady.ts";
+import { FinishEvent, ReadyEvent } from "./common/events.ts";
+import { PromiseWrapper } from "./common/promise-wrapper.ts";
+import { TypedEventTarget } from "./TypedEventTarget.ts";
 
 interface AppServerEventMap {
-  "ready": Event;
+  "ready": ReadyEvent;
+  "finished": FinishEvent;
 }
 
-export class AppServer extends AsyncEventTarget<AppServerEventMap> {
+export class AppServer extends TypedEventTarget<AppServerEventMap> {
   static #instance: AppServer;
-  static #instanceId: string | null = null;
+  static readonly #instanceId = crypto.randomUUID();
   readonly #services = new ServiceMap();
+  readonly #readyPromise;
+  readonly #finishedPromise;
+  readonly ready;
+  readonly finished;
 
   private constructor(instanceId: string) {
     super();
@@ -29,23 +36,19 @@ export class AppServer extends AsyncEventTarget<AppServerEventMap> {
     this.app.notFound(NotFoundHandler);
     this.registerErrorHandler(ErrorHandler);
 
-    // dispatch ready
+    this.#readyPromise = new PromiseWrapper();
+    this.#finishedPromise = new PromiseWrapper<void>();
+    this.ready = this.#readyPromise.promise;
+    this.finished = this.#finishedPromise.promise;
     queueMicrotask(() => {
-      this.dispatchEvent(
-        new Event('ready', {
-          cancelable: false,
-          bubbles: false, 
-          composed: false }
-        )
-      );
+      const readyEvent = new ReadyEvent();
+      this.dispatchEvent(readyEvent);
+      readyEvent.waited.then(this.#readyPromise.resolve);
     });
   }
 
   public static get instance(): AppServer {
-    if (!AppServer.#instance) {
-      AppServer.#instanceId = crypto.randomUUID();
-      AppServer.#instance = new AppServer(AppServer.#instanceId);
-    }
+    AppServer.#instance ??= new AppServer(AppServer.#instanceId);
     return AppServer.#instance;
   }
 
@@ -67,7 +70,7 @@ export class AppServer extends AsyncEventTarget<AppServerEventMap> {
     middlewares.forEach((middleware) => this.app.use(middleware));
   }
 
-  public registerService<T>(key: Constructor<T>, value: T) {
+  public registerService<T extends Service>(key: Constructor<T>, value: T) {
     this.#services.set(key, value);
   }
 
@@ -75,7 +78,19 @@ export class AppServer extends AsyncEventTarget<AppServerEventMap> {
     this.app.onError(errorHandler);
   }
 
+  public getService<T extends Service>(key: Constructor<T>) {
+    return this.#services.get(key);
+  }
+
   public get app(): Hono {
     return Resource.app;
+  }
+
+  public finish = () => {
+    this.#services[Symbol.asyncDispose]()
+      .then(() => {
+        this.#finishedPromise.resolve();
+        this.dispatchEvent(new FinishEvent());
+      });
   }
 }

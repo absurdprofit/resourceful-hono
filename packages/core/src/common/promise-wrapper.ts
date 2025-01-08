@@ -12,12 +12,12 @@ export class PromiseWrapper<T> {
     });
   }
 
-  resolve(value: T) {
+  resolve = (value: T) => {
     this.state = 'resolved';
     this.nativeResolve?.(value);
   }
 
-  reject(reason: any) {
+  reject = (reason: any) => {
     this.state = 'rejected';
     // Do not report unhandled promise rejections.
     this.promise.catch(() => {});

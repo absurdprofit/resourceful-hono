@@ -37,3 +37,12 @@ export function createReadableFromIterable<T, TReturn, TNext>(iterable: Iterable
     }
   });
 }
+
+export async function PromiseAllDynamic<T>(values: Iterable<T | PromiseLike<T>>): Promise<Awaited<T>[]> {
+  const awaited = [];
+  for (const value of values) {
+    awaited.push(await value);
+  }
+
+  return awaited;
+}

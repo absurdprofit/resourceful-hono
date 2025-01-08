@@ -35,3 +35,4 @@ export function isBodyInit(value: unknown): value is BodyInit {
 export type ResourceMethodReturn =
   Promise<Response | void>
   | Response | void;
+
