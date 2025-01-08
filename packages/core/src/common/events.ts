@@ -2,16 +2,15 @@ import { PromiseAllDynamic } from "./utils.ts";
 
 export class ReadyEvent extends Event {
   readonly #promises: Promise<unknown>[] = [];
-  public readonly waited: Promise<void>;
 
-  constructor() {
+  constructor(resolve: (value: unknown) => void) {
     super('ready', {
       bubbles: false,
       cancelable: false,
       composed: false
     });
     this.#promises.push(new Promise<void>((resolve) => queueMicrotask(resolve)));
-    this.waited = PromiseAllDynamic(this.#promises).then(() => void 0);
+    PromiseAllDynamic(this.#promises).then(resolve);
   }
 
   public waitUntil = (promise: Promise<unknown>) => {

@@ -5,6 +5,14 @@ import SSEResource from './resources/SSEResource.ts';
 const appServer = AppServer.instance;
 appServer.registerResources([BaseResource, SSEResource]);
 
+appServer.addEventListener('ready', (e) => {
+  e.waitUntil(new Promise((resolve) => setTimeout(resolve, 5000)));
+});
+
+appServer.ready.then(() => {
+  console.log("Ready promise");
+});
+
 class MyService {
   [Symbol.asyncDispose]() {
     return new Promise((resolve) => setTimeout(resolve, 1000));

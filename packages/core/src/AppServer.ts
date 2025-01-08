@@ -41,9 +41,8 @@ export class AppServer extends TypedEventTarget<AppServerEventMap> {
     this.ready = this.#readyPromise.promise;
     this.finished = this.#finishedPromise.promise;
     queueMicrotask(() => {
-      const readyEvent = new ReadyEvent();
+      const readyEvent = new ReadyEvent(this.#readyPromise.resolve);
       this.dispatchEvent(readyEvent);
-      readyEvent.waited.then(this.#readyPromise.resolve);
     });
   }
 
