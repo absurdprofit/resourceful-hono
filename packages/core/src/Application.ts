@@ -4,7 +4,6 @@ import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from "./ServiceMap.ts";
 import { type Constructor, isResourceConstructor } from "./common/types.ts";
 import { ErrorHandler, NotFoundHandler, ResponseTime } from "./middleware/index.ts";
-import { BeforeReady } from "./middleware/BeforeReady.ts";
 import { FinishEvent, ReadyEvent } from "./common/events.ts";
 import { PromiseWrapper } from "./common/promise-wrapper.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
@@ -22,6 +21,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
   readonly #finishedPromise;
   readonly ready;
   readonly finished;
+  #state: 'idle' | 'running' | 'finished' = 'idle';
 
   private constructor(instanceId: string) {
     super();
@@ -30,7 +30,6 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
       throw new TypeError('Illegal constructor');
 
     this.registerMiddlewares([
-      BeforeReady,
       ResponseTime,
     ]);
     this.#hono.notFound(NotFoundHandler);
@@ -43,6 +42,8 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     queueMicrotask(() => {
       const readyEvent = new ReadyEvent(this.#readyPromise.resolve);
       this.dispatchEvent(readyEvent);
+      this.ready.then(() => this.#state = 'running');
+      this.finished.then(() => this.#state = 'finished');
     });
   }
 
@@ -79,6 +80,10 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
 
   public getService<T extends Service>(key: Constructor<T>) {
     return this.#services.get(key);
+  }
+
+  public get state() {
+    return this.#state;
   }
 
   public get fetch() {

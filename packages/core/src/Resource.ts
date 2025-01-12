@@ -6,6 +6,7 @@ import { type ParameterMetadata, type ResourceMethodReturn, isBodyInit } from '.
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
+import { Application } from "./Application.ts";
 
 export function Result<
   S extends HttpStatusCodes | number,
@@ -145,6 +146,10 @@ export abstract class Resource implements IResource {
     return this.context.res;
   }
 
+  public get signal() {
+    return this.context.req.raw.signal;
+  }
+
   readonly #OPTIONS: Handler = (context) => {
     context.res.headers.set(Headers.Allow, this.methods.join(', '));
     return Result(HttpStatusCodes.NoContent);
@@ -170,7 +175,10 @@ export abstract class Resource implements IResource {
 
     if (issues.length)
       throw new BadRequestError('There were issues in your request.', { issues });
-    const response = await methodHandler(...args, context.req.raw.signal);
+
+    if (Application.instance.state === 'idle')
+      await Application.instance.ready;
+    const response = await methodHandler(...args);
     return response ?? Result(HttpStatusCodes.NoContent);
   };
 
