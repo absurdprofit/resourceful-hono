@@ -33,13 +33,11 @@ export function Result<
     return Response.json(content);
   }
 }
-export type ResourceMethods = keyof Omit<IResource, 'path' | 'request' | 'response'>;
 export interface IResource {
   readonly path: string;
   readonly request: Request;
   readonly response: Response;
   // Methods
-  CONNECT?(...args: unknown[]): ResourceMethodReturn;
   DELETE?(...args: unknown[]): ResourceMethodReturn;
   GET?(...args: unknown[]): ResourceMethodReturn;
   HEAD?(...args: unknown[]): ResourceMethodReturn;
@@ -61,6 +59,10 @@ export abstract class Resource implements IResource {
    */
   public static readonly hono: Hono = Resource.honoBuilder();
   private readonly hono = Resource.honoBuilder(this);
+  readonly methods = Object.values(RequestMethod).filter((method => method in this));
+  readonly #routeMetadata = this.collectParameterMetadata(ROUTE_METADATA_KEY);
+  readonly #queryMetadata = this.collectParameterMetadata(QUERY_METADATA_KEY);
+  readonly #bodyMetadata = this.collectParameterMetadata(BODY_METADATA_KEY);
 
   constructor() {
     const { hono, handleRequest } = this;
@@ -72,12 +74,12 @@ export abstract class Resource implements IResource {
     if (!methods.length) return;
     for (const method of methods) {
       const paramMetadata: ParameterMetadata = Reflect.getMetadata(ROUTE_METADATA_KEY, this, method) ?? {};
-      const params = Object.keys(paramMetadata).map(param => {
+      const path = Object.keys(paramMetadata).map(param => {
         const optional = paramMetadata[param].type.isOptional();
         return `:${param}${optional ? '?' : ''}`;
       }).toReversed().join('/');
-      if (!params.length) continue;
-      hono[literalToLowerCase(method)](params, handleRequest);
+      if (!path.length) continue;
+      hono[literalToLowerCase(method)](path, handleRequest);
     }
     hono.all('', handleRequest);
     Resource.hono.route('', hono);
@@ -104,6 +106,12 @@ export abstract class Resource implements IResource {
     return baseApp.basePath(instance?.path ?? '');
   }
 
+  private collectParameterMetadata(key: symbol) {
+    return this.methods.reduce((metadata, method) => {
+      return metadata.set(method, Reflect.getMetadata(key, this, method) ?? {});
+    }, new Map<RequestMethod, ParameterMetadata>());
+  }
+
   protected static get parent(): typeof Resource | null {
     if (this === Resource) return null;
     return Object.getPrototypeOf(this);
@@ -112,10 +120,6 @@ export abstract class Resource implements IResource {
   protected get parent(): typeof Resource | null {
     if (this.constructor === Resource) return null;
     return Object.getPrototypeOf(this.constructor);
-  }
-
-  public get methods(): RequestMethod[] {
-    return Object.values(RequestMethod).filter((method => method in this));
   }
 
   public static get path(): string {
@@ -132,7 +136,7 @@ export abstract class Resource implements IResource {
 
   private readonly handleRequest: Handler = async (context) => {
     context.res.headers.set(Headers.TraceId, crypto.randomUUID()); // set trace header
-    const method = context.req.method.toUpperCase() as ResourceMethods;
+    const method = context.req.method.toUpperCase() as RequestMethod;
     const resource = { ...this }; // clone resource
     Object.setPrototypeOf(resource, this); // set prototype to this
     Object.defineProperty(resource, 'request', { value: context.req.raw, writable: false });
@@ -169,12 +173,12 @@ export abstract class Resource implements IResource {
   };
 
   private async parseBodyArgs(
-    method: ResourceMethods,
+    method: RequestMethod,
     request: HonoRequest,
     args: unknown[],
     issues: z.ZodIssue[]
   ) {
-    const paramMetadata: ParameterMetadata<z.ZodType> = Reflect.getMetadata(BODY_METADATA_KEY, this, method) ?? {};
+    const paramMetadata: ParameterMetadata<z.ZodType> = this.#bodyMetadata.get(method) ?? {};
     const acceptedContentTypes: ContentTypes[] = Reflect.getMetadata(ACCEPT_METADATA_KEY, this, method) ?? [ContentTypes.Json];
     const contentType = request.raw.headers.get(Headers.ContentType) ?? ContentTypes.Json;
     let body;
@@ -201,8 +205,8 @@ export abstract class Resource implements IResource {
     return args;
   }
 
-  private parsePathArgs(method: ResourceMethods, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
-    const paramMetadata: ParameterMetadata = Reflect.getMetadata(ROUTE_METADATA_KEY, this, method) ?? {};
+  private parsePathArgs(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
+    const paramMetadata: ParameterMetadata = this.#routeMetadata.get(method) ?? {};
     const params = new Array<string>();
     for (const [param, metadata] of Object.entries(paramMetadata).toReversed()) {
       params.push(`:${param}`);
@@ -223,8 +227,8 @@ export abstract class Resource implements IResource {
     return args;
   }
 
-  private parseQueryArgs(method: ResourceMethods, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
-    const paramMetadata: ParameterMetadata = Reflect.getMetadata(QUERY_METADATA_KEY, this, method) ?? {};
+  private parseQueryArgs(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
+    const paramMetadata: ParameterMetadata = this.#queryMetadata.get(method) ?? {};
     for (const [param, metadata] of Object.entries(paramMetadata)) {
       // value of query parameter
       const value = request.query(param);
