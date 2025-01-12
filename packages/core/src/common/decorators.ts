@@ -1,4 +1,4 @@
-import { BODY_METADATA_KEY, PATH_METADATA_KEY, QUERY_METADATA_KEY, ACCEPT_METADATA_KEY, ROUTE_METADATA_KEY } from './constants.ts';
+import { BODY_METADATA_KEY, QUERY_METADATA_KEY, ACCEPT_METADATA_KEY, ROUTE_METADATA_KEY } from './constants.ts';
 import type { z } from 'npm:zod@3.24.1';
 import { type ContentTypes, RequestMethod } from "./enums.ts";
 import type { IResource, ResourceLikeConstructor, ResourceMethods } from "../Resource.ts";
@@ -15,17 +15,17 @@ export function Route(path: string): <T extends ResourceLikeConstructor>(target:
   if (path.includes(':'))
     throw new Error('Your route includes a path param which must be a mistake. Path params are already inferred.');
   function RouteFactory<T extends ResourceLikeConstructor>(target: T) {
-    return Reflect.defineMetadata(`${target.name}${ROUTE_METADATA_KEY}`, path, target);
+    return Reflect.defineMetadata(ROUTE_METADATA_KEY, path, target);
   }
   return RouteFactory;
 }
 export function FromRoute(key: string, type: PrimitiveType): (target: IResource, propertyKey: ResourceMethods, parameterIndex: number) => void {
   function FromRouteFactory(target: IResource, propertyKey: ResourceMethods, parameterIndex: number) {
-    const metadata: ParameterMetadata = Reflect.getMetadata(PATH_METADATA_KEY, target, propertyKey) ?? {};
+    const metadata: ParameterMetadata = Reflect.getMetadata(ROUTE_METADATA_KEY, target, propertyKey) ?? {};
     metadata[key] = { type, parameterIndex };
-    Reflect.defineMetadata(PATH_METADATA_KEY, metadata, target, propertyKey);
+    Reflect.defineMetadata(ROUTE_METADATA_KEY, metadata, target, propertyKey);
     if (propertyKey === RequestMethod.Get)
-      Reflect.defineMetadata(PATH_METADATA_KEY, metadata, target, RequestMethod.Head);
+      Reflect.defineMetadata(ROUTE_METADATA_KEY, metadata, target, RequestMethod.Head);
   }
   return FromRouteFactory;
 }
@@ -35,7 +35,7 @@ export function FromQuery(key: string, type: PrimitiveType): (target: IResource,
     metadata[key] = { type, parameterIndex };
     Reflect.defineMetadata(QUERY_METADATA_KEY, metadata, target, propertyKey);
     if (propertyKey === RequestMethod.Get)
-      Reflect.defineMetadata(PATH_METADATA_KEY, metadata, target, RequestMethod.Head);
+      Reflect.defineMetadata(QUERY_METADATA_KEY, metadata, target, RequestMethod.Head);
   }
   return FromQueryFactory;
 }

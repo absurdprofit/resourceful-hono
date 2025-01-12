@@ -1,7 +1,7 @@
 import type { HonoRequest, Handler } from 'jsr:@hono/hono@4.6.14';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import type { z } from 'npm:zod@3.24.1';
-import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, PATH_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
 import { type ParameterMetadata, type ResourceMethodReturn, isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
@@ -71,7 +71,7 @@ export abstract class Resource implements IResource {
     // a Resource without methods is no resource at all
     if (!methods.length) return;
     for (const method of methods) {
-      const paramMetadata: ParameterMetadata = Reflect.getMetadata(PATH_METADATA_KEY, this, method) ?? {};
+      const paramMetadata: ParameterMetadata = Reflect.getMetadata(ROUTE_METADATA_KEY, this, method) ?? {};
       const params = Object.keys(paramMetadata).map(param => {
         const optional = paramMetadata[param].type.isOptional();
         return `:${param}${optional ? '?' : ''}`;
@@ -119,7 +119,7 @@ export abstract class Resource implements IResource {
   }
 
   public static get path(): string {
-    return Reflect.getMetadata(`${this.name}${ROUTE_METADATA_KEY}`, this) ?? this.name.toLowerCase().replace('resource', '');
+    return Reflect.getMetadata(ROUTE_METADATA_KEY, this) ?? this.name.toLowerCase().replace('resource', '');
   }
 
   public get path(): string {
@@ -202,7 +202,7 @@ export abstract class Resource implements IResource {
   }
 
   private parsePathArgs(method: ResourceMethods, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
-    const paramMetadata: ParameterMetadata = Reflect.getMetadata(PATH_METADATA_KEY, this, method) ?? {};
+    const paramMetadata: ParameterMetadata = Reflect.getMetadata(ROUTE_METADATA_KEY, this, method) ?? {};
     const params = new Array<string>();
     for (const [param, metadata] of Object.entries(paramMetadata).toReversed()) {
       params.push(`:${param}`);
