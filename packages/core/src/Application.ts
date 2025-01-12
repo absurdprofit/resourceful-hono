@@ -9,13 +9,13 @@ import { FinishEvent, ReadyEvent } from "./common/events.ts";
 import { PromiseWrapper } from "./common/promise-wrapper.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
 
-interface AppServerEventMap {
+interface ApplicationEventMap {
   "ready": ReadyEvent;
   "finished": FinishEvent;
 }
 
-export class AppServer extends TypedEventTarget<AppServerEventMap> {
-  static #instance: AppServer;
+export class Application extends TypedEventTarget<ApplicationEventMap> {
+  static #instance: Application;
   static readonly #instanceId = crypto.randomUUID();
   readonly #services = new ServiceMap();
   readonly #readyPromise;
@@ -26,14 +26,14 @@ export class AppServer extends TypedEventTarget<AppServerEventMap> {
   private constructor(instanceId: string) {
     super();
 
-    if (instanceId !== AppServer.#instanceId)
+    if (instanceId !== Application.#instanceId)
       throw new TypeError('Illegal constructor');
 
     this.registerMiddlewares([
       BeforeReady,
       ResponseTime,
     ]);
-    this.app.notFound(NotFoundHandler);
+    this.#hono.notFound(NotFoundHandler);
     this.registerErrorHandler(ErrorHandler);
 
     this.#readyPromise = new PromiseWrapper();
@@ -46,13 +46,13 @@ export class AppServer extends TypedEventTarget<AppServerEventMap> {
     });
   }
 
-  public static get instance(): AppServer {
-    AppServer.#instance ??= new AppServer(AppServer.#instanceId);
-    return AppServer.#instance;
+  public static get instance(): Application {
+    Application.#instance ??= new Application(Application.#instanceId);
+    return Application.#instance;
   }
 
   public registerApp(path: string, app: Hono) {
-    this.app.route(path, app);
+    this.#hono.route(path, app);
   }
 
   public registerResources(resources: typeof Resource[]) {
@@ -66,7 +66,7 @@ export class AppServer extends TypedEventTarget<AppServerEventMap> {
   }
 
   public registerMiddlewares(middlewares: (MiddlewareHandler)[]) {
-    middlewares.forEach((middleware) => this.app.use(middleware));
+    middlewares.forEach((middleware) => this.#hono.use(middleware));
   }
 
   public registerService<T extends Service>(key: Constructor<T>, value: T) {
@@ -74,15 +74,19 @@ export class AppServer extends TypedEventTarget<AppServerEventMap> {
   }
 
   public registerErrorHandler(errorHandler: HonoErrorHandler) {
-    this.app.onError(errorHandler);
+    this.#hono.onError(errorHandler);
   }
 
   public getService<T extends Service>(key: Constructor<T>) {
     return this.#services.get(key);
   }
 
-  public get app(): Hono {
-    return Resource.app;
+  public get fetch() {
+    return this.#hono.fetch;
+  }
+
+  get #hono(): Hono {
+    return Resource.hono;
   }
 
   public finish = () => {

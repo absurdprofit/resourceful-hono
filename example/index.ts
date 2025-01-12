@@ -1,15 +1,15 @@
-import { AppServer } from '@resourceful-hono/core';
+import { Application } from '@resourceful-hono/core';
 import BaseResource from "./resources/BaseResource.ts";
 import SSEResource from './resources/SSEResource.ts';
 
-const appServer = AppServer.instance;
-appServer.registerResources([BaseResource, SSEResource]);
+const app = Application.instance;
+app.registerResources([BaseResource, SSEResource]);
 
-appServer.addEventListener('ready', (e) => {
+app.addEventListener('ready', (e) => {
   e.waitUntil(new Promise((resolve) => setTimeout(resolve, 5000)));
 });
 
-appServer.ready.then(() => {
+app.ready.then(() => {
   console.log("Ready promise");
 });
 
@@ -19,11 +19,11 @@ class MyService {
   }
 }
 
-appServer.registerService(MyService, new MyService());
+app.registerService(MyService, new MyService());
 
 Deno.addSignalListener('SIGINT', () => {
-  appServer.finish();
-  appServer.finished.then(() => {
+  app.finish();
+  app.finished.then(() => {
     console.log('Graceful shutdown');
     Deno.exit();
   });
@@ -31,5 +31,5 @@ Deno.addSignalListener('SIGINT', () => {
 });
 
 export default {
-  fetch: appServer.app.fetch
+  fetch: app.fetch
 }

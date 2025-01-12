@@ -57,13 +57,13 @@ export abstract class Resource implements IResource {
   declare public request: Request;
   declare public response: Response;
   /**
-   * The root app instance.
+   * The root hono instance.
    */
-  public static readonly app: Hono = Resource.appBuilder();
-  private readonly app = Resource.appBuilder(this);
+  public static readonly hono: Hono = Resource.honoBuilder();
+  private readonly hono = Resource.honoBuilder(this);
 
   constructor() {
-    const { app, handleRequest } = this;
+    const { hono, handleRequest } = this;
     const methods = this.methods.filter(method => RequestMethod.Head !== method);
     const parentInstance = Object.getPrototypeOf(Object.getPrototypeOf(this));
     if (methods.some(method => Object.hasOwn(parentInstance, method)))
@@ -77,10 +77,10 @@ export abstract class Resource implements IResource {
         return `:${param}${optional ? '?' : ''}`;
       }).toReversed().join('/');
       if (!params.length) continue;
-      app[literalToLowerCase(method)](params, handleRequest);
+      hono[literalToLowerCase(method)](params, handleRequest);
     }
-    app.all('', handleRequest);
-    Resource.app.route('', app);
+    hono.all('', handleRequest);
+    Resource.hono.route('', hono);
   }
 
   /**
@@ -88,7 +88,7 @@ export abstract class Resource implements IResource {
    * @param instance Leaf instance
    * @returns new Hono app with base path fully qualified base path
    */
-  private static appBuilder(instance?: Resource) {
+  private static honoBuilder(instance?: Resource) {
     let parent = instance?.parent;
     const basePaths = new Array<string>();
     let baseApp = new Hono({ strict: true });
@@ -119,7 +119,7 @@ export abstract class Resource implements IResource {
   }
 
   public static get path(): string {
-    return Reflect.getMetadata(ROUTE_METADATA_KEY, this) ?? this.name.toLowerCase().replace('resource', '');
+    return this.name.toLowerCase().replace('resource', '');
   }
 
   public get path(): string {

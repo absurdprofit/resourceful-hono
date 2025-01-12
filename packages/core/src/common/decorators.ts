@@ -3,7 +3,8 @@ import type { z } from 'npm:zod@3.24.1';
 import { type ContentTypes, RequestMethod } from "./enums.ts";
 import type { IResource, ResourceLikeConstructor, ResourceMethods } from "../Resource.ts";
 import type { Constructor, ParameterMetadata, PrimitiveType } from "./types.ts";
-import { AppServer } from "../AppServer.ts";
+import { Application } from "../Application.ts";
+import { Service } from "../ServiceMap.ts";
 
 export function Accept(acceptedContentTypes: ContentTypes[]): (target: IResource, propertyKey: string) => void {
   function AcceptFactory(target: IResource, propertyKey: string) {
@@ -13,9 +14,9 @@ export function Accept(acceptedContentTypes: ContentTypes[]): (target: IResource
 }
 export function Route(path: string): <T extends ResourceLikeConstructor>(target: T) => void {
   if (path.includes(':'))
-    throw new Error('Your route includes a path param which must be a mistake. Path params are already inferred.');
+    throw new Error('Your route includes a path param which must be a mistake. Path params are automatically inferred.');
   function RouteFactory<T extends ResourceLikeConstructor>(target: T) {
-    return Reflect.defineMetadata(ROUTE_METADATA_KEY, path, target);
+    Object.defineProperty(target, 'name', { value: path, writable: false });
   }
   return RouteFactory;
 }
@@ -48,13 +49,13 @@ export function FromBody(type: z.ZodType): (target: IResource, propertyKey: Excl
   return FromBodyFactory;
 }
 
-export function Inject(type?: Constructor<unknown>): PropertyDecorator {
+export function Inject(type?: Constructor<Service>): PropertyDecorator {
   return function (target: object, propertyKey: string | symbol) {
     type = type ?? Reflect.getMetadata('design:type', target, propertyKey);
     Object.defineProperty(target, propertyKey, {
       get: () => {
         if (!type) throw new Error(`Could not determine type for property ${propertyKey.toString()}`);
-        return AppServer.instance.services.get(type);
+        return Application.instance.getService(type);
       },
     });
   };
