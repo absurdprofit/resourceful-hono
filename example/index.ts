@@ -1,9 +1,10 @@
 import { Application } from '@resourceful-hono/core';
 import BaseResource from "./resources/BaseResource.ts";
 import SSEResource from './resources/SSEResource.ts';
+import JSONResource from "./resources/JSONResource.ts";
 
 const app = Application.instance;
-app.registerResources([BaseResource, SSEResource]);
+app.registerResources([BaseResource, SSEResource, JSONResource]);
 
 app.addEventListener('ready', (e) => {
   e.waitUntil(new Promise((resolve) => setTimeout(resolve, 5000)));

@@ -1,4 +1,4 @@
-import type { HonoRequest, Handler } from 'jsr:@hono/hono@4.6.14';
+import type { HonoRequest, Handler, Context } from 'jsr:@hono/hono@4.6.14';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import type { z } from 'npm:zod@3.24.1';
 import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
@@ -9,14 +9,14 @@ import { createReadableFromIterable, literalToLowerCase } from "./common/utils.t
 
 export function Result<
   S extends HttpStatusCodes | number,
-  C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | undefined | null,
+  C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null,
   T extends ContentTypes | string
 >(
   status: S,
-  content: C,
+  content?: C,
   contentType?: T
 ): Response {
-  if ((isBodyInit(content) && contentType !== ContentTypes.Json) || typeof content === "function") {
+  if ((isBodyInit(content) && contentType !== ContentTypes.Json) || content === undefined || typeof content === "function") {
     const headers = new globalThis.Headers();
     let body;
     if (contentType) headers.set(Headers.ContentType, contentType);
@@ -35,6 +35,7 @@ export function Result<
 }
 export interface IResource {
   readonly path: string;
+  readonly context: Context;
   readonly request: Request;
   readonly response: Response;
   // Methods
@@ -52,17 +53,18 @@ export type NonAbstractResourceLikeConstructor = (new (...args: ResourceConstruc
 export type AbstractResourceLikeConstructor = (abstract new (...args: ResourceConstructorArgs) => Resource) & { path: string };
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
 export abstract class Resource implements IResource {
-  declare public request: Request;
-  declare public response: Response;
+  declare public readonly context: Context;
   /**
    * The root hono instance.
    */
   public static readonly hono: Hono = Resource.honoBuilder();
   private readonly hono = Resource.honoBuilder(this);
   readonly methods = Object.values(RequestMethod).filter((method => method in this));
-  readonly #routeMetadata = this.collectParameterMetadata(ROUTE_METADATA_KEY);
-  readonly #queryMetadata = this.collectParameterMetadata(QUERY_METADATA_KEY);
-  readonly #bodyMetadata = this.collectParameterMetadata(BODY_METADATA_KEY);
+  readonly #routeMetadata = this.collectParameterMetadata<ParameterMetadata>(ROUTE_METADATA_KEY);
+  readonly #queryMetadata = this.collectParameterMetadata<ParameterMetadata>(QUERY_METADATA_KEY);
+  readonly #bodyMetadata = this.collectParameterMetadata<ParameterMetadata>(BODY_METADATA_KEY);
+  readonly #acceptMetadata = this.collectParameterMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
+  readonly HEAD = (this as IResource)['GET'];
 
   constructor() {
     const { hono, handleRequest } = this;
@@ -81,8 +83,13 @@ export abstract class Resource implements IResource {
       if (!path.length) continue;
       hono[literalToLowerCase(method)](path, handleRequest);
     }
-    hono.all('', handleRequest);
+    hono.options('*', this.#OPTIONS);
+    hono.all('*', this.#methodNotAllowed);
     Resource.hono.route('', hono);
+  }
+
+  #methodNotAllowed(): Response {
+    throw new MethodNotAllowedError();
   }
 
   /**
@@ -106,10 +113,10 @@ export abstract class Resource implements IResource {
     return baseApp.basePath(instance?.path ?? '');
   }
 
-  private collectParameterMetadata(key: symbol) {
+  private collectParameterMetadata<T>(key: symbol) {
     return this.methods.reduce((metadata, method) => {
       return metadata.set(method, Reflect.getMetadata(key, this, method) ?? {});
-    }, new Map<RequestMethod, ParameterMetadata>());
+    }, new Map<RequestMethod, T>());
   }
 
   protected static get parent(): typeof Resource | null {
@@ -130,46 +137,41 @@ export abstract class Resource implements IResource {
     return (this.constructor as typeof Resource).path;
   }
 
-  public get HEAD(): ((...args: unknown[]) => ResourceMethodReturn) | undefined {
-    return (this as IResource)['GET'];
+  public get request() {
+    return this.context.req.raw;
+  }
+
+  public get response() {
+    return this.context.res;
+  }
+
+  readonly #OPTIONS: Handler = (context) => {
+    context.res.headers.set(Headers.Allow, this.methods.join(', '));
+    return Result(HttpStatusCodes.NoContent);
+  }
+
+  public clone(context: Context) {
+    const clone = { ...this }; // clone resource
+    Object.setPrototypeOf(clone, this); // set prototype to this
+    Object.defineProperty(clone, 'context', { value: context, writable: false });
+    return clone;
   }
 
   private readonly handleRequest: Handler = async (context) => {
     context.res.headers.set(Headers.TraceId, crypto.randomUUID()); // set trace header
     const method = context.req.method.toUpperCase() as RequestMethod;
-    const resource = { ...this }; // clone resource
-    Object.setPrototypeOf(resource, this); // set prototype to this
-    Object.defineProperty(resource, 'request', { value: context.req.raw, writable: false });
-    Object.defineProperty(resource, 'response', { value: context.res, writable: false });
-    const methodHandler = (this as IResource)[method]?.bind(resource);
-    if (methodHandler) {
-      const args: unknown[] = [];
-      const issues: z.ZodIssue[] = [];
-      this.parsePathArgs(method, context.req, args, issues);
-      this.parseQueryArgs(method, context.req, args, issues);
-      if (method !== RequestMethod.Get && method !== RequestMethod.Head)
-        await this.parseBodyArgs(method, context.req, args, issues);
+    const methodHandler = (this as IResource)[method]!.bind(this.clone(context));
+    const args: unknown[] = [];
+    const issues: z.ZodIssue[] = [];
+    this.parsePathArgs(method, context.req, args, issues);
+    this.parseQueryArgs(method, context.req, args, issues);
+    if (method !== RequestMethod.Get && method !== RequestMethod.Head)
+      await this.parseBodyArgs(method, context.req, args, issues);
 
-      if (issues.length)
-        throw new BadRequestError('There were issues in your request.', { issues });
-      const response = await methodHandler(...args, context.req.raw.signal);
-      // if the response has already been sent, don't send it again (this is to prevent errors from being sent twice
-      if (response) {
-        const contentType = response.headers.get(Headers.ContentType);
-        if (contentType) context.res.headers.set(Headers.ContentType, contentType);
-        Object.defineProperty(response, 'headers', { value: context.res.headers });
-        return response;
-      } else {
-        context.status(HttpStatusCodes.NoContent);
-        return context.res;
-      }
-    } else if (method !== RequestMethod.Options) {
-      throw new MethodNotAllowedError();
-    } else {
-      context.status(HttpStatusCodes.NoContent);
-      context.res.headers.set(Headers.Allow, this.methods.join(', '));
-      return context.res;
-    }
+    if (issues.length)
+      throw new BadRequestError('There were issues in your request.', { issues });
+    const response = await methodHandler(...args, context.req.raw.signal);
+    return response ?? Result(HttpStatusCodes.NoContent);
   };
 
   private async parseBodyArgs(
@@ -179,7 +181,7 @@ export abstract class Resource implements IResource {
     issues: z.ZodIssue[]
   ) {
     const paramMetadata: ParameterMetadata<z.ZodType> = this.#bodyMetadata.get(method) ?? {};
-    const acceptedContentTypes: ContentTypes[] = Reflect.getMetadata(ACCEPT_METADATA_KEY, this, method) ?? [ContentTypes.Json];
+    const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [];
     const contentType = request.raw.headers.get(Headers.ContentType) ?? ContentTypes.Json;
     let body;
     switch(acceptedContentTypes.find(contentType.includes.bind(contentType))) {
