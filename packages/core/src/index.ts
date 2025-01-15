@@ -7,3 +7,4 @@ export * from './common/enums.ts';
 export * from './Resource.ts';
 export * from './ServiceMap.ts';
 export * from './ServerSentEvent.ts';
+export * from './TransactionScope.ts';

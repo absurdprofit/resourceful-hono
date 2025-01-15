@@ -1,11 +1,9 @@
 export interface TransactionScopeOptions {
-  parent?: TransactionScope;
   commit: () => void | Promise<void>;
   rollback: () => void | Promise<void>;
 }
 
-export abstract class TransactionScope {
-  readonly #scopes = new Set<TransactionScope>();
+export class TransactionScope {
   #complete = false;
   readonly #rollback: () => void | Promise<void>;
   readonly #commit: () => void | Promise<void>;
@@ -13,8 +11,6 @@ export abstract class TransactionScope {
   constructor(options: TransactionScopeOptions) {
     this.#commit = options.commit;
     this.#rollback = options.rollback;
-    if (options.parent)
-      options.parent.#scopes.add(this);
   }
 
   public complete = () => {
