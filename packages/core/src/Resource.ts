@@ -81,7 +81,6 @@ export abstract class Resource implements IResource {
         const optional = paramMetadata[param].type.isOptional();
         return `:${param}${optional ? '?' : ''}`;
       }).toReversed().join('/');
-      if (!path.length) continue;
       hono[literalToLowerCase(method)](path, handleRequest);
     }
     hono.options('*', this.#OPTIONS);
@@ -190,7 +189,7 @@ export abstract class Resource implements IResource {
   ) {
     const paramMetadata: ParameterMetadata<z.ZodType> = this.#bodyMetadata.get(method) ?? {};
     const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [];
-    const contentType = request.raw.headers.get(Headers.ContentType) ?? ContentTypes.Json;
+    const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
     let body;
     switch(acceptedContentTypes.find(contentType.includes.bind(contentType))) {
       case ContentTypes.FormUrlEncoded:
