@@ -130,7 +130,7 @@ export abstract class Resource implements IResource {
   }
 
   public static get path(): string {
-    return this.name.toLowerCase().replace('resource', '');
+    return Object.getOwnPropertyDescriptor(this, ROUTE_METADATA_KEY)?.value ?? this.name.toLowerCase().replace('resource', '');
   }
 
   public get path(): string {
