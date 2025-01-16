@@ -1,3 +1,10 @@
+export class RollbackError extends Error {
+  constructor() {
+    super('rollback');
+    this.message = 'If you are seeing this error, make to call TransactionScope.complete().';
+  }
+}
+
 export interface TransactionScopeOptions {
   commit: () => void | Promise<void>;
   rollback: () => void | Promise<void>;
@@ -22,6 +29,7 @@ export class TransactionScope {
       await this.#commit();
     } else {
       await this.#rollback();
+      throw new RollbackError();
     }
   }
 }

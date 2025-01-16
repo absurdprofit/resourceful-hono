@@ -38,3 +38,7 @@ export type ResourceMethodReturn =
   | Response | void;
 
 export type ResourceMethod = `${RequestMethod}`;
+
+export function isSuppressedError(value: unknown): value is SuppressedError {
+  return value instanceof Error && 'suppressed' in value;
+}
