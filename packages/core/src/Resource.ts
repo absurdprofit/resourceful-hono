@@ -1,4 +1,5 @@
 import type { HonoRequest, Handler, Context } from 'jsr:@hono/hono@4.6.14';
+import { mergePath } from 'jsr:@hono/hono@4.6.14/utils/url';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import type { z } from 'npm:zod@3.24.1';
 import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
@@ -143,12 +144,12 @@ export abstract class Resource implements IResource {
     return Object.getPrototypeOf(this.constructor);
   }
 
-  public static get path() {
-    return Object.getOwnPropertyDescriptor(this.hono, '_basePath');
-  }
-
   public static get route(): string {
     return Object.getOwnPropertyDescriptor(this, ROUTE_METADATA_KEY)?.value ?? this.name.toLowerCase().replace('resource', '');
+  }
+
+  public static get pathname(): string {
+    return mergePath(this.parent?.pathname ?? '', this.route);
   }
 
   public get route(): string {
