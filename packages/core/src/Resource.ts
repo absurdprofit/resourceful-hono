@@ -8,6 +8,20 @@ import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
 
+export function Redirect<S extends HttpStatusCodes | number>(status: S, url: URL | string) {
+  if (status < 300 || status > 399)
+    throw new RangeError(`Invalid redirect status code: ${status}`);
+  return new Response(
+    undefined,
+    {
+      status,
+      headers: {
+        [Headers.Location]: url.toString(),
+      },
+    },
+  );
+}
+
 export function Result<
   S extends HttpStatusCodes | number,
   C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null,
@@ -35,7 +49,7 @@ export function Result<
   }
 }
 export interface IResource {
-  readonly path: string;
+  readonly route: string;
   readonly context: Context;
   readonly request: Request;
   readonly response: Response;
@@ -50,8 +64,8 @@ export interface IResource {
   TRACE?(...args: unknown[]): ResourceMethodReturn;
 }
 type ResourceConstructorArgs = unknown[];
-export type NonAbstractResourceLikeConstructor = (new (...args: ResourceConstructorArgs) => Resource) & { path: string };
-export type AbstractResourceLikeConstructor = (abstract new (...args: ResourceConstructorArgs) => Resource) & { path: string };
+export type NonAbstractResourceLikeConstructor = (new (...args: ResourceConstructorArgs) => Resource) & { route: string };
+export type AbstractResourceLikeConstructor = (abstract new (...args: ResourceConstructorArgs) => Resource) & { route: string };
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
 export abstract class Resource implements IResource {
   declare public readonly context: Context;
@@ -77,11 +91,11 @@ export abstract class Resource implements IResource {
     if (!methods.length) return;
     for (const method of methods) {
       const paramMetadata: ParameterMetadata = Reflect.getMetadata(ROUTE_METADATA_KEY, this, method) ?? {};
-      const path = Object.keys(paramMetadata).map(param => {
+      const route = Object.keys(paramMetadata).map(param => {
         const optional = paramMetadata[param].type.isOptional();
         return `:${param}${optional ? '?' : ''}`;
       }).toReversed().join('/');
-      hono[literalToLowerCase(method)](path, handleRequest);
+      hono[literalToLowerCase(method)](route, handleRequest);
     }
     hono.options('*', this.#OPTIONS);
     hono.all('*', this.#methodNotAllowed);
@@ -101,16 +115,16 @@ export abstract class Resource implements IResource {
     let parent = instance?.parent;
     const basePaths = new Array<string>();
     let baseApp = new Hono({ strict: true });
-    // collect base paths
+    // collect base routes
     while (parent) {
-      basePaths.push(parent.path);
+      basePaths.push(parent.route);
       parent = parent.parent;
     }
     // attach base paths
     for (const basePath of basePaths.toReversed()) {
       baseApp = baseApp.basePath(basePath);
     }
-    return baseApp.basePath(instance?.path ?? '');
+    return baseApp.basePath(instance?.route ?? '');
   }
 
   private collectParameterMetadata<T>(key: symbol) {
@@ -129,12 +143,16 @@ export abstract class Resource implements IResource {
     return Object.getPrototypeOf(this.constructor);
   }
 
-  public static get path(): string {
+  public static get path() {
+    return Object.getOwnPropertyDescriptor(this.hono, '_basePath');
+  }
+
+  public static get route(): string {
     return Object.getOwnPropertyDescriptor(this, ROUTE_METADATA_KEY)?.value ?? this.name.toLowerCase().replace('resource', '');
   }
 
-  public get path(): string {
-    return (this.constructor as typeof Resource).path;
+  public get route(): string {
+    return (this.constructor as typeof Resource).route;
   }
 
   public get request() {
@@ -167,7 +185,7 @@ export abstract class Resource implements IResource {
     const methodHandler = (this as IResource)[method]!.bind(this.clone(context));
     const args: unknown[] = [];
     const issues: z.ZodIssue[] = [];
-    this.parsePathArgs(method, context.req, args, issues);
+    this.parseRouteArgs(method, context.req, args, issues);
     this.parseQueryArgs(method, context.req, args, issues);
     if (method !== RequestMethod.Get && method !== RequestMethod.Head)
       await this.parseBodyArgs(method, context.req, args, issues);
@@ -214,7 +232,7 @@ export abstract class Resource implements IResource {
     return args;
   }
 
-  private parsePathArgs(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
+  private parseRouteArgs(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
     const paramMetadata: ParameterMetadata = this.#routeMetadata.get(method) ?? {};
     const params = new Array<string>();
     for (const [param, metadata] of Object.entries(paramMetadata).toReversed()) {
@@ -224,8 +242,8 @@ export abstract class Resource implements IResource {
       const parseResult = metadata.type.safeParse(value);
       if (parseResult.error) {
         issues.push(...parseResult.error.issues.map(issue => {
-          // get path up until bad path part
-          const path = `${this.path}/${params.join('/')}`;
+          // get route up until bad path part
+          const path = `${this.route}/${params.join('/')}`;
           issue.path.push(path);
           return issue;
         }));

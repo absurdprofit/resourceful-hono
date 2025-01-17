@@ -2,6 +2,7 @@ export enum Headers {
   Allow = 'Allow',
   Authorization = 'Authorization',
   TraceId = 'X-Trace-ID',
+  Location = 'Location',
   ContentType = 'Content-Type',
   ForwardedFor = 'X-Forwarded-For',
   UserAgent = 'User-Agent',
