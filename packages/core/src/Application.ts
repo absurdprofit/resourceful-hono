@@ -1,5 +1,4 @@
-import type { MiddlewareHandler, ErrorHandler as HonoErrorHandler } from 'jsr:@hono/hono@4.6.14';
-import { Hono } from 'jsr:@hono/hono@4.6.14';
+import type { Hono, MiddlewareHandler, ErrorHandler as HonoErrorHandler } from 'jsr:@hono/hono@4.6.14';
 import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from "./ServiceMap.ts";
 import { type Constructor, isResourceConstructor } from "./common/types.ts";
@@ -8,10 +7,12 @@ import { FinishEvent, ReadyEvent } from "./common/events.ts";
 import { PromiseWrapper } from "./common/promise-wrapper.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
 
-interface ApplicationEventMap {
+export interface ApplicationEventMap {
   "ready": ReadyEvent;
   "finished": FinishEvent;
 }
+
+export type ApplicationState = 'idle' | 'running' | 'finished';
 
 export class Application extends TypedEventTarget<ApplicationEventMap> {
   static #instance: Application;
@@ -19,9 +20,9 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
   readonly #services = new ServiceMap();
   readonly #readyPromise;
   readonly #finishedPromise;
-  readonly ready;
-  readonly finished;
-  #state: 'idle' | 'running' | 'finished' = 'idle';
+  readonly ready: Promise<void>;
+  readonly finished: Promise<void>;
+  #state: ApplicationState = 'idle';
 
   private constructor(instanceId: string) {
     super();
@@ -35,7 +36,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     this.#hono.notFound(NotFoundHandler);
     this.registerErrorHandler(ErrorHandler);
 
-    this.#readyPromise = new PromiseWrapper();
+    this.#readyPromise = new PromiseWrapper<void>();
     this.#finishedPromise = new PromiseWrapper<void>();
     this.ready = this.#readyPromise.promise;
     this.finished = this.#finishedPromise.promise;
@@ -78,15 +79,15 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     this.#hono.onError(errorHandler);
   }
 
-  public getService<T extends Service>(key: Constructor<T>) {
+  public getService<T extends Service>(key: Constructor<T>): Service {
     return this.#services.get(key);
   }
 
-  public get state() {
+  public get state(): ApplicationState {
     return this.#state;
   }
 
-  public get fetch() {
+  public get fetch(): Hono['fetch'] {
     return this.#hono.fetch;
   }
 
@@ -94,7 +95,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     return Resource.hono;
   }
 
-  public finish = () => {
+  public finish = (): void => {
     this.#services[Symbol.asyncDispose]()
       .then(() => {
         this.#finishedPromise.resolve();

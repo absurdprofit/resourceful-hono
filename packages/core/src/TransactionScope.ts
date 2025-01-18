@@ -20,7 +20,7 @@ export class TransactionScope {
     this.#rollback = options.rollback;
   }
 
-  public complete = () => {
+  public complete = (): void => {
     this.#complete = true;
   }
 
