@@ -9,6 +9,7 @@ import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
 import { ResourceClient } from "./ResourceClient.ts";
+import { IResourceClient } from "./index.ts";
 
 export function Redirect<S extends HttpStatusCodes | number>(status: S, url: URL | string): Response {
   if (status < 300 || status > 399)
@@ -147,7 +148,7 @@ export abstract class Resource implements IResource {
   }
 
   public static createClient<T extends typeof Resource>(this: T) {
-    return new ResourceClient(this);
+    return new ResourceClient(this) as unknown as IResourceClient<T>;
   }
 
   public static get route(): string {
@@ -192,8 +193,8 @@ export abstract class Resource implements IResource {
     const methodHandler = (this as IResource)[method]!.bind(this.clone(context));
     const args: unknown[] = [];
     const issues: z.ZodIssue[] = [];
-    this.parseRouteArgs(method, context.req, args, issues);
-    this.parseQueryArgs(method, context.req, args, issues);
+    this.parseRouteParams(method, context.req, args, issues);
+    this.parseQueryParams(method, context.req, args, issues);
     if (method !== RequestMethod.Get && method !== RequestMethod.Head)
       await this.parseBodyArgs(method, context.req, args, issues);
 
@@ -239,7 +240,7 @@ export abstract class Resource implements IResource {
     return args;
   }
 
-  private parseRouteArgs(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
+  private parseRouteParams(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
     const paramMetadata: ParameterMetadata = this.#routeMetadata.get(method) ?? {};
     const params = new Array<string>();
     for (const [param, metadata] of Object.entries(paramMetadata).toReversed()) {
@@ -261,7 +262,7 @@ export abstract class Resource implements IResource {
     return args;
   }
 
-  private parseQueryArgs(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
+  private parseQueryParams(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
     const paramMetadata: ParameterMetadata = this.#queryMetadata.get(method) ?? {};
     for (const [param, metadata] of Object.entries(paramMetadata)) {
       // value of query parameter

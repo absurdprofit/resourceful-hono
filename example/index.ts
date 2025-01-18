@@ -4,11 +4,15 @@ import SSEResource from './resources/SSEResource.ts';
 import JSONResource from "./resources/JSONResource.ts";
 import UserResource from "./resources/UserResource.ts";
 
+const client = JSONResource.createClient();
+
+client.GET('hello', 0).then(console.log);
+
 const app = Application.instance;
 app.registerResources([BaseResource, SSEResource, JSONResource, UserResource]);
 
 app.addEventListener('ready', (e) => {
-  e.waitUntil(new Promise((resolve) => setTimeout(resolve, 5000)));
+  // e.waitUntil(new Promise((resolve) => setTimeout(resolve, 5000)));
 });
 
 app.ready.then(() => {
