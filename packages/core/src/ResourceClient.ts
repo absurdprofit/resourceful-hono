@@ -9,7 +9,7 @@ import { BadRequestError } from "./common/errors.ts";
 export type IResourceClientMethod<M> = M extends (...args: infer A) => infer R ? (...args: A) => R extends TypedResponse<infer C> ? Promise<C> : R : never;
 
 export type IResourceClient<R extends typeof Resource> = {
-  [K in ResourceMethod as K extends keyof InstanceType<R> ? K : never]: K extends keyof InstanceType<R> ? IResourceClientMethod<InstanceType<R>[K]> : never;
+  [K in ResourceMethod | Lowercase<ResourceMethod> as Uppercase<K> extends keyof InstanceType<R> ? K : never]: Uppercase<K> extends keyof InstanceType<R> ? IResourceClientMethod<InstanceType<R>[Uppercase<K>]> : never;
 }
 
 export class ResourceClient<R extends typeof Resource> {
@@ -34,9 +34,12 @@ export class ResourceClient<R extends typeof Resource> {
           properties[method] = {
             value: (...args: unknown[]) => this.#METHOD(method, ...args),
           };
+          properties[method.toLowerCase() as Lowercase<ResourceMethod>] = {
+            value: (...args: unknown[]) => this.#METHOD(method, ...args),
+          };
           return properties;
         },
-        {} as { [K in ResourceMethod]: PropertyDescriptor }
+        {} as { [K in ResourceMethod | Lowercase<ResourceMethod>]: PropertyDescriptor }
       ),
     );
   }
@@ -45,7 +48,7 @@ export class ResourceClient<R extends typeof Resource> {
     const issues: z.ZodIssue[] = [];
     const pathname = this.serialiseRouteParams(method, args, issues);
     const search = this.serialiseQueryParams(method, args, issues);
-
+ 
     if (issues.length)
       throw new BadRequestError('There were issues in your request.', { issues });
 
