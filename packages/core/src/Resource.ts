@@ -9,7 +9,7 @@ import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
 
-export function Redirect<S extends HttpStatusCodes | number>(status: S, url: URL | string) {
+export function Redirect<S extends HttpStatusCodes | number>(status: S, url: URL | string): Response {
   if (status < 300 || status > 399)
     throw new RangeError(`Invalid redirect status code: ${status}`);
   return new Response(
@@ -75,7 +75,7 @@ export abstract class Resource implements IResource {
    */
   public static readonly hono: Hono = Resource.honoBuilder();
   private readonly hono = Resource.honoBuilder(this);
-  readonly methods = Object.values(RequestMethod).filter((method => method in this));
+  readonly methods: RequestMethod[] = Object.values(RequestMethod).filter((method => method in this));
   readonly #routeMetadata = this.collectParameterMetadata<ParameterMetadata>(ROUTE_METADATA_KEY);
   readonly #queryMetadata = this.collectParameterMetadata<ParameterMetadata>(QUERY_METADATA_KEY);
   readonly #bodyMetadata = this.collectParameterMetadata<ParameterMetadata>(BODY_METADATA_KEY);
@@ -156,15 +156,15 @@ export abstract class Resource implements IResource {
     return (this.constructor as typeof Resource).route;
   }
 
-  public get request() {
+  public get request(): Request {
     return this.context.req.raw;
   }
 
-  public get response() {
+  public get response(): Response {
     return this.context.res;
   }
 
-  public get signal() {
+  public get signal(): AbortSignal {
     return this.context.req.raw.signal;
   }
 
@@ -173,7 +173,7 @@ export abstract class Resource implements IResource {
     return Result(HttpStatusCodes.NoContent);
   }
 
-  public clone(context: Context) {
+  public clone(context: Context): this {
     const clone = { ...this }; // clone resource
     Object.setPrototypeOf(clone, this); // set prototype to this
     Object.defineProperty(clone, 'context', { value: context, writable: false });
