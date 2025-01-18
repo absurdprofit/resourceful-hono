@@ -8,6 +8,7 @@ import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } fro
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
+import { ResourceClient } from "./ResourceClient.ts";
 
 export function Redirect<S extends HttpStatusCodes | number>(status: S, url: URL | string): Response {
   if (status < 300 || status > 399)
@@ -23,6 +24,7 @@ export function Redirect<S extends HttpStatusCodes | number>(status: S, url: URL
   );
 }
 
+export interface TypedResponse<_ = unknown> extends Response {}
 export function Result<
   S extends HttpStatusCodes | number,
   C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null,
@@ -31,7 +33,7 @@ export function Result<
   status: S,
   content?: C,
   contentType?: T
-): Response {
+): TypedResponse<C> {
   if ((isBodyInit(content) && contentType !== ContentTypes.Json) || content === undefined || typeof content === "function") {
     const headers = new globalThis.Headers();
     let body;
@@ -142,6 +144,10 @@ export abstract class Resource implements IResource {
   protected get parent(): typeof Resource | null {
     if (this.constructor === Resource) return null;
     return Object.getPrototypeOf(this.constructor);
+  }
+
+  public static createClient<T extends typeof Resource>(this: T) {
+    return new ResourceClient(this);
   }
 
   public static get route(): string {

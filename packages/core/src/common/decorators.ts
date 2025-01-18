@@ -7,10 +7,10 @@ import { Application } from "../Application.ts";
 import { Service } from "../ServiceMap.ts";
 
 export function Accept(acceptedContentTypes: ContentTypes[]): (target: IResource, propertyKey: string) => void {
-  function AcceptFactory(target: IResource, propertyKey: string) {
+  return function(target: IResource, propertyKey: string) {
     Reflect.defineMetadata(ACCEPT_METADATA_KEY, acceptedContentTypes, target, propertyKey);
+    Reflect.defineMetadata(ACCEPT_METADATA_KEY, acceptedContentTypes, target.constructor, propertyKey);
   }
-  return AcceptFactory;
 }
 export function Route(path: string): <T extends ResourceLikeConstructor>(target: T) => void {
   if (path.includes(':'))
@@ -24,8 +24,11 @@ export function FromRoute(key: string, type: PrimitiveType): (target: IResource,
     const metadata: ParameterMetadata = Reflect.getMetadata(ROUTE_METADATA_KEY, target, propertyKey) ?? {};
     metadata[key] = { type, parameterIndex };
     Reflect.defineMetadata(ROUTE_METADATA_KEY, metadata, target, propertyKey);
-    if (propertyKey === RequestMethod.Get)
+    Reflect.defineMetadata(ROUTE_METADATA_KEY, metadata, target.constructor, propertyKey);
+    if (propertyKey === RequestMethod.Get) {
       Reflect.defineMetadata(ROUTE_METADATA_KEY, metadata, target, RequestMethod.Head);
+      Reflect.defineMetadata(ROUTE_METADATA_KEY, metadata, target.constructor, RequestMethod.Head);
+    }
   }
 }
 export function FromQuery(key: string, type: PrimitiveType): (target: IResource, propertyKey: ResourceMethod, parameterIndex: number) => void {
@@ -33,8 +36,11 @@ export function FromQuery(key: string, type: PrimitiveType): (target: IResource,
     const metadata: ParameterMetadata = Reflect.getMetadata(QUERY_METADATA_KEY, target, propertyKey) ?? {};
     metadata[key] = { type, parameterIndex };
     Reflect.defineMetadata(QUERY_METADATA_KEY, metadata, target, propertyKey);
-    if (propertyKey === RequestMethod.Get)
+    Reflect.defineMetadata(QUERY_METADATA_KEY, metadata, target.constructor, propertyKey);
+    if (propertyKey === RequestMethod.Get) {
       Reflect.defineMetadata(QUERY_METADATA_KEY, metadata, target, RequestMethod.Head);
+      Reflect.defineMetadata(QUERY_METADATA_KEY, metadata, target.constructor, RequestMethod.Head);
+    }
   }
 }
 export function FromBody(type: z.ZodType): (target: IResource, propertyKey: Exclude<ResourceMethod, 'GET' | 'HEAD'>, parameterIndex: number) => void {
@@ -42,6 +48,7 @@ export function FromBody(type: z.ZodType): (target: IResource, propertyKey: Excl
     const metadata: ParameterMetadata<z.ZodType> = Reflect.getMetadata(BODY_METADATA_KEY, target, propertyKey) ?? {};
     metadata[parameterIndex] = { type, parameterIndex };
     Reflect.defineMetadata(BODY_METADATA_KEY, metadata, target, propertyKey);
+    Reflect.defineMetadata(BODY_METADATA_KEY, metadata, target.constructor, propertyKey);
   }
 }
 
