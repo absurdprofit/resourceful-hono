@@ -5,6 +5,10 @@ export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
 }
 
+export function literalToUpperCase<T extends string>(value: T): Uppercase<T> {
+  return value.toUpperCase() as Uppercase<T>;
+}
+
 export function createHttpRequestLog(req: Request, res: Response): HttpRequestLog {
   const { url, method } = req;
   const { status: statusCode } = res;
@@ -36,4 +40,13 @@ export function createReadableFromIterable<T, TReturn, TNext>(iterable: Iterable
       }
     }
   });
+}
+
+export async function PromiseAllDynamic<T>(values: Iterable<T | PromiseLike<T>>): Promise<Awaited<T>[]> {
+  const awaited = [];
+  for (const value of values) {
+    awaited.push(await value);
+  }
+
+  return awaited;
 }

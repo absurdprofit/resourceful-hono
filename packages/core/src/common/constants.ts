@@ -1,5 +1,5 @@
-export const ACCEPT_METADATA_KEY = 'accept';
-export const PATH_METADATA_KEY = 'path';
-export const ROUTE_METADATA_KEY = 'route';
-export const QUERY_METADATA_KEY = 'query';
-export const BODY_METADATA_KEY = 'body';
+export const ACCEPT_METADATA_KEY = Symbol();
+export const PATH_METADATA_KEY = Symbol();
+export const ROUTE_METADATA_KEY = Symbol();
+export const QUERY_METADATA_KEY = Symbol();
+export const BODY_METADATA_KEY = Symbol();

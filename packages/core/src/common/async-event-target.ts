@@ -26,13 +26,14 @@ export class AsyncEventTarget<EventMap extends { [K in keyof EventMap]: Event }>
     const type = event.type as K;
     const listeners = this.#listeners.get(type);
     const promiseWrapper = this.#eventPromises.get(type) || new PromiseWrapper<void>();
-    if (!listeners || listeners.size === 0) {
-      promiseWrapper.resolve();
-      return true
-    };
 
     if (!this.#eventPromises.has(type)) {
       this.#eventPromises.set(type, promiseWrapper);
+    }
+
+    if (!listeners || listeners.size === 0) {
+      promiseWrapper.resolve();
+      return true
     }
 
     const promises = Array.from(listeners).map((listener) => {
@@ -50,7 +51,6 @@ export class AsyncEventTarget<EventMap extends { [K in keyof EventMap]: Event }>
 
     Promise.all(promises).then(() => {
       promiseWrapper.resolve();
-      this.#eventPromises.delete(type);
     });
 
     return true;
