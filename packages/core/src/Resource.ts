@@ -138,7 +138,7 @@ export abstract class Resource implements IResource {
   }
 
   protected static get parent(): typeof Resource | null {
-    if (this === Resource) return null;
+    if (Object.getPrototypeOf(this) === Resource) return null;
     return Object.getPrototypeOf(this);
   }
 
