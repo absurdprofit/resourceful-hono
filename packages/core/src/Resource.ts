@@ -8,6 +8,8 @@ import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } fro
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
+import { ResourceClient } from "./ResourceClient.ts";
+import { IResourceClient } from "./index.ts";
 
 export function Redirect<S extends HttpStatusCodes | number>(status: S, url: URL | string): Response {
   if (status < 300 || status > 399)
@@ -23,6 +25,7 @@ export function Redirect<S extends HttpStatusCodes | number>(status: S, url: URL
   );
 }
 
+export interface TypedResponse<_ = unknown> extends Response {}
 export function Result<
   S extends HttpStatusCodes | number,
   C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null,
@@ -31,7 +34,7 @@ export function Result<
   status: S,
   content?: C,
   contentType?: T
-): Response {
+): TypedResponse<C> {
   if ((isBodyInit(content) && contentType !== ContentTypes.Json) || content === undefined || typeof content === "function") {
     const headers = new globalThis.Headers();
     let body;
@@ -144,6 +147,10 @@ export abstract class Resource implements IResource {
     return Object.getPrototypeOf(this.constructor);
   }
 
+  public static createClient<T extends typeof Resource>(this: T): IResourceClient<T> {
+    return new ResourceClient(this) as unknown as IResourceClient<T>;
+  }
+
   public static get route(): string {
     return Object.getOwnPropertyDescriptor(this, ROUTE_METADATA_KEY)?.value ?? this.name.toLowerCase().replace('resource', '');
   }
@@ -164,10 +171,6 @@ export abstract class Resource implements IResource {
     return this.context.res;
   }
 
-  public get signal(): AbortSignal {
-    return this.context.req.raw.signal;
-  }
-
   readonly #OPTIONS: Handler = (context) => {
     context.res.headers.set(Headers.Allow, this.methods.join(', '));
     return Result(HttpStatusCodes.NoContent);
@@ -186,8 +189,8 @@ export abstract class Resource implements IResource {
     const methodHandler = (this as IResource)[method]!.bind(this.clone(context));
     const args: unknown[] = [];
     const issues: z.ZodIssue[] = [];
-    this.parseRouteArgs(method, context.req, args, issues);
-    this.parseQueryArgs(method, context.req, args, issues);
+    this.parseRouteParams(method, context.req, args, issues);
+    this.parseQueryParams(method, context.req, args, issues);
     if (method !== RequestMethod.Get && method !== RequestMethod.Head)
       await this.parseBodyArgs(method, context.req, args, issues);
 
@@ -196,7 +199,7 @@ export abstract class Resource implements IResource {
 
     if (Application.instance.state === 'idle')
       await Application.instance.ready;
-    const response = await methodHandler(...args);
+    const response = await methodHandler(...args, context.req.raw.signal);
     return response ?? Result(HttpStatusCodes.NoContent);
   };
 
@@ -233,7 +236,7 @@ export abstract class Resource implements IResource {
     return args;
   }
 
-  private parseRouteArgs(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
+  private parseRouteParams(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
     const paramMetadata: ParameterMetadata = this.#routeMetadata.get(method) ?? {};
     const params = new Array<string>();
     for (const [param, metadata] of Object.entries(paramMetadata).toReversed()) {
@@ -255,7 +258,7 @@ export abstract class Resource implements IResource {
     return args;
   }
 
-  private parseQueryArgs(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
+  private parseQueryParams(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
     const paramMetadata: ParameterMetadata = this.#queryMetadata.get(method) ?? {};
     for (const [param, metadata] of Object.entries(paramMetadata)) {
       // value of query parameter
