@@ -147,7 +147,7 @@ export abstract class Resource implements IResource {
     return Object.getPrototypeOf(this.constructor);
   }
 
-  public static createClient<T extends typeof Resource>(this: T) {
+  public static createClient<T extends typeof Resource>(this: T): IResourceClient<T> {
     return new ResourceClient(this) as unknown as IResourceClient<T>;
   }
 
