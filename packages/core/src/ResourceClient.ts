@@ -13,7 +13,7 @@ export type IResourceClient<R extends typeof Resource> = {
 }
 
 export class ResourceClient<R extends typeof Resource> {
-  readonly #methods: RequestMethod[] = Object.values(RequestMethod);
+  readonly #methods;
   readonly #routeMetadata;
   readonly #queryMetadata;
   readonly #bodyMetadata;
@@ -22,6 +22,7 @@ export class ResourceClient<R extends typeof Resource> {
 
   constructor(resource: R) {
     this.#resource = resource;
+    this.#methods = resource.methods;
     this.#routeMetadata = this.collectParameterMetadata<ParameterMetadata>(ROUTE_METADATA_KEY);
     this.#queryMetadata = this.collectParameterMetadata<ParameterMetadata>(QUERY_METADATA_KEY);
     this.#bodyMetadata = this.collectParameterMetadata<ParameterMetadata>(BODY_METADATA_KEY);
@@ -48,7 +49,7 @@ export class ResourceClient<R extends typeof Resource> {
     const issues: z.ZodIssue[] = [];
     const pathname = this.serialiseRouteParams(method, args, issues);
     const search = this.serialiseQueryParams(method, args, issues);
-    const signal = args.at(-1) as AbortSignal | undefined;
+    const signal = args.at(-1) instanceof AbortSignal ? args.at(-1) as AbortSignal : undefined;
  
     if (issues.length)
       throw new BadRequestError('There were issues in your request.', { issues });

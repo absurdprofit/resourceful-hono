@@ -151,6 +151,10 @@ export abstract class Resource implements IResource {
     return new ResourceClient(this) as unknown as IResourceClient<T>;
   }
 
+  public static get methods() {
+    return Object.values(RequestMethod).filter((method => method in this.prototype));
+  }
+
   public static get route(): string {
     return Object.getOwnPropertyDescriptor(this, ROUTE_METADATA_KEY)?.value ?? this.name.toLowerCase().replace('resource', '');
   }
