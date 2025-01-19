@@ -120,7 +120,7 @@ export abstract class Resource implements IResource {
     const basePaths = new Array<string>();
     let baseApp = new Hono({ strict: true });
     // collect base routes
-    while (parent) {
+    while (parent?.prototype instanceof Resource) {
       basePaths.push(parent.route);
       parent = parent.parent;
     }
@@ -133,7 +133,7 @@ export abstract class Resource implements IResource {
 
   private collectParameterMetadata<T>(key: symbol) {
     return this.methods.reduce((metadata, method) => {
-      return metadata.set(method, Reflect.getMetadata(key, this, method) ?? {});
+      return metadata.set(method, Reflect.getMetadata(key, this, method));
     }, new Map<RequestMethod, T>());
   }
 
@@ -149,6 +149,10 @@ export abstract class Resource implements IResource {
 
   public static createClient<T extends typeof Resource>(this: T): IResourceClient<T> {
     return new ResourceClient(this) as unknown as IResourceClient<T>;
+  }
+
+  public static get methods() {
+    return Object.values(RequestMethod).filter((method => method in this.prototype));
   }
 
   public static get route(): string {
@@ -210,7 +214,7 @@ export abstract class Resource implements IResource {
     issues: z.ZodIssue[]
   ) {
     const paramMetadata: ParameterMetadata<z.ZodType> = this.#bodyMetadata.get(method) ?? {};
-    const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [];
+    const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
     const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
     let body;
     switch(acceptedContentTypes.find(contentType.includes.bind(contentType))) {
