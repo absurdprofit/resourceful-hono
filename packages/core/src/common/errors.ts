@@ -5,7 +5,7 @@ export abstract class HttpError extends Error {
   public get extensions(): object {
     return {};
   }
-  public get type() {
+  public get type(): string {
     return `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
   }
 }
@@ -30,7 +30,7 @@ export class BadRequestError extends HttpError {
     this.issues = options?.issues ?? [];
   }
 
-  public override get extensions() {
+  public override get extensions(): { issues: object[]; } {
     return {
       issues: this.issues,
     };
@@ -74,7 +74,7 @@ export class UnsupportedMediaTypeError extends HttpError {
 
 export class SerialisableError extends Error {
   [key: string]: unknown;
-  public readonly trace;
+  public readonly trace: string[];
   constructor(error: Error) {
     super();
     /* eslint no-magic-numbers: ["error", { "ignore": [1] }] */
@@ -90,7 +90,7 @@ export class SerialisableError extends Error {
     });
   }
 
-  public toJSON() {
+  public toJSON(): { [P in keyof this]: this[P] } {
     return { ...this };
   }
 }
