@@ -151,7 +151,7 @@ export abstract class Resource implements IResource {
     return new ResourceClient(this) as unknown as IResourceClient<T>;
   }
 
-  public static get methods() {
+  public static get methods(): RequestMethod[] {
     return Object.values(RequestMethod).filter((method => method in this.prototype));
   }
 
