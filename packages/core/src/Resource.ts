@@ -120,7 +120,7 @@ export abstract class Resource implements IResource {
     const basePaths = new Array<string>();
     let baseApp = new Hono({ strict: true });
     // collect base routes
-    while (parent?.prototype instanceof Resource) {
+    while (parent) {
       basePaths.push(parent.route);
       parent = parent.parent;
     }
@@ -143,7 +143,7 @@ export abstract class Resource implements IResource {
   }
 
   protected get parent(): typeof Resource | null {
-    if (this.constructor === Resource) return null;
+    if (Object.getPrototypeOf(this.constructor) === Resource) return null;
     return Object.getPrototypeOf(this.constructor);
   }
 
