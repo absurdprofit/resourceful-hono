@@ -6,7 +6,7 @@ import type { Resource, TypedResponse } from "./Resource.ts";
 import type { z } from 'npm:zod@3.24.1';
 import { BadRequestError } from "./common/errors.ts";
 
-export type IResourceClientMethod<M> = M extends (...args: infer A) => infer R ? (...args: A) => R extends TypedResponse<infer C> ? Promise<C> : R : never;
+export type IResourceClientMethod<M> = M extends (...args: infer A) => infer R ? (...args: [...A, signal?: AbortSignal]) => R extends TypedResponse<infer C> ? Promise<C> : R : never;
 
 export type IResourceClient<R extends typeof Resource> = {
   [K in ResourceMethod | Lowercase<ResourceMethod> as Uppercase<K> extends keyof InstanceType<R> ? K : never]: Uppercase<K> extends keyof InstanceType<R> ? IResourceClientMethod<InstanceType<R>[Uppercase<K>]> : never;
@@ -48,14 +48,15 @@ export class ResourceClient<R extends typeof Resource> {
     const issues: z.ZodIssue[] = [];
     const pathname = this.serialiseRouteParams(method, args, issues);
     const search = this.serialiseQueryParams(method, args, issues);
+    const signal = args.at(-1) as AbortSignal | undefined;
  
     if (issues.length)
       throw new BadRequestError('There were issues in your request.', { issues });
 
     const url = new URL(pathname, 'http://localhost:8000');
-    url.search = search
+    url.search = search;
 
-    const json = await fetch(url).then(res => res.json());
+    const json = await fetch(url, { signal }).then(res => res.json());
     return json;
   }
 

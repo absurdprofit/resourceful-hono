@@ -171,10 +171,6 @@ export abstract class Resource implements IResource {
     return this.context.res;
   }
 
-  public get signal(): AbortSignal {
-    return this.context.req.raw.signal;
-  }
-
   readonly #OPTIONS: Handler = (context) => {
     context.res.headers.set(Headers.Allow, this.methods.join(', '));
     return Result(HttpStatusCodes.NoContent);
@@ -203,7 +199,7 @@ export abstract class Resource implements IResource {
 
     if (Application.instance.state === 'idle')
       await Application.instance.ready;
-    const response = await methodHandler(...args);
+    const response = await methodHandler(...args, context.req.raw.signal);
     return response ?? Result(HttpStatusCodes.NoContent);
   };
 
