@@ -63,7 +63,7 @@ export class ResourceClient<R extends typeof Resource> {
 
   private collectParameterMetadata<T>(key: symbol) {
     return this.#methods.reduce((metadata, method) => {
-      return metadata.set(method, Reflect.getMetadata(key, this.#resource, method) ?? {});
+      return metadata.set(method, Reflect.getMetadata(key, this.#resource, method));
     }, new Map<RequestMethod, T>());
   }
 

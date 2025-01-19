@@ -9,3 +9,4 @@ export * from './ResourceClient.ts';
 export * from './ServiceMap.ts';
 export * from './ServerSentEvent.ts';
 export * from './TransactionScope.ts';
+export * from './common/errors.ts';
