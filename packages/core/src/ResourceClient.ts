@@ -1,16 +1,17 @@
 import { mergePath } from "jsr:@hono/hono@4.6.14/utils/url";
 import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from "./common/constants.ts";
-import { type ContentTypes, RequestMethod } from "./common/enums.ts";
-import type { ParameterMetadata, ResourceMethod, ServerSentEventIterator } from "./common/types.ts";
+import { ContentTypes, Headers, type RequestMethod } from "./common/enums.ts";
+import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator } from "./common/types.ts";
 import type { Resource, TypedResponse } from "./Resource.ts";
 import type { z } from 'npm:zod@3.24.1';
 import { BadRequestError } from "./common/errors.ts";
+import { EventSource } from 'npm:eventsource@3.0.2';
 
 export type IResourceClientMethod<M> =
   M extends (...args: infer A) => infer R
     ? (...args: [...A, signal?: AbortSignal]) =>
       R extends TypedResponse<infer C> | Promise<TypedResponse<infer C>>
-        ? C extends ServerSentEventIterator
+        ? C extends ServerSentEventGenerator
           ? Promise<EventSource>
         : Promise<C>
       : R
@@ -73,8 +74,12 @@ export class ResourceClient<R extends typeof Resource> {
     const url = new URL(pathname, this.#origin);
     url.search = search;
 
-    const json = await fetch(url, { signal }).then(res => res.json());
-    return json;
+    const response = await fetch(url, { signal, method });
+
+    if (response.headers.get(Headers.ContentType)?.startsWith(ContentTypes.ServerSentEvent)) {
+      return new EventSource(url, { fetch: () => Promise.resolve(response) });
+    }
+    return response.json();
   }
 
   private collectParameterMetadata<T>(key: symbol) {

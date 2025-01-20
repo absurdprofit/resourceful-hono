@@ -41,8 +41,10 @@ export function Result<
     if (contentType) headers.set(Headers.ContentType, contentType);
     if (typeof content === "function") {
       body = createReadableFromIterable(content());
-      if (contentType?.startsWith('text/')) {
+      if (contentType?.startsWith(ContentTypes.ServerSentEvent)) {
         body = body.pipeThrough(new TextEncoderStream());
+        headers.set(Headers.CacheControl, 'no-cache');
+        headers.set(Headers.Connection, 'keep-alive');
       }
     } else {
       body = content;
@@ -221,7 +223,8 @@ export abstract class Resource implements IResource {
     args: unknown[],
     issues: z.ZodIssue[]
   ) {
-    const paramMetadata: ParameterMetadata<z.ZodType> = this.#bodyMetadata.get(method) ?? {};
+    const paramMetadata = this.#bodyMetadata.get(method);
+    if (!paramMetadata) return args;
     const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
     const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
     let body;
@@ -249,7 +252,8 @@ export abstract class Resource implements IResource {
   }
 
   private parseRouteParams(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
-    const paramMetadata: ParameterMetadata = this.#routeMetadata.get(method) ?? {};
+    const paramMetadata = this.#routeMetadata.get(method);
+    if (!paramMetadata) return args;
     const params = new Array<string>();
     for (const [param, metadata] of Object.entries(paramMetadata).toReversed()) {
       params.push(`:${param}`);
@@ -271,7 +275,8 @@ export abstract class Resource implements IResource {
   }
 
   private parseQueryParams(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
-    const paramMetadata: ParameterMetadata = this.#queryMetadata.get(method) ?? {};
+    const paramMetadata = this.#queryMetadata.get(method);
+    if (!paramMetadata) return args;
     for (const [param, metadata] of Object.entries(paramMetadata)) {
       // value of query parameter
       const value = request.query(param);

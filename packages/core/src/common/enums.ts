@@ -1,6 +1,8 @@
 export enum Headers {
   Allow = 'Allow',
   Authorization = 'Authorization',
+  CacheControl = 'Cache-Control',
+  Connection = 'Connection',
   TraceId = 'X-Trace-ID',
   Location = 'Location',
   ContentType = 'Content-Type',

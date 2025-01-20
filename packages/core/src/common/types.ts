@@ -44,4 +44,4 @@ export function isSuppressedError(value: unknown): value is SuppressedError {
   return value instanceof Error && 'suppressed' in value;
 }
 
-export type ServerSentEventIterator = () => Generator<ServerSentEvent, void, unknown>;
+export type ServerSentEventGenerator = () => Generator<ServerSentEvent, void, unknown> | AsyncGenerator<ServerSentEvent, void, unknown>;
