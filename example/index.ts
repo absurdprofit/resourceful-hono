@@ -4,7 +4,7 @@ import SSEResource from './resources/SSEResource.ts';
 import JSONResource from "./resources/JSONResource.ts";
 import UserResource from "./resources/UserResource.ts";
 
-const client = JSONResource.createClient();
+const client = JSONResource.createClient('http://localhost:8000');
 client.GET('hello', 0).then(console.log);
 client.get('nathan', 1).then(console.log);
 

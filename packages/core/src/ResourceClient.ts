@@ -1,15 +1,29 @@
 import { mergePath } from "jsr:@hono/hono@4.6.14/utils/url";
 import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from "./common/constants.ts";
 import { type ContentTypes, RequestMethod } from "./common/enums.ts";
-import type { ParameterMetadata, ResourceMethod } from "./common/types.ts";
+import type { ParameterMetadata, ResourceMethod, ServerSentEventIterator } from "./common/types.ts";
 import type { Resource, TypedResponse } from "./Resource.ts";
 import type { z } from 'npm:zod@3.24.1';
 import { BadRequestError } from "./common/errors.ts";
 
-export type IResourceClientMethod<M> = M extends (...args: infer A) => infer R ? (...args: [...A, signal?: AbortSignal]) => R extends TypedResponse<infer C> ? Promise<C> : R : never;
+export type IResourceClientMethod<M> =
+  M extends (...args: infer A) => infer R
+    ? (...args: [...A, signal?: AbortSignal]) =>
+      R extends TypedResponse<infer C> | Promise<TypedResponse<infer C>>
+        ? C extends ServerSentEventIterator
+          ? Promise<EventSource>
+        : Promise<C>
+      : R
+    : never;
 
 export type IResourceClient<R extends typeof Resource> = {
-  [K in ResourceMethod | Lowercase<ResourceMethod> as Uppercase<K> extends keyof InstanceType<R> ? K : never]: Uppercase<K> extends keyof InstanceType<R> ? IResourceClientMethod<InstanceType<R>[Uppercase<K>]> : never;
+  [
+    K in ResourceMethod | Lowercase<ResourceMethod> as Uppercase<K> extends keyof InstanceType<R>
+      ? K
+      : never
+  ]: Uppercase<K> extends keyof InstanceType<R>
+      ? IResourceClientMethod<InstanceType<R>[Uppercase<K>]>
+      : never;
 }
 
 export class ResourceClient<R extends typeof Resource> {
@@ -19,14 +33,16 @@ export class ResourceClient<R extends typeof Resource> {
   readonly #bodyMetadata;
   readonly #acceptMetadata;
   readonly #resource;
+  readonly #origin;
 
-  constructor(resource: R) {
+  constructor(resource: R, origin: string) {
     this.#resource = resource;
     this.#methods = resource.methods;
     this.#routeMetadata = this.collectParameterMetadata<ParameterMetadata>(ROUTE_METADATA_KEY);
     this.#queryMetadata = this.collectParameterMetadata<ParameterMetadata>(QUERY_METADATA_KEY);
     this.#bodyMetadata = this.collectParameterMetadata<ParameterMetadata>(BODY_METADATA_KEY);
     this.#acceptMetadata = this.collectParameterMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
+    this.#origin = origin;
 
     Object.defineProperties(
       this,
@@ -54,7 +70,7 @@ export class ResourceClient<R extends typeof Resource> {
     if (issues.length)
       throw new BadRequestError('There were issues in your request.', { issues });
 
-    const url = new URL(pathname, 'http://localhost:8000');
+    const url = new URL(pathname, this.#origin);
     url.search = search;
 
     const json = await fetch(url, { signal }).then(res => res.json());

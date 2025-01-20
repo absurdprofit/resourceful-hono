@@ -1,6 +1,7 @@
 import type { z } from 'npm:zod@3.24.1';
 import { type NonAbstractResourceLikeConstructor, Resource } from "../Resource.ts";
 import { RequestMethod } from "./enums.ts";
+import { ServerSentEvent } from "../ServerSentEvent.ts";
 
 export type Constructor<T = unknown> = abstract new (...args: never[]) => T;
 export type PrimitiveType = z.ZodString | z.ZodNumber | z.ZodBoolean;
@@ -42,3 +43,5 @@ export type ResourceMethod = `${RequestMethod}`;
 export function isSuppressedError(value: unknown): value is SuppressedError {
   return value instanceof Error && 'suppressed' in value;
 }
+
+export type ServerSentEventIterator = () => Generator<ServerSentEvent, void, unknown>;

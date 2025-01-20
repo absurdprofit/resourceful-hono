@@ -147,8 +147,16 @@ export abstract class Resource implements IResource {
     return Object.getPrototypeOf(this.constructor);
   }
 
-  public static createClient<T extends typeof Resource>(this: T): IResourceClient<T> {
-    return new ResourceClient(this) as unknown as IResourceClient<T>;
+  public static createClient<T extends typeof Resource>(
+    this: T,
+    ...[origin]: typeof globalThis extends { location: { origin: string } } ? [origin?: string] : [origin: string]
+  ): IResourceClient<T> {
+    if (globalThis.location instanceof Location)
+      origin ??= globalThis.location.origin;
+    else if (typeof origin !== 'string')
+      throw new TypeError('origin is required.');
+
+    return new ResourceClient(this, origin) as unknown as IResourceClient<T>;
   }
 
   public static get methods(): RequestMethod[] {
