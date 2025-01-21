@@ -1,20 +1,35 @@
 import { mergePath } from "jsr:@hono/hono@4.6.14/utils/url";
 import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from "./common/constants.ts";
-import { ContentTypes, Headers, type RequestMethod } from "./common/enums.ts";
+import { ContentTypes, Headers, HttpStatusCodes, type RequestMethod } from "./common/enums.ts";
 import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator } from "./common/types.ts";
-import type { Resource, TypedResponse } from "./Resource.ts";
+import type { Resource, TypedResultResponse, TypedRedirectResponse } from "./Resource.ts";
 import type { z } from 'npm:zod@3.24.1';
 import { BadRequestError } from "./common/errors.ts";
 import { EventSource } from 'npm:eventsource@3.0.2';
 
-export type IResourceClientMethod<M> =
-  M extends (...args: infer A) => infer R
+type Redirect<M, S, D> = D extends typeof Resource
+  ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
+    ? M extends keyof InstanceType<D>
+      ? ReturnType<IResourceClientMethod<M, InstanceType<D>[M]>>
+      : never
+    : RequestMethod.Get extends keyof InstanceType<D>
+      ? ReturnType<IResourceClientMethod<M, InstanceType<D>[RequestMethod.Get]>>
+      : never
+  : Promise<unknown>;
+type Result<C, T> = T extends ContentTypes.ServerSentEvent
+    ? Promise<EventSource>
+    : C extends ServerSentEventGenerator
+      ? Promise<EventSource>
+      : Promise<C>;
+
+type IResourceClientMethod<HttpMethod, ResourceMethod> =
+  ResourceMethod extends (...args: infer A) => infer R
     ? (...args: [...A, signal?: AbortSignal]) =>
-      R extends TypedResponse<infer C> | Promise<TypedResponse<infer C>>
-        ? C extends ServerSentEventGenerator
-          ? Promise<EventSource>
-        : Promise<C>
-      : R
+      R extends TypedRedirectResponse<infer S, infer D> | Promise<TypedRedirectResponse<infer S, infer D>>
+        ? Redirect<HttpMethod, S, D>
+        : R extends TypedResultResponse<infer C, infer T> | Promise<TypedResultResponse<infer C, infer T>>
+          ? Result<C, T>
+          : R
     : never;
 
 export type IResourceClient<R extends typeof Resource> = {
@@ -23,7 +38,7 @@ export type IResourceClient<R extends typeof Resource> = {
       ? K
       : never
   ]: Uppercase<K> extends keyof InstanceType<R>
-      ? IResourceClientMethod<InstanceType<R>[Uppercase<K>]>
+      ? IResourceClientMethod<Uppercase<K>, InstanceType<R>[Uppercase<K>]>
       : never;
 }
 

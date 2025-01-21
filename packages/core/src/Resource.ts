@@ -8,24 +8,31 @@ import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } fro
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
-import { ResourceClient } from "./ResourceClient.ts";
-import { IResourceClient } from "./index.ts";
+import { ResourceClient, type IResourceClient } from "./ResourceClient.ts";
 
-export function Redirect<S extends HttpStatusCodes | number>(status: S, url: URL | string): Response {
+export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
+  readonly status: S;
+  readonly redirected: true;
+}
+export function Redirect<S extends HttpStatusCodes | number, D extends URL | string | typeof Resource>(status: S, destination: D) {
   if (status < 300 || status > 399)
     throw new RangeError(`Invalid redirect status code: ${status}`);
+
+  if (typeof destination === 'function' && 'hono' in destination)
+    destination = destination.pathname as D;
+
   return new Response(
     undefined,
     {
       status,
       headers: {
-        [Headers.Location]: url.toString(),
+        [Headers.Location]: destination.toString(),
       },
     },
-  );
+  ) as TypedRedirectResponse<S, D>;
 }
 
-export interface TypedResponse<_ = unknown> extends Response {}
+export interface TypedResultResponse<_ = unknown, ___ = unknown> extends Response {}
 export function Result<
   S extends HttpStatusCodes | number,
   C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null,
@@ -34,7 +41,7 @@ export function Result<
   status: S,
   content?: C,
   contentType?: T
-): TypedResponse<C> {
+): TypedResultResponse<C, T> {
   if ((isBodyInit(content) && contentType !== ContentTypes.Json) || content === undefined || typeof content === "function") {
     const headers = new globalThis.Headers();
     let body;

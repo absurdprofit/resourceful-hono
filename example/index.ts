@@ -3,6 +3,7 @@ import BaseResource from "./resources/BaseResource.ts";
 import SSEResource from './resources/SSEResource.ts';
 import JSONResource from "./resources/JSONResource.ts";
 import UserResource from "./resources/UserResource.ts";
+import RedirectResource from "./resources/RedirectResource.ts";
 
 const origin = 'http://localhost:8000';
 const jsonClient = JSONResource.createClient(origin);
@@ -12,9 +13,15 @@ const sseClient = SSEResource.createClient(origin);
 sseClient.get().then(eventSource => {
   eventSource.addEventListener('hello', console.log);
 });
+const redirectClient = RedirectResource.createClient(origin);
+redirectClient.get().then(console.log);
+// redirectClient.patch().then(console.log);
+// redirectClient.post().then(console.log);
+// redirectClient.delete().then(console.log);
+
 
 const app = Application.instance;
-app.registerResources([BaseResource, SSEResource, JSONResource, UserResource]);
+app.registerResources([BaseResource, SSEResource, JSONResource, UserResource, RedirectResource]);
 
 app.addEventListener('ready', (e) => {
   // e.waitUntil(new Promise((resolve) => setTimeout(resolve, 5000)));
