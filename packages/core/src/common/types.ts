@@ -6,10 +6,9 @@ import { ServerSentEvent } from "../ServerSentEvent.ts";
 export type Constructor<T = unknown> = abstract new (...args: never[]) => T;
 export type PrimitiveType = z.ZodString | z.ZodNumber | z.ZodBoolean;
 export interface ParameterMetadata<T extends z.ZodType = z.ZodType> {
-  [key: string]: {
-    type: T;
-    parameterIndex: number;
-  }
+  schema: T;
+  type: "route" | "query" | "body";
+  key?: string;
 }
 export interface HttpRequestLog {
   traceId: string;

@@ -6,18 +6,18 @@ import UserResource from "./resources/UserResource.ts";
 import RedirectResource from "./resources/RedirectResource.ts";
 
 const origin = 'http://localhost:8000';
-const jsonClient = JSONResource.createClient(origin);
-jsonClient.GET('hello', 0).then(console.log);
-jsonClient.get('nathan', 1).then(console.log);
-const sseClient = SSEResource.createClient(origin);
-sseClient.get().then(eventSource => {
-  eventSource.addEventListener('hello', console.log);
-});
-const redirectClient = RedirectResource.createClient(origin);
-redirectClient.get().then(console.log);
-// redirectClient.patch().then(console.log);
-// redirectClient.post().then(console.log);
-// redirectClient.delete().then(console.log);
+// const jsonClient = JSONResource.createClient(origin);
+// jsonClient.GET('hello', 0).then(console.log);
+// jsonClient.get('nathan', 1).then(console.log);
+// const sseClient = SSEResource.createClient(origin);
+// sseClient.get().then(eventSource => {
+//   eventSource.addEventListener('hello', console.log);
+// });
+// const redirectClient = RedirectResource.createClient(origin);
+// redirectClient.get().then(console.log);
+// // redirectClient.patch().then(console.log);
+// // redirectClient.post().then(console.log);
+// // redirectClient.delete().then(console.log);
 
 
 const app = Application.instance;
