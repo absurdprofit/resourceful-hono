@@ -22,7 +22,7 @@ export interface HttpRequestLog {
 }
 
 export function isResourceConstructor(value: unknown): value is NonAbstractResourceLikeConstructor {
-  return Object.getPrototypeOf(Resource).isPrototypeOf(Object.getPrototypeOf(value));
+  return typeof value === "function" && value.prototype instanceof Resource;
 }
 
 export function isBodyInit(value: unknown): value is BodyInit {
@@ -42,3 +42,5 @@ export type ResourceMethod = `${RequestMethod}`;
 export function isSuppressedError(value: unknown): value is SuppressedError {
   return value instanceof Error && 'suppressed' in value;
 }
+
+export type OwnProperties<T> = { -readonly [P in keyof T]: TypedPropertyDescriptor<T[P]>; }

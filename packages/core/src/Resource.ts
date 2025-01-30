@@ -3,7 +3,7 @@ import { mergePath } from 'jsr:@hono/hono@4.6.14/utils/url';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import type { z } from 'npm:zod@3.24.1';
 import { ACCEPT_METADATA_KEY, BODY_METADATA_KEY, QUERY_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
-import { type ParameterMetadata, type ResourceMethodReturn, isBodyInit } from './common/types.ts';
+import { type OwnProperties, type ParameterMetadata, type ResourceMethodReturn, isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
@@ -174,14 +174,14 @@ export abstract class Resource implements IResource {
   }
 
   public clone(context: Context): this {
-    const clone = { ...this }; // clone resource
-    Object.setPrototypeOf(clone, this); // set prototype to this
-    Object.defineProperty(clone, 'context', { value: context, writable: false });
-    return clone;
+    const descriptors: OwnProperties<this> = Object.getOwnPropertyDescriptors(this);
+    descriptors.context = {
+      get: () => context,
+    };
+    return Object.create(Object.getPrototypeOf(this), descriptors);
   }
 
   private readonly handleRequest: Handler = async (context) => {
-    context.res.headers.set(Headers.TraceId, crypto.randomUUID()); // set trace header
     const method = context.req.method.toUpperCase() as RequestMethod;
     const methodHandler = (this as IResource)[method]!.bind(this.clone(context));
     const args: unknown[] = [];
@@ -197,6 +197,7 @@ export abstract class Resource implements IResource {
     if (Application.instance.state === 'idle')
       await Application.instance.ready;
     const response = await methodHandler(...args);
+    context.res.headers.set(Headers.TraceId, crypto.randomUUID()); // set trace header
     return response ?? Result(HttpStatusCodes.NoContent);
   };
 
