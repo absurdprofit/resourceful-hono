@@ -2,95 +2,87 @@ import { HttpStatusCodes } from "./enums.ts";
 
 export abstract class HttpError extends Error {
   public abstract readonly status: HttpStatusCodes;
-  public get extensions(): object {
-    return {};
+  public abstract readonly type: string;
+  public readonly title;
+  public readonly detail;
+
+  constructor(message?: string, options?: ErrorOptions) {
+    super(message, options);
+
+    this.title = this.constructor.name;
+    this.detail = message ?? "";
   }
-  public get type(): string {
-    return `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  
+  static override [Symbol.hasInstance](obj: unknown): boolean {
+    if (typeof obj !== 'object' || obj === null) return false;
+    if (this === HttpError) {
+        return Object.prototype.isPrototypeOf.call(this.prototype, obj);
+    } else if (obj instanceof HttpError && obj.name === this.name) {
+        // implicit cast to derived HttpError instance, e.g. BadRequestError, NotFoundError etc.
+        if (Object.getPrototypeOf(obj) !== this.prototype)
+            Object.setPrototypeOf(obj, this.prototype);
+        return true;
+    }
+    return false;
   }
 }
 
 export class NotFoundError extends HttpError {
-  public readonly status = HttpStatusCodes.NotFound;
-  public override readonly name = 'NotFoundError';
+  public override readonly status = HttpStatusCodes.NotFound;
+  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class ConflictError extends HttpError {
-  public readonly status = HttpStatusCodes.Conflict;
-  public override readonly name = 'ConflictError';
+  public override readonly status = HttpStatusCodes.Conflict;
+  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+}
+
+interface BadRequestErrorOptions extends ErrorOptions {
+  issues: object[];
 }
 
 export class BadRequestError extends HttpError {
-  public readonly status = HttpStatusCodes.BadRequest;
-  public override readonly name = 'BadRequestError';
+  public override readonly status = HttpStatusCodes.BadRequest;
+  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
   public readonly issues: object[];
 
-  constructor(message?: string, options?: ErrorOptions & { issues: object[] }) {
+  constructor(message?: string, options?: BadRequestErrorOptions) {
     super(message, options);
     this.issues = options?.issues ?? [];
-  }
-
-  public override get extensions(): { issues: object[]; } {
-    return {
-      issues: this.issues,
-    };
   }
 }
 
 export class InternalServerError extends HttpError {
-  public readonly status = HttpStatusCodes.InternalServerError;
-  public override readonly name = 'InternalServerError';
+  public override readonly status = HttpStatusCodes.InternalServerError;
+  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class UnauthorizedError extends HttpError {
-  public readonly status = HttpStatusCodes.Unauthorized;
-  public override readonly name = 'UnauthorizedError';
+  public override readonly status = HttpStatusCodes.Unauthorized;
+  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class DependencyFailedError extends HttpError {
-  public readonly status = HttpStatusCodes.DependencyFailed;
-  public override readonly name = 'DependencyFailedError';
+  public override readonly status = HttpStatusCodes.DependencyFailed;
+  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class MethodNotAllowedError extends HttpError {
-  public readonly status = HttpStatusCodes.MethodNotAllowed;
-  public override readonly name = 'MethodNotAllowedError';
+  public override readonly status = HttpStatusCodes.MethodNotAllowed;
+  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
-export class NotImplementedError extends Error {
-  public readonly status = HttpStatusCodes.NotImplemented;
-  public override readonly name = 'NotImplementedError';
+export class NotImplementedError extends HttpError {
+  public override readonly status = HttpStatusCodes.NotImplemented;
+  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class ForbiddenError extends HttpError {
-  public readonly status = HttpStatusCodes.Forbidden;
-  public override readonly name = 'ForbiddenError';
+  public override readonly status = HttpStatusCodes.Forbidden;
+  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class UnsupportedMediaTypeError extends HttpError {
-  public readonly status = HttpStatusCodes.UnsupportedMediaType;
-  public override readonly name = 'UnsupportedMediaType';
-}
-
-export class SerialisableError extends Error {
-  [key: string]: unknown;
-  public readonly trace: string[];
-  constructor(error: Error) {
-    super();
-    /* eslint no-magic-numbers: ["error", { "ignore": [1] }] */
-    this.trace = error.stack?.split('\n').splice(1).map(line => line.trim()) ?? [];
-    delete error.stack;
-    error.cause = error.cause instanceof Error ? new SerialisableError(error.cause) : error.cause;
-    Object.getOwnPropertyNames(error).forEach(key => {
-      if (key.startsWith('_')) return;
-      Object.defineProperty(this, key, {
-        enumerable: true,
-        value: error[key as keyof Error],
-      });
-    });
-  }
-
-  public toJSON(): { [P in keyof this]: this[P] } {
-    return { ...this };
-  }
+  public override readonly status = HttpStatusCodes.UnsupportedMediaType;
+  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
