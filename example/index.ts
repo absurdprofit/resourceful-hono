@@ -6,8 +6,11 @@ import UserResource from "./resources/UserResource.ts";
 import RedirectResource from "./resources/RedirectResource.ts";
 
 const origin = 'http://localhost:8000';
-// const jsonClient = JSONResource.createClient(origin);
-// jsonClient.GET('hello', 0).then(console.log);
+const jsonClient = JSONResource.createClient(origin);
+jsonClient.GET({ id: '9491d710-3185-4e06-bea0-6a2f275345e0', name: 'nathan' }, { page: 10 }).then(console.log);
+jsonClient.put({ name: 'name', email: 'email', displayName: 'displayName' }, 'name');
+jsonClient.post('1', 2);
+jsonClient.delete({ name: 'name', email: 'email', displayName: 'displayName' }, { page: 10 });
 // jsonClient.get('nathan', 1).then(console.log);
 // const sseClient = SSEResource.createClient(origin);
 // sseClient.get().then(eventSource => {

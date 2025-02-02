@@ -17,4 +17,12 @@ export default class JSONResource extends BaseResource {
   public PUT(@FromBody(PUTBody) data: z.infer<typeof PUTBody>, @FromBody('name', PUTBody.shape.name) name: z.infer<typeof PUTBody['shape']['name']>) {
     console.log(data, name);
   }
+
+  public POST(@FromBody(z.string()) numberString: string, @FromBody(z.number()) numberNumber: number) {
+    return Result(200);
+  }
+
+  public DELETE(@FromBody(PUTBody) body1: z.infer<typeof PUTBody>, @FromBody(GETQuery) body2: z.infer<typeof GETQuery>) {
+    return Result(200);
+  }
 }

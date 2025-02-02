@@ -142,36 +142,6 @@ export abstract class Resource implements IResource {
     return baseApp.basePath(instance?.route ?? '');
   }
 
-  private collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
-    return this.methods.reduce((metadata, method) => {
-      const schema = this.#parameterMetadata.get(method)?.filter(metadata => metadata.type === type).reduce((schema: z.ZodType | undefined, metadata) => {
-        if (metadata.key) {
-          metadata.schema = z.object({ [metadata.key]: metadata.schema });
-        }
-
-        if (schema) {
-          if (metadata.schema instanceof z.ZodObject && schema instanceof z.ZodObject)
-            return metadata.schema.merge(schema);
-          return metadata.schema.and(schema);
-        }
-        return metadata.schema;
-      }, undefined);
-      return metadata.set(method, schema as T);
-    }, new Map<RequestMethod, T | undefined>());
-  }
-
-  private collectMethodMetadata<T>(key: symbol) {
-    return this.methods.reduce((metadata, method) => {
-      return metadata.set(method, Reflect.getMetadata(key, this, method));
-    }, new Map<RequestMethod, T>());
-  }
-
-  private collectParameterMetadata() {
-    return this.methods.reduce((metadata, method) => {
-      return metadata.set(method, Reflect.getMetadata(PARAMETER_METADATA_KEY, this, method) ?? []);
-    }, new Map<RequestMethod, ParameterMetadata[]>());
-  }
-
   protected static get parent(): typeof Resource | null {
     if (Object.getPrototypeOf(this) === Resource) return null;
     return Object.getPrototypeOf(this);
@@ -272,6 +242,36 @@ export abstract class Resource implements IResource {
       default:
         return {}
     }
+  }
+
+  private collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
+    return this.methods.reduce((metadata, method) => {
+      const schema = this.#parameterMetadata.get(method)?.filter(metadata => metadata.type === type).reduce((schema: z.ZodType | undefined, metadata) => {
+        if (metadata.key) {
+          metadata.schema = z.object({ [metadata.key]: metadata.schema });
+        }
+
+        if (schema) {
+          if (metadata.schema instanceof z.ZodObject && schema instanceof z.ZodObject)
+            return metadata.schema.merge(schema);
+          return metadata.schema.and(schema);
+        }
+        return metadata.schema;
+      }, undefined);
+      return metadata.set(method, schema as T);
+    }, new Map<RequestMethod, T | undefined>());
+  }
+
+  private collectMethodMetadata<T>(key: symbol) {
+    return this.methods.reduce((metadata, method) => {
+      return metadata.set(method, Reflect.getMetadata(key, this, method));
+    }, new Map<RequestMethod, T>());
+  }
+
+  private collectParameterMetadata() {
+    return this.methods.reduce((metadata, method) => {
+      return metadata.set(method, Reflect.getMetadata(PARAMETER_METADATA_KEY, this, method) ?? []);
+    }, new Map<RequestMethod, ParameterMetadata[]>());
   }
 
   private async collectParameters(request: HonoRequest) {
