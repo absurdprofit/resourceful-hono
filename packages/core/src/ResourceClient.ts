@@ -45,7 +45,7 @@ export type IResourceClient<R extends typeof Resource> = {
 }
 
 export class ResourceClient<R extends typeof Resource> {
-  readonly methods;
+  readonly methods: RequestMethod[];
   readonly #parameterMetadata;
   readonly #routeSchema;
   readonly #acceptMetadata;

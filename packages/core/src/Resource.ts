@@ -15,7 +15,7 @@ export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = 
   readonly status: S;
   readonly redirected: true;
 }
-export function Redirect<S extends HttpStatusCodes | number, D extends URL | string | typeof Resource>(status: S, destination: D) {
+export function Redirect<S extends HttpStatusCodes | number, D extends URL | string | typeof Resource>(status: S, destination: D): TypedRedirectResponse<S, D> {
   if (status < 300 || status > 399)
     throw new RangeError(`Invalid redirect status code: ${status}`);
 

@@ -3,8 +3,8 @@ import { HttpStatusCodes } from "./enums.ts";
 export abstract class HttpError extends Error {
   public abstract readonly status: HttpStatusCodes;
   public abstract readonly type: string;
-  public readonly title;
-  public readonly detail;
+  public readonly title: string;
+  public readonly detail: string;
 
   constructor(message?: string, options?: ErrorOptions) {
     super(message, options);
@@ -28,7 +28,7 @@ export abstract class HttpError extends Error {
 }
 
 export class GenericHttpError extends HttpError {
-  public override readonly status;
+  public override readonly status: number;
   public override type: string;
   public override title: string;
   [key: string]: unknown;
@@ -48,12 +48,12 @@ export class GenericHttpError extends HttpError {
 
 export class NotFoundError extends HttpError {
   public override readonly status = HttpStatusCodes.NotFound;
-  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class ConflictError extends HttpError {
   public override readonly status = HttpStatusCodes.Conflict;
-  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 interface BadRequestErrorOptions extends ErrorOptions {
@@ -62,7 +62,7 @@ interface BadRequestErrorOptions extends ErrorOptions {
 
 export class BadRequestError extends HttpError {
   public override readonly status = HttpStatusCodes.BadRequest;
-  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
   public readonly issues: object[];
 
   constructor(message?: string, options?: BadRequestErrorOptions) {
@@ -73,35 +73,35 @@ export class BadRequestError extends HttpError {
 
 export class InternalServerError extends HttpError {
   public override readonly status = HttpStatusCodes.InternalServerError;
-  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class UnauthorizedError extends HttpError {
   public override readonly status = HttpStatusCodes.Unauthorized;
-  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class DependencyFailedError extends HttpError {
   public override readonly status = HttpStatusCodes.DependencyFailed;
-  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class MethodNotAllowedError extends HttpError {
   public override readonly status = HttpStatusCodes.MethodNotAllowed;
-  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class NotImplementedError extends HttpError {
   public override readonly status = HttpStatusCodes.NotImplemented;
-  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class ForbiddenError extends HttpError {
   public override readonly status = HttpStatusCodes.Forbidden;
-  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
 export class UnsupportedMediaTypeError extends HttpError {
   public override readonly status = HttpStatusCodes.UnsupportedMediaType;
-  public override readonly type = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
