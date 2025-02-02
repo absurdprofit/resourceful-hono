@@ -64,10 +64,20 @@ export class ResourceClient<R extends typeof Resource> {
       this.methods.reduce(
         (properties, method) => {
           properties[method] = {
-            value: (...parameters: unknown[]) => this.#METHOD(method, ...parameters),
+            value: {
+              [method]: async (...parameters: unknown[]) => {
+                return await this.#METHOD(method, ...parameters);
+              }
+            }[method],
+            enumerable: true,
           };
           properties[method.toLowerCase() as Lowercase<ResourceMethod>] = {
-            value: (...parameters: unknown[]) => this.#METHOD(method, ...parameters),
+            value: {
+              [method.toLowerCase()]: async (...parameters: unknown[]) => {
+                return await this.#METHOD(method, ...parameters);
+              }
+            }[method.toLowerCase()],
+            enumerable: true,
           };
           return properties;
         },
