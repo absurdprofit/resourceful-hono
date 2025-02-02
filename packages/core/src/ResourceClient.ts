@@ -144,6 +144,17 @@ export class ResourceClient<R extends typeof Resource> {
     let body = undefined;
     if (data?.body) {
       switch (contentType) {
+        case ContentTypes.FormUrlEncoded:
+        case ContentTypes.MultipartFormData:
+          if (typeof data.body === 'object' && data.body !== null) {
+            body = new FormData();
+            for (const key of data.body)
+              body.append(key, data.body[key]);
+          } else {
+            // This is sus. Should we instead select JSON if that's available?
+            throw new TypeError('Body must be object type for FormData');
+          }
+        break;
         case ContentTypes.Json:
           body = JSON.stringify(data.body);
         break;

@@ -1,4 +1,4 @@
-import { Application, BadRequestError } from '@resourceful-hono/core';
+import { Application } from '@resourceful-hono/core';
 import BaseResource from "./resources/BaseResource.ts";
 import SSEResource from './resources/SSEResource.ts';
 import JSONResource from "./resources/JSONResource.ts";
@@ -7,7 +7,7 @@ import RedirectResource from "./resources/RedirectResource.ts";
 
 const origin = 'http://localhost:8000';
 const jsonClient = JSONResource.createClient(origin);
-jsonClient.GET({ id: '9491d710-3185-4e06-bea0-6a2f275345e0', name: 'nathan' }, { page: 10 }).then(console.log).catch(console.error);
+jsonClient.get({ id: '9491d710-3185-4e06-bea0-6a2f275345e0', name: 'nathan' }, { page: 10 }).then(console.log).catch(console.error);
 // jsonClient.put({ name: 'name', email: 'email', displayName: 'displayName' }, 'name').catch(console.error);
 jsonClient.post('1').catch(console.error);
 // jsonClient.delete({ name: 'name', email: 'email', displayName: 'displayName' }, { page: 10 }).catch(console.error);
