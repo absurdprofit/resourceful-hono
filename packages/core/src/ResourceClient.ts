@@ -128,6 +128,8 @@ export class ResourceClient<R extends typeof Resource> {
   #collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
       return this.methods.reduce((metadata, method) => {
         const schema = this.#parameterMetadata.get(method)?.filter(metadata => metadata.type === type).reduce((schema: z.ZodType | undefined, metadata) => {
+          // avoid mutating metadata
+          metadata = { ...metadata };
           if (metadata.key) {
             metadata.schema = z.object({ [metadata.key]: metadata.schema });
           }
@@ -149,48 +151,32 @@ export class ResourceClient<R extends typeof Resource> {
       metadata,
       index
     ) => {
-      if (data[metadata.type]) {
-        if (metadata.key) {
+      if (metadata.key) {
+        if (data[metadata.type]) {
           data[metadata.type][metadata.key] = parameters[index];
-        } else if (
-          typeof data[metadata.type] === 'object'
-          && data[metadata.type] !== null
-          && typeof parameters[index] === 'object'
-          && parameters[index] !== null
-        ) {
+        } else {
           data[metadata.type] = {
-            ...data[metadata.type],
-            ...parameters[index],
+            [metadata.key]: parameters[index]
           };
         }
-        return data;
+      } else if (
+        typeof data[metadata.type] === 'object'
+        && data[metadata.type] !== null
+        && typeof parameters[index] === 'object'
+        && parameters[index] !== null
+      ) {
+        data[metadata.type] = {
+          ...data[metadata.type],
+          ...parameters[index],
+        };
       } else {
         data[metadata.type] = parameters[index];
       }
-      
+
       return data;
     }, { route: undefined, query: undefined, body: undefined });
     
-    let body = undefined;
-    if (data?.body) {
-      switch (contentType) {
-        case ContentTypes.FormUrlEncoded:
-        case ContentTypes.MultipartFormData:
-          if (typeof data.body === 'object' && data.body !== null) {
-            body = new FormData();
-            for (const key of data.body)
-              body.append(key, data.body[key]);
-          } else {
-            // This is sus. Should we instead select JSON if that's available?
-            throw new TypeError('Body must be object type for FormData');
-          }
-        break;
-        case ContentTypes.Json:
-          body = JSON.stringify(data.body);
-        break;
-      }
-    }
-    if (data?.route) {
+    if (data?.route && typeof data.route === 'object') {
       // order matters for route params
       const routeSchema = this.#routeSchema.get(method)!;
       data.route = Object.fromEntries(
@@ -200,10 +186,40 @@ export class ResourceClient<R extends typeof Resource> {
           .map(key => [key, data.route[key]])
       );
     }
+
+    const pathname = data?.route && typeof data.route === 'object'
+      ? mergePath(
+          this.#resource.pathname,
+          ...Object.values<string>(data?.route ?? {})
+        )
+      : mergePath(this.#resource.pathname, data?.route ?? "");
     return {
-      pathname: mergePath(this.#resource.pathname, ...Object.values<string>(data?.route ?? {})),
       search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
-      body,
+      pathname,
+      body: this.#serialiseBody(data?.body, contentType),
     }
+  }
+
+  #serialiseBody(body: z.infer<z.ZodType>, contentType: string) {
+    if (body) {
+      switch (contentType) {
+        case ContentTypes.FormUrlEncoded:
+        case ContentTypes.MultipartFormData:
+          if (typeof body === 'object' && body !== null) {
+            const formData = new FormData();
+            for (const key of body)
+              formData.append(key, body[key]);
+            body = formData;
+          } else {
+            // This is sus. Should we instead select JSON if that's available?
+            throw new TypeError('Body must be object type for FormData');
+          }
+        break;
+        case ContentTypes.Json:
+          body = JSON.stringify(body);
+        break;
+      }
+    }
+    return body;
   }
 }
