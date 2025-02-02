@@ -11,16 +11,11 @@ export const ErrorHandler: HonoErrorHandler = (error, context) => {
     context.error = error;
   }
 
-  context.status((error as HttpError).status);
-  const response = context.json({
-    type: (error as HttpError).type,
-    title: error.name,
-    status: (error as HttpError).status,
-    detail: error.message,
-    trace: context.res.headers.get(Headers.TraceId),
-    instance: context.req.path,
-    ...(error as HttpError).extensions,
-  });
-  response.headers.set(Headers.ContentType, ContentTypes.ProblemDetails);
-  return Promise.resolve(response);
+  return Promise.resolve(
+    context.json({
+      ...error,
+      trace: context.res.headers.get(Headers.TraceId),
+      instance: context.req.url,
+    }, (error as HttpError).status, { [Headers.ContentType]: ContentTypes.ProblemDetails })
+  );
 };
