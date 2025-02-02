@@ -3,7 +3,7 @@ import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY } from "./common/constants.
 import { ContentTypes, Headers, HttpStatusCodes, type RequestMethod } from "./common/enums.ts";
 import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator } from "./common/types.ts";
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from "./Resource.ts";
-import type { z } from 'npm:zod@3.24.1';
+import { z } from 'npm:zod@3.24.1';
 import { GenericHttpError, UnsupportedMediaTypeError } from "./common/errors.ts";
 import { EventSource } from 'npm:eventsource@3.0.2';
 
@@ -47,6 +47,7 @@ export type IResourceClient<R extends typeof Resource> = {
 export class ResourceClient<R extends typeof Resource> {
   readonly methods;
   readonly #parameterMetadata;
+  readonly #routeSchema;
   readonly #acceptMetadata;
   readonly #resource;
   readonly #origin;
@@ -56,6 +57,7 @@ export class ResourceClient<R extends typeof Resource> {
     this.#resource = resource;
     this.methods = resource.methods;
     this.#parameterMetadata = this.#collectParameterMetadata();
+    this.#routeSchema = this.#collectParameterSchema<z.AnyZodObject>('route');
     this.#acceptMetadata = this.#collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
     this.#origin = origin;
 
@@ -123,6 +125,24 @@ export class ResourceClient<R extends typeof Resource> {
     }, new Map<RequestMethod, ParameterMetadata[]>());
   }
 
+  #collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
+      return this.methods.reduce((metadata, method) => {
+        const schema = this.#parameterMetadata.get(method)?.filter(metadata => metadata.type === type).reduce((schema: z.ZodType | undefined, metadata) => {
+          if (metadata.key) {
+            metadata.schema = z.object({ [metadata.key]: metadata.schema });
+          }
+  
+          if (schema) {
+            if (metadata.schema instanceof z.ZodObject && schema instanceof z.ZodObject)
+              return metadata.schema.merge(schema);
+            return metadata.schema.and(schema);
+          }
+          return metadata.schema;
+        }, undefined);
+        return metadata.set(method, schema as T);
+      }, new Map<RequestMethod, T | undefined>());
+    }
+
   #serialiseParameters(method: RequestMethod, contentType: string, parameters: unknown[]) {
     const data = this.#parameterMetadata.get(method)?.reduce((
       data: Record<ParameterMetadata['type'], z.infer<z.ZodType> | undefined>,
@@ -138,10 +158,10 @@ export class ResourceClient<R extends typeof Resource> {
           && typeof parameters[index] === 'object'
           && parameters[index] !== null
         ) {
-            data[metadata.type] = {
-              ...data[metadata.type],
-              ...parameters[index],
-            };
+          data[metadata.type] = {
+            ...data[metadata.type],
+            ...parameters[index],
+          };
         }
         return data;
       } else {
@@ -169,6 +189,16 @@ export class ResourceClient<R extends typeof Resource> {
           body = JSON.stringify(data.body);
         break;
       }
+    }
+    if (data?.route) {
+      // order matters for route params
+      const routeSchema = this.#routeSchema.get(method)!;
+      data.route = Object.fromEntries(
+        Object.keys(routeSchema.shape)
+          .reverse()
+          .filter(key => key in data.route)
+          .map(key => [key, data.route[key]])
+      );
     }
     return {
       pathname: mergePath(this.#resource.pathname, ...Object.values<string>(data?.route ?? {})),
