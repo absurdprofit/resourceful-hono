@@ -2,8 +2,9 @@ import type { HonoRequest, Handler, Context } from 'jsr:@hono/hono@4.6.14';
 import { mergePath } from 'jsr:@hono/hono@4.6.14/utils/url';
 import { Hono } from 'jsr:@hono/hono@4.6.14';
 import { z } from 'npm:zod@3.24.1';
-import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
-import { OwnProperties, type ParameterMetadata, type ResourceMethodReturn, isBodyInit } from './common/types.ts';
+import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
+import type { OwnProperties, ParameterMetadata, ResourceMethodReturn } from './common/types.ts';
+import { isBodyInit } from "./common/types.ts";
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
@@ -92,7 +93,7 @@ export abstract class Resource implements IResource {
   readonly #bodySchema = this.collectParameterSchema('body');
   readonly #querySchema = this.collectParameterSchema('query');
   readonly #routeSchema = this.collectParameterSchema<z.AnyZodObject>('route');
-  // readonly #acceptMetadata = this.collectParameterMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
+  readonly #acceptMetadata = this.collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
   readonly HEAD = (this as IResource)['GET'];
 
   constructor() {
@@ -109,7 +110,6 @@ export abstract class Resource implements IResource {
         const optional = routeSchema.shape[param].isOptional();
         return `:${param}${optional ? '?' : ''}`;
       }).toReversed().join('/');
-      console.log(route)
       hono[literalToLowerCase(method)](route, handleRequest);
     }
     hono.options('*', this.#OPTIONS);
@@ -149,12 +149,21 @@ export abstract class Resource implements IResource {
           metadata.schema = z.object({ [metadata.key]: metadata.schema });
         }
 
-        if (schema)
-          return metadata.schema.merge(schema);
+        if (schema) {
+          if (metadata.schema instanceof z.ZodObject && schema instanceof z.ZodObject)
+            return metadata.schema.merge(schema);
+          return metadata.schema.and(schema);
+        }
         return metadata.schema;
       }, undefined);
       return metadata.set(method, schema as T);
     }, new Map<RequestMethod, T | undefined>());
+  }
+
+  private collectMethodMetadata<T>(key: symbol) {
+    return this.methods.reduce((metadata, method) => {
+      return metadata.set(method, Reflect.getMetadata(key, this, method));
+    }, new Map<RequestMethod, T>());
   }
 
   private collectParameterMetadata() {
@@ -224,97 +233,88 @@ export abstract class Resource implements IResource {
 
   private readonly handleRequest: Handler = async (context) => {
     const method = context.req.method.toUpperCase() as RequestMethod;
-    const methodHandler = (this as IResource)[method]!.bind(this.clone(context));
-    const args: unknown[] = [];
-    const issues: z.ZodIssue[] = [];
-    // this.parseRouteParams(method, context.req, args, issues);
-    // this.parseQueryParams(method, context.req, args, issues);
-    // if (method !== RequestMethod.Get && method !== RequestMethod.Head)
-    //   await this.parseBodyArgs(method, context.req, args, issues);
+    const methodHandler = (this as IResource)[method]?.bind(this.clone(context));
+    context.res.headers.set(Headers.TraceId, crypto.randomUUID()); // set trace header
+    const { parameters, issues } = await this.collectParameters(context.req);
 
     if (issues.length)
       throw new BadRequestError('There were issues in your request.', { issues });
 
     if (Application.instance.state === 'idle')
       await Application.instance.ready;
-    context.res.headers.set(Headers.TraceId, crypto.randomUUID()); // set trace header
-    const response = await methodHandler(...args, context.req.raw.signal);
+    const response = await methodHandler?.(...parameters, context.req.raw.signal);
     return response ?? Result(HttpStatusCodes.NoContent);
   };
 
-  // private async parseBodyArgs(
-  //   method: RequestMethod,
-  //   request: HonoRequest,
-  //   args: unknown[],
-  //   issues: z.ZodIssue[]
-  // ) {
-  //   const paramMetadata = this.#bodyMetadata.get(method);
-  //   if (!paramMetadata) return args;
-  //   const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
-  //   const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
-  //   let body;
-  //   switch(acceptedContentTypes.find(contentType.startsWith.bind(contentType))) {
-  //     case ContentTypes.FormUrlEncoded:
-  //     case ContentTypes.MultipartFormData:
-  //       body = await request.parseBody();
-  //     break;
-  //     case ContentTypes.Json:
-  //       body = await request.json();
-  //     break;
-  //     default:
-  //       throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
-  //   }
+  private async parseParameters(type: ParameterMetadata['type'], request: HonoRequest) {
+    const method = request.method as RequestMethod;
+    switch (type) {
+      case 'route':
+        return request.param();
+      case 'query':
+        return request.query();
+      case 'body': {
+        if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
+          const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
+          const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
+          switch(acceptedContentTypes.find(contentType.startsWith.bind(contentType))) {
+            case ContentTypes.FormUrlEncoded:
+            case ContentTypes.MultipartFormData:
+              return await request.parseBody();
+            case ContentTypes.Json:
+              return await request.json();
+            default:
+              throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
+          }    
+        }
+        return {};
+      }
+      default:
+        return {}
+    }
+  }
 
-  //   for (const metadata of Object.values(paramMetadata)) {
-  //     const parseResult = metadata.type.safeParse(body);
-  //     if (parseResult.error) {
-  //       issues.push(...parseResult.error.issues);
-  //     } else {
-  //       args[metadata.parameterIndex] = parseResult.data;
-  //     }
-  //   }
-  //   return args;
-  // }
+  private async collectParameters(request: HonoRequest) {
+    const method = request.method as RequestMethod;
+    const parameterMetadata = this.#parameterMetadata.get(method) ?? [];
+    const issues: z.ZodIssue[] = [];
+    let parameters: unknown[] = [];
 
-  // private parseRouteParams(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
-  //   const paramMetadata = this.#routeMetadata.get(method);
-  //   if (!paramMetadata) return args;
-  //   const params = new Array<string>();
-  //   for (const [param, metadata] of Object.entries(paramMetadata).toReversed()) {
-  //     params.push(`:${param}`);
-  //     // value of path parameter
-  //     const value = request.param(param);
-  //     const parseResult = metadata.type.safeParse(value);
-  //     if (parseResult.error) {
-  //       issues.push(...parseResult.error.issues.map(issue => {
-  //         // get route up until bad path part
-  //         const path = `${this.route}/${params.join('/')}`;
-  //         issue.path.push(path);
-  //         return issue;
-  //       }));
-  //     } else {
-  //       args[metadata.parameterIndex] = parseResult.data;
-  //     }
-  //   }
-  //   return args;
-  // }
+    if (parameterMetadata.length) {
+      const schemas: Record<ParameterMetadata['type'], z.ZodType | undefined> = {
+        route: this.#routeSchema.get(method),
+        query: this.#querySchema.get(method),
+        body: this.#bodySchema.get(method),
+      };
+      
+      const data = Object.fromEntries(
+        await Promise.all(
+          Object.entries(schemas).map(async ([type, schema]) => {
+            if (!schema) return [type, { [DEFAULT_PARAMETER_KEY]: undefined }];
+            const result = await schema.safeParseAsync(
+              await this.parseParameters(type as ParameterMetadata['type'], request)
+            );
+            const parsedData = {...(result['data'] ?? {})};
+            parsedData[DEFAULT_PARAMETER_KEY] = result['data'];
+            if (!result.success)
+              issues.push(...result.error.issues);
+      
+            return [
+              type,
+              parsedData,
+            ];
+          })
+        )
+      );
+  
+      parameters = parameterMetadata.map(({ type, key }) => {
+        return data[type][key ?? DEFAULT_PARAMETER_KEY];
+      });
+    }
 
-  // private parseQueryParams(method: RequestMethod, request: HonoRequest, args: unknown[], issues: z.ZodIssue[]) {
-  //   const paramMetadata = this.#queryMetadata.get(method);
-  //   if (!paramMetadata) return args;
-  //   for (const [param, metadata] of Object.entries(paramMetadata)) {
-  //     // value of query parameter
-  //     const value = request.query(param);
-  //     const parseResult = metadata.type.safeParse(value);
-  //     if (parseResult.error) {
-  //       issues.push(...parseResult.error.issues.map(issue => {
-  //         issue.path.push(`?${param}=`);
-  //         return issue;
-  //       }));
-  //     } else {
-  //       args[metadata.parameterIndex] = parseResult.data;
-  //     }
-  //   }
-  //   return args;
-  // }
+    return {
+      issues,
+      parameters,
+    };
+  }
 }

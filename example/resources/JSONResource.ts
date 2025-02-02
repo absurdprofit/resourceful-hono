@@ -2,13 +2,19 @@ import { ContentTypes, Result, HttpStatusCodes, FromRoute, FromBody, Accept, Fro
 import { z } from 'zod';
 import BaseResource from "./BaseResource.ts";
 
+const GETQuery = z.object({ page: z.coerce.number() });
+const GETParam = z.object({ name: z.string(), id: z.string().uuid() });
+const PUTBody = z.object({ name: z.string(), email: z.string().email(), displayName: z.string() });
 export default class JSONResource extends BaseResource {
-  public GET(@FromRoute('id', z.string()) id: string, @FromRoute('my', z.string()) my: string, @FromQuery('page', z.coerce.number()) page: number) {
-    return Result(HttpStatusCodes.Ok, { hello: id, page });
+  public GET(
+    @FromRoute(GETParam) param: z.infer<typeof GETParam>,
+    @FromQuery(GETQuery) query: z.infer<typeof GETQuery>
+  ) {
+    return Result(HttpStatusCodes.Ok, { param, query });
   }
 
   @Accept([ContentTypes.Json])
-  public POST(@FromBody(z.object({ name: z.string() })) data: { name: string }, @FromBody('name', z.string()) name: string) {
+  public PUT(@FromBody(PUTBody) data: z.infer<typeof PUTBody>, @FromBody('name', PUTBody.shape.name) name: z.infer<typeof PUTBody['shape']['name']>) {
     console.log(data, name);
   }
 }
