@@ -8,19 +8,19 @@ import RedirectResource from "./resources/RedirectResource.ts";
 const origin = 'http://localhost:8000';
 const jsonClient = JSONResource.createClient(origin);
 jsonClient.get({ id: '9491d710-3185-4e06-bea0-6a2f275345e0', name: 'nathan' }, { page: 10 }).then(console.log).catch(console.error);
-// jsonClient.put({ name: 'name', email: 'email', displayName: 'displayName' }, 'name').catch(console.error);
+jsonClient.put({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, 'name').catch(console.error);
 jsonClient.post('1').catch(console.error);
-// jsonClient.delete({ name: 'name', email: 'email', displayName: 'displayName' }, { page: 10 }).catch(console.error);
-// jsonClient.get('nathan', 1).then(console.log);
-// const sseClient = SSEResource.createClient(origin);
-// sseClient.get().then(eventSource => {
-//   eventSource.addEventListener('hello', console.log);
-// });
+jsonClient.delete({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, { page: 10 }).catch(console.error);
+jsonClient.get({ name: 'nathan', id: "9491d710-3185-4e06-bea0-6a2f275345e0" }, { page: 10 }).then(console.log).catch(console.error);
+const sseClient = SSEResource.createClient(origin);
+sseClient.get().then(eventSource => {
+  eventSource.addEventListener('hello', console.log);
+}).catch(console.error);
 // const redirectClient = RedirectResource.createClient(origin);
-// redirectClient.get().then(console.log);
-// // redirectClient.patch().then(console.log);
-// // redirectClient.post().then(console.log);
-// // redirectClient.delete().then(console.log);
+// redirectClient.get().then(console.log).catch(console.error);
+// redirectClient.patch().then(console.log);
+// redirectClient.post().then(console.log);
+// redirectClient.delete().then(console.log);
 
 
 const app = Application.instance;
