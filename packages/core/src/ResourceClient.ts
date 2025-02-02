@@ -1,10 +1,10 @@
 import { mergePath } from "jsr:@hono/hono@4.6.14/utils/url";
-import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from "./common/constants.ts";
-import { ContentTypes, Headers, HttpStatusCodes, type RequestMethod } from "./common/enums.ts";
+import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY } from "./common/constants.ts";
+import { ContentTypes, Headers, type HttpStatusCodes, type RequestMethod } from "./common/enums.ts";
 import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator } from "./common/types.ts";
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from "./Resource.ts";
-import { z } from 'npm:zod@3.24.1';
-import { BadRequestError } from "./common/errors.ts";
+import type { z } from 'npm:zod@3.24.1';
+import { GenericHttpError, UnsupportedMediaTypeError } from "./common/errors.ts";
 import { EventSource } from 'npm:eventsource@3.0.2';
 
 type Redirect<M, S, D> = D extends typeof Resource
@@ -20,7 +20,9 @@ type Result<C, T> = T extends ContentTypes.ServerSentEvent
     ? Promise<EventSource>
     : C extends ServerSentEventGenerator
       ? Promise<EventSource>
-      : Promise<C>;
+      : C extends undefined
+        ? Promise<void>
+        : Promise<C>;
 
 type IResourceClientMethod<HttpMethod, ResourceMethod> =
   ResourceMethod extends (...args: infer A) => infer R
@@ -29,7 +31,7 @@ type IResourceClientMethod<HttpMethod, ResourceMethod> =
         ? Redirect<HttpMethod, S, D>
         : R extends TypedResultResponse<infer C, infer T> | Promise<TypedResultResponse<infer C, infer T>>
           ? Result<C, T>
-          : R
+          : Promise<R>
     : never;
 
 export type IResourceClient<R extends typeof Resource> = {
@@ -48,6 +50,7 @@ export class ResourceClient<R extends typeof Resource> {
   readonly #acceptMetadata;
   readonly #resource;
   readonly #origin;
+  readonly #contentTypes = Object.values(ContentTypes);
 
   constructor(resource: R, origin: string) {
     this.#resource = resource;
@@ -76,16 +79,23 @@ export class ResourceClient<R extends typeof Resource> {
   async #METHOD(method: RequestMethod, ...args: unknown[]) {
     const { pathname, search, body } = this.#serialiseParameters(method, args);
     const signal = args.at(-1) instanceof AbortSignal ? args.at(-1) as AbortSignal : undefined;
- 
+
     const url = new URL(pathname, this.#origin);
     url.search = search;
 
     const response = await fetch(url, { signal, method });
 
-    if (response.headers.get(Headers.ContentType)?.startsWith(ContentTypes.ServerSentEvent)) {
-      return new EventSource(url, { fetch: () => Promise.resolve(response) });
+    const contentType = response.headers.get(Headers.ContentType) ?? "";
+    switch (this.#contentTypes.find(accepted => contentType.startsWith(accepted))) {
+      case ContentTypes.ProblemDetails:
+        throw new GenericHttpError(await response.json());
+      case ContentTypes.ServerSentEvent:
+        return new EventSource(url, { fetch: () => Promise.resolve(response) });
+      case ContentTypes.Json:
+        return await response.json();
+      default:
+        throw new UnsupportedMediaTypeError(`The server returned an unsupported content type: '${contentType}'`);
     }
-    return response.json();
   }
 
   #collectMethodMetadata<T>(key: symbol) {
@@ -129,7 +139,7 @@ export class ResourceClient<R extends typeof Resource> {
     }, { route: undefined, query: undefined, body: undefined });
     
     return {
-      pathname: [this.#resource.pathname, ...Object.values(data?.route ?? {})].join('/'),
+      pathname: mergePath(this.#resource.pathname, ...Object.values<string>(data?.route ?? {})),
       search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
       body: data?.body,
     }

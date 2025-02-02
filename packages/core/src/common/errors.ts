@@ -9,7 +9,7 @@ export abstract class HttpError extends Error {
   constructor(message?: string, options?: ErrorOptions) {
     super(message, options);
 
-    this.title = this.constructor.name;
+    this.title = this.name = this.constructor.name;
     this.detail = message ?? "";
   }
   
@@ -24,6 +24,25 @@ export abstract class HttpError extends Error {
         return true;
     }
     return false;
+  }
+}
+
+export class GenericHttpError extends HttpError {
+  public override readonly status;
+  public override type: string;
+  public override title: string;
+  [key: string]: unknown;
+  constructor(details: { [P in keyof Omit<HttpError, keyof Error>]: Omit<HttpError, keyof Error>[P] }) {
+    const { detail, status, title, type, ...rest } = details;
+    super(detail);
+    this.status = status;
+    this.type = type;
+    this.title = title;
+    this.name = title;
+
+    Object.entries(rest).forEach(([key, value]) => {
+      this[key] = value;
+    });
   }
 }
 

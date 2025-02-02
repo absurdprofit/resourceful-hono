@@ -36,8 +36,8 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
 export interface TypedResultResponse<_ = unknown, ___ = unknown> extends Response {}
 export function Result<
   S extends HttpStatusCodes | number,
-  C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null,
-  T extends ContentTypes | string
+  C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
+  T extends ContentTypes | string | undefined = undefined
 >(
   status: S,
   content?: C,
@@ -227,7 +227,7 @@ export abstract class Resource implements IResource {
         if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
           const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
           const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
-          switch(acceptedContentTypes.find(contentType.startsWith.bind(contentType))) {
+          switch(acceptedContentTypes.find(accepted => contentType.startsWith(accepted))) {
             case ContentTypes.FormUrlEncoded:
             case ContentTypes.MultipartFormData:
               return await request.parseBody();
