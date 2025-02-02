@@ -224,9 +224,9 @@ export abstract class Resource implements IResource {
       case 'query':
         return request.query();
       case 'body': {
-        if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
+        const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
+        if (![RequestMethod.Get, RequestMethod.Head].includes(method) && contentType) {
           const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
-          const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
           switch(acceptedContentTypes.find(accepted => contentType.startsWith(accepted))) {
             case ContentTypes.FormUrlEncoded:
             case ContentTypes.MultipartFormData:
@@ -240,7 +240,7 @@ export abstract class Resource implements IResource {
         return {};
       }
       default:
-        return {}
+        return {};
     }
   }
 

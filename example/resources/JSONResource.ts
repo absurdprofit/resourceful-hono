@@ -18,7 +18,7 @@ export default class JSONResource extends BaseResource {
     console.log(data, name);
   }
 
-  public POST(@FromBody(z.string()) numberString: string, @FromBody(z.number()) numberNumber: number) {
+  public POST(@FromBody(z.string()) numberString: string) {
     return Result(200);
   }
 

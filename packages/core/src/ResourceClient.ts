@@ -1,6 +1,6 @@
 import { mergePath } from "jsr:@hono/hono@4.6.14/utils/url";
 import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY } from "./common/constants.ts";
-import { ContentTypes, Headers, type HttpStatusCodes, type RequestMethod } from "./common/enums.ts";
+import { ContentTypes, Headers, HttpStatusCodes, type RequestMethod } from "./common/enums.ts";
 import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator } from "./common/types.ts";
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from "./Resource.ts";
 import type { z } from 'npm:zod@3.24.1';
@@ -25,8 +25,8 @@ type Result<C, T> = T extends ContentTypes.ServerSentEvent
         : Promise<C>;
 
 type IResourceClientMethod<HttpMethod, ResourceMethod> =
-  ResourceMethod extends (...args: infer A) => infer R
-    ? (...args: [...A, signal?: AbortSignal]) =>
+  ResourceMethod extends (...parameters: infer A) => infer R
+    ? (...parameters: [...A, signal?: AbortSignal]) =>
       R extends TypedRedirectResponse<infer S, infer D> | Promise<TypedRedirectResponse<infer S, infer D>>
         ? Redirect<HttpMethod, S, D>
         : R extends TypedResultResponse<infer C, infer T> | Promise<TypedResultResponse<infer C, infer T>>
@@ -64,10 +64,10 @@ export class ResourceClient<R extends typeof Resource> {
       this.methods.reduce(
         (properties, method) => {
           properties[method] = {
-            value: (...args: unknown[]) => this.#METHOD(method, ...args),
+            value: (...parameters: unknown[]) => this.#METHOD(method, ...parameters),
           };
           properties[method.toLowerCase() as Lowercase<ResourceMethod>] = {
-            value: (...args: unknown[]) => this.#METHOD(method, ...args),
+            value: (...parameters: unknown[]) => this.#METHOD(method, ...parameters),
           };
           return properties;
         },
@@ -76,17 +76,20 @@ export class ResourceClient<R extends typeof Resource> {
     );
   }
 
-  async #METHOD(method: RequestMethod, ...args: unknown[]) {
-    const { pathname, search, body } = this.#serialiseParameters(method, args);
-    const signal = args.at(-1) instanceof AbortSignal ? args.at(-1) as AbortSignal : undefined;
+  async #METHOD(method: RequestMethod, ...parameters: unknown[]) {
+    const [requestContentType] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
+    const { pathname, search, body } = this.#serialiseParameters(method, requestContentType, parameters);
+    const signal = parameters.at(-1) instanceof AbortSignal ? parameters.at(-1) as AbortSignal : undefined;
 
     const url = new URL(pathname, this.#origin);
     url.search = search;
 
-    const response = await fetch(url, { signal, method });
-
-    const contentType = response.headers.get(Headers.ContentType) ?? "";
-    switch (this.#contentTypes.find(accepted => contentType.startsWith(accepted))) {
+    const headers = new globalThis.Headers({ [Headers.ContentType]: requestContentType });
+    const response = await fetch(url, { signal, method, body, headers });
+    const responseContentType = response.headers.get(Headers.ContentType) ?? "";
+    
+    if (!responseContentType.length || response.status === HttpStatusCodes.NoContent) return;
+    switch (this.#contentTypes.find(accepted => responseContentType.startsWith(accepted))) {
       case ContentTypes.ProblemDetails:
         throw new GenericHttpError(await response.json());
       case ContentTypes.ServerSentEvent:
@@ -94,7 +97,7 @@ export class ResourceClient<R extends typeof Resource> {
       case ContentTypes.Json:
         return await response.json();
       default:
-        throw new UnsupportedMediaTypeError(`The server returned an unsupported content type: '${contentType}'`);
+        throw new UnsupportedMediaTypeError(`The server returned an unsupported content type: '${responseContentType}'`);
     }
   }
 
@@ -110,7 +113,7 @@ export class ResourceClient<R extends typeof Resource> {
     }, new Map<RequestMethod, ParameterMetadata[]>());
   }
 
-  #serialiseParameters(method: RequestMethod, parameters: unknown[]) {
+  #serialiseParameters(method: RequestMethod, contentType: string, parameters: unknown[]) {
     const data = this.#parameterMetadata.get(method)?.reduce((
       data: Record<ParameterMetadata['type'], z.infer<z.ZodType> | undefined>,
       metadata,
@@ -138,10 +141,18 @@ export class ResourceClient<R extends typeof Resource> {
       return data;
     }, { route: undefined, query: undefined, body: undefined });
     
+    let body = undefined;
+    if (data?.body) {
+      switch (contentType) {
+        case ContentTypes.Json:
+          body = JSON.stringify(data.body);
+        break;
+      }
+    }
     return {
       pathname: mergePath(this.#resource.pathname, ...Object.values<string>(data?.route ?? {})),
       search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
-      body: data?.body,
+      body,
     }
   }
 }
