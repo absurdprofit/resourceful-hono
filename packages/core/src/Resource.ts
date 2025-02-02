@@ -247,6 +247,8 @@ export abstract class Resource implements IResource {
   private collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
     return this.methods.reduce((metadata, method) => {
       const schema = this.#parameterMetadata.get(method)?.filter(metadata => metadata.type === type).reduce((schema: z.ZodType | undefined, metadata) => {
+        // avoid mutating metadata
+        metadata = { ...metadata };
         if (metadata.key) {
           metadata.schema = z.object({ [metadata.key]: metadata.schema });
         }
