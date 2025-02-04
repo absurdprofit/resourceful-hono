@@ -88,6 +88,10 @@ export class ResourceClient<R extends typeof Resource> {
     );
   }
 
+  get [Symbol.toStringTag]() {
+    return `${this.#resource.name}Client`;
+  }
+
   async #METHOD(method: RequestMethod, ...parameters: unknown[]) {
     const [requestContentType] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
     const { pathname, search, body } = this.#serialiseParameters(method, requestContentType, parameters);

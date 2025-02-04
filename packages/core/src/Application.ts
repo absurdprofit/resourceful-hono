@@ -10,6 +10,7 @@ import { TypedEventTarget } from "./TypedEventTarget.ts";
 export interface ApplicationEventMap {
   "ready": ReadyEvent;
   "finished": FinishEvent;
+  "error": ErrorEvent;
 }
 
 export type ApplicationState = 'idle' | 'running' | 'finished';
@@ -79,7 +80,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     this.#hono.onError(errorHandler);
   }
 
-  public getService<T extends Service>(key: Constructor<T>): Service {
+  public getService<T extends Service>(key: Constructor<T>): T {
     return this.#services.get(key);
   }
 

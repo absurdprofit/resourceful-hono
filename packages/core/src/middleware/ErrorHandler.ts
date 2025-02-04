@@ -2,6 +2,7 @@ import type { ErrorHandler as HonoErrorHandler } from 'jsr:@hono/hono@4.6.14';
 import { HttpError, InternalServerError } from "../common/errors.ts";
 import { ContentTypes, Headers } from "../common/enums.ts";
 import { isSuppressedError } from "../common/types.ts";
+import { Application } from "../index.ts";
 
 export const ErrorHandler: HonoErrorHandler = (error, context) => {
   if (isSuppressedError(error))
@@ -11,6 +12,7 @@ export const ErrorHandler: HonoErrorHandler = (error, context) => {
     context.error = error;
   }
 
+  Application.instance.dispatchEvent(new ErrorEvent('error', { error, message: error.message }));
   return Promise.resolve(
     context.json({
       ...error,
