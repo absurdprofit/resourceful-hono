@@ -88,7 +88,7 @@ export class ResourceClient<R extends typeof Resource> {
     );
   }
 
-  get [Symbol.toStringTag]() {
+  get [Symbol.toStringTag](): string {
     return `${this.#resource.name}Client`;
   }
 
