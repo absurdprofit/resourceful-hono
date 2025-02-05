@@ -72,8 +72,10 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     middlewares.forEach((middleware) => this.#hono.use(middleware));
   }
 
-  public registerService<T extends Service>(key: Constructor<T>, value: T) {
+  public registerService<T extends Service>(key: Constructor<T>, value: T): { registerService: Application['registerService'] } {
     this.#services.set(key, value);
+
+    return { registerService: this.registerService.bind(this) };
   }
 
   public registerErrorHandler(errorHandler: HonoErrorHandler) {
