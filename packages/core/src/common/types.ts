@@ -10,16 +10,6 @@ export interface ParameterMetadata<T extends z.ZodType = z.ZodType> {
   type: "route" | "query" | "body";
   key?: string;
 }
-export interface HttpRequestLog {
-  traceId: string;
-  method: string;
-  statusCode: number;
-  url: string;
-  ip: string;
-  userAgent: string;
-  timestamp: string;
-  responseTimeMs: number;
-}
 
 export function isResourceConstructor(value: unknown): value is NonAbstractResourceLikeConstructor {
   return typeof value === "function" && value.prototype instanceof Resource;

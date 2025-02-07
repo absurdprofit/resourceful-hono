@@ -2,7 +2,7 @@ import type { Hono, MiddlewareHandler, ErrorHandler as HonoErrorHandler } from '
 import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from "./ServiceMap.ts";
 import { type Constructor, isResourceConstructor } from "./common/types.ts";
-import { ErrorHandler, NotFoundHandler, ResponseTime } from "./middleware/index.ts";
+import { ErrorHandler, NotFoundHandler } from "./middleware/index.ts";
 import { FinishEvent, ReadyEvent } from "./common/events.ts";
 import { PromiseWrapper } from "./common/promise-wrapper.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
@@ -31,9 +31,6 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     if (instanceId !== Application.#instanceId)
       throw new TypeError('Illegal constructor');
 
-    this.registerMiddlewares([
-      ResponseTime,
-    ]);
     this.#hono.notFound(NotFoundHandler);
     this.registerErrorHandler(ErrorHandler);
 
@@ -64,7 +61,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
         if (isResourceConstructor(MaybeResourceConstructor))
           return new MaybeResourceConstructor();
         else
-          throw new Error(`Expected Resource but received:\n${MaybeResourceConstructor}`);
+          throw new Error(`Expected Resource but received:\n${String(MaybeResourceConstructor)}`);
       });
   }
 

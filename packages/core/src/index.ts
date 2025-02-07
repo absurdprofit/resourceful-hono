@@ -10,3 +10,5 @@ export * from './ServiceMap.ts';
 export * from './ServerSentEvent.ts';
 export * from './TransactionScope.ts';
 export * from './common/errors.ts';
+export * from './LogService/index.ts';
+export { Timing, Logger } from './middleware/index.ts';
