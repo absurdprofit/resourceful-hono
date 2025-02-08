@@ -1,3 +1,5 @@
+import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
+
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
 }
@@ -27,4 +29,17 @@ export async function PromiseAllDynamic<T>(values: Iterable<T | PromiseLike<T>>)
   }
 
   return awaited;
+}
+
+export function parseTotalDuration(input: string[]): string | null {
+  for (const item of input) {
+    if (!item.startsWith('total'))
+      continue;
+    
+    const match = TIMING_METRIC_DURATION_REGEX.exec(item);
+    if (match) {
+      return match[1];
+    }
+  }
+  return null;
 }

@@ -1,6 +1,8 @@
 import type { Context } from "jsr:@hono/hono@4.6.14";
 import { Headers, HttpStatusCodes } from "../common/enums.ts";
 import { type LogData, LogService } from "./LogService.ts";
+import { TimingVariables } from "jsr:@hono/hono@4.6.14/timing";
+import { parseTotalDuration } from "../common/utils.ts";
 
 enum StatusColour {
   REDIRECT = 'rgb(255, 255, 0)',
@@ -33,10 +35,12 @@ export class ConsoleLogService extends LogService {
     return console.error(error, payload ?? '');
   }
 
-  private printAccessLog(context: Context) {
-    const responseTimeMs = ` | ${context.res.headers.get(Headers.ResponseTime)}ms`;
-    const userAgent = ` | ${context.req.header(Headers.UserAgent)}`;
-    const log = `[${context.req.method} %c${context.res.status}%c] ${context.req.url} - ${new Date().toUTCString()}${userAgent}${responseTimeMs}\n`;
+  private printAccessLog(context: Context<{ Variables: TimingVariables }>) {
+    const responseTimeMs = `${parseTotalDuration(context.get('metric')?.headers ?? [])}ms`;
+    const userAgent = context.req.header(Headers.UserAgent);
+    const date = context.res.headers.get(Headers.Date);
+    const { origin, pathname, search } = new URL(context.req.url);
+    const log = `[${context.req.method} %c${context.res.status}%c] ${[origin, pathname, search].join('%c')} %c- ${[date, userAgent, responseTimeMs].join(' | ')}\n`;
     let statusColour;
     if (context.res.status < HttpStatusCodes.MultipleChoices) {
       statusColour = StatusColour.SUCCESS;
@@ -45,6 +49,6 @@ export class ConsoleLogService extends LogService {
     } else {
       statusColour = StatusColour.ERROR;
     }
-    console.log(log, `color: ${statusColour}`, 'color: white');
+    console.log(log, `color: ${statusColour}`, 'color: white', 'color: rgb(244, 188, 0)', 'color: blue', 'color: white');
   }
 }

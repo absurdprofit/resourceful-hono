@@ -8,8 +8,7 @@ export enum Headers {
   ContentType = 'Content-Type',
   ForwardedFor = 'X-Forwarded-For',
   UserAgent = 'User-Agent',
-  ResponseTime = 'X-Response-Time',
-  Timestamp = 'X-Timestamp'
+  Date = 'Date',
 }
 
 export enum ContentTypes {
