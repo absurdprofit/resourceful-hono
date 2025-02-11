@@ -1,7 +1,8 @@
 {
   "workspace": ["packages/*", "example"],
   "tasks": {
-    "list": "deno run --allow-all tasks/list.ts"
+    "list": "deno run --allow-all tasks/list.ts",
+    "test": "deno test --parallel"
   },
   "compilerOptions": {
     "strict": true,

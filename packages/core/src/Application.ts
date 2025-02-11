@@ -42,11 +42,13 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     this.#finishedPromise = new PromiseWrapper<void>();
     this.ready = this.#readyPromise.promise;
     this.finished = this.#finishedPromise.promise;
+    this.ready.then(() => this.#state = 'running');
+    this.finished.then(() => this.#state = 'finished');
     queueMicrotask(() => {
-      const readyEvent = new ReadyEvent(this.#readyPromise.resolve);
+      const readyEvent = new ReadyEvent(() => {
+        this.#readyPromise.resolve();
+      });
       this.dispatchEvent(readyEvent);
-      this.ready.then(() => this.#state = 'running');
-      this.finished.then(() => this.#state = 'finished');
     });
   }
 
@@ -65,7 +67,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
         if (isResourceConstructor(MaybeResourceConstructor))
           return new MaybeResourceConstructor();
         else
-          throw new Error(`Expected Resource but received:\n${String(MaybeResourceConstructor)}`);
+          throw new TypeError(`Expected Resource but received:\n${String(MaybeResourceConstructor)}`);
       });
   }
 
