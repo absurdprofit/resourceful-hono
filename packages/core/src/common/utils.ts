@@ -1,5 +1,4 @@
-import { Headers } from './enums.ts';
-import type { HttpRequestLog } from "./types.ts";
+import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
@@ -7,25 +6,6 @@ export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
 
 export function literalToUpperCase<T extends string>(value: T): Uppercase<T> {
   return value.toUpperCase() as Uppercase<T>;
-}
-
-export function createHttpRequestLog(req: Request, res: Response): HttpRequestLog {
-  const { url, method } = req;
-  const { status: statusCode } = res;
-  const ip = req.headers.get(Headers.ForwardedFor) ?? '';
-  const userAgent = req.headers.get(Headers.UserAgent) ?? '';
-  const responseTimeMs = Number(res.headers.get(Headers.ResponseTime));
-  const timestamp = res.headers.get(Headers.Timestamp) ?? '';
-  return {
-    traceId: res.headers.get(Headers.TraceId) ?? '',
-    method,
-    statusCode,
-    url,
-    ip,
-    userAgent,
-    responseTimeMs,
-    timestamp,
-  };
 }
 
 export function createReadableFromIterable<T, TReturn, TNext>(iterable: Iterable<T, TReturn, TNext> | AsyncIterable<T, TReturn, TNext>): ReadableStream {
@@ -49,4 +29,17 @@ export async function PromiseAllDynamic<T>(values: Iterable<T | PromiseLike<T>>)
   }
 
   return awaited;
+}
+
+export function parseTotalDuration(input: string[]): string | null {
+  for (const item of input) {
+    if (!item.startsWith('total'))
+      continue;
+    
+    const match = TIMING_METRIC_DURATION_REGEX.exec(item);
+    if (match) {
+      return match[1];
+    }
+  }
+  return null;
 }

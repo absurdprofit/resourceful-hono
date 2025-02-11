@@ -1,8 +1,8 @@
-import type { HonoRequest, Handler, Context } from 'jsr:@hono/hono@4.6.14';
-import { mergePath } from 'jsr:@hono/hono@4.6.14/utils/url';
-import { Hono } from 'jsr:@hono/hono@4.6.14';
-import { z } from 'npm:zod@3.24.1';
-import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
+import type { HonoRequest, Handler, Context, MiddlewareHandler } from 'hono';
+import { mergePath } from 'hono/utils/url';
+import { Hono } from 'hono';
+import { z } from 'zod';
+import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
 import type { OwnProperties, ParameterMetadata, ResourceMethodReturn } from './common/types.ts';
 import { isBodyInit } from "./common/types.ts";
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
@@ -78,8 +78,8 @@ export interface IResource {
   TRACE?(...args: unknown[]): ResourceMethodReturn;
 }
 type ResourceConstructorArgs = unknown[];
-export type NonAbstractResourceLikeConstructor = (new (...args: ResourceConstructorArgs) => Resource) & { route: string };
-export type AbstractResourceLikeConstructor = (abstract new (...args: ResourceConstructorArgs) => Resource) & { route: string };
+export type NonAbstractResourceLikeConstructor = new (...args: ResourceConstructorArgs) => Resource;
+export type AbstractResourceLikeConstructor = abstract new (...args: ResourceConstructorArgs) => Resource;
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
 export abstract class Resource implements IResource {
   declare public readonly context: Context;
@@ -94,6 +94,7 @@ export abstract class Resource implements IResource {
   readonly #querySchema = this.collectParameterSchema('query');
   readonly #routeSchema = this.collectParameterSchema<z.AnyZodObject>('route');
   readonly #acceptMetadata = this.collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
+  readonly #middlewareMetadata = this.collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
   readonly HEAD = (this as IResource)['GET'];
 
   constructor() {
@@ -104,12 +105,19 @@ export abstract class Resource implements IResource {
       throw new TypeError(`${this.constructor.name} cannot extend ${parentInstance.constructor.name}. Resources must extend abstract/virtual resources.`);
     // a Resource without methods is no resource at all
     if (!methods.length) return;
+    const resourceMiddlewares: MiddlewareHandler[] | undefined = Reflect.getMetadata(MIDDLEWARE_METADATA_KEY, this.constructor);
     for (const method of methods) {
       const routeSchema = this.#routeSchema.get(method) ?? z.object({});
       const route = Object.keys(routeSchema.shape).map(param => {
         const optional = routeSchema.shape[param].isOptional();
         return `:${param}${optional ? '?' : ''}`;
       }).toReversed().join('/');
+      resourceMiddlewares?.forEach(middleware =>
+        hono[literalToLowerCase(method)](route, middleware)
+      );
+      this.#middlewareMetadata.get(method)?.forEach(middleware => 
+        hono[literalToLowerCase(method)](route, middleware)
+      );
       hono[literalToLowerCase(method)](route, handleRequest);
     }
     hono.options('*', this.#OPTIONS);
@@ -204,7 +212,6 @@ export abstract class Resource implements IResource {
   private readonly handleRequest: Handler = async (context) => {
     const method = context.req.method.toUpperCase() as RequestMethod;
     const methodHandler = (this as IResource)[method]?.bind(this.clone(context));
-    context.res.headers.set(Headers.TraceId, crypto.randomUUID()); // set trace header
     const { parameters, issues } = await this.collectParameters(context.req);
 
     if (issues.length)

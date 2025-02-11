@@ -1,8 +1,8 @@
-import type { Hono, MiddlewareHandler, ErrorHandler as HonoErrorHandler } from 'jsr:@hono/hono@4.6.14';
+import type { Hono, MiddlewareHandler } from 'hono';
 import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from "./ServiceMap.ts";
 import { type Constructor, isResourceConstructor } from "./common/types.ts";
-import { ErrorHandler, NotFoundHandler, ResponseTime } from "./middleware/index.ts";
+import { ErrorHandler, NotFoundHandler, TraceContext } from "./middleware/index.ts";
 import { FinishEvent, ReadyEvent } from "./common/events.ts";
 import { PromiseWrapper } from "./common/promise-wrapper.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
@@ -31,21 +31,23 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     if (instanceId !== Application.#instanceId)
       throw new TypeError('Illegal constructor');
 
+    this.#hono.onError(ErrorHandler);
     this.registerMiddlewares([
-      ResponseTime,
+      TraceContext,
+      NotFoundHandler
     ]);
-    this.#hono.notFound(NotFoundHandler);
-    this.registerErrorHandler(ErrorHandler);
 
     this.#readyPromise = new PromiseWrapper<void>();
     this.#finishedPromise = new PromiseWrapper<void>();
     this.ready = this.#readyPromise.promise;
     this.finished = this.#finishedPromise.promise;
+    this.ready.then(() => this.#state = 'running');
+    this.finished.then(() => this.#state = 'finished');
     queueMicrotask(() => {
-      const readyEvent = new ReadyEvent(this.#readyPromise.resolve);
+      const readyEvent = new ReadyEvent(() => {
+        this.#readyPromise.resolve();
+      });
       this.dispatchEvent(readyEvent);
-      this.ready.then(() => this.#state = 'running');
-      this.finished.then(() => this.#state = 'finished');
     });
   }
 
@@ -64,7 +66,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
         if (isResourceConstructor(MaybeResourceConstructor))
           return new MaybeResourceConstructor();
         else
-          throw new Error(`Expected Resource but received:\n${MaybeResourceConstructor}`);
+          throw new TypeError(`Expected Resource but received:\n${String(MaybeResourceConstructor)}`);
       });
   }
 
@@ -72,12 +74,10 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     middlewares.forEach((middleware) => this.#hono.use(middleware));
   }
 
-  public registerService<T extends Service>(key: Constructor<T>, value: T) {
+  public registerService<T extends Service>(key: Constructor<T>, value: T): { registerService: Application['registerService'] } {
     this.#services.set(key, value);
-  }
 
-  public registerErrorHandler(errorHandler: HonoErrorHandler) {
-    this.#hono.onError(errorHandler);
+    return { registerService: this.registerService.bind(this) };
   }
 
   public getService<T extends Service>(key: Constructor<T>): T {

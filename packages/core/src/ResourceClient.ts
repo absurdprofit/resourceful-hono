@@ -1,11 +1,11 @@
-import { mergePath } from "jsr:@hono/hono@4.6.14/utils/url";
+import { mergePath } from "hono/utils/url";
 import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY } from "./common/constants.ts";
 import { ContentTypes, Headers, HttpStatusCodes, type RequestMethod } from "./common/enums.ts";
 import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator } from "./common/types.ts";
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from "./Resource.ts";
-import { z } from 'npm:zod@3.24.1';
+import { z } from 'zod';
 import { GenericHttpError, UnsupportedMediaTypeError } from "./common/errors.ts";
-import { EventSource } from 'npm:eventsource@3.0.2';
+import { EventSource } from 'eventsource';
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect

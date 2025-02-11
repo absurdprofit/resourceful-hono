@@ -1,9 +1,19 @@
-import { Application } from '@resourceful-hono/core';
+import { Application, Logger, ConsoleLogService, LogService, Timing } from '@resourceful-hono/core';
 import BaseResource from "./resources/BaseResource.ts";
 import SSEResource from './resources/SSEResource.ts';
 import JSONResource from "./resources/JSONResource.ts";
 import UserResource from "./resources/UserResource.ts";
 import RedirectResource from "./resources/RedirectResource.ts";
+
+class MyService {
+  [Symbol.asyncDispose]() {
+    return new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+}
+const app = Application.instance;
+app.registerMiddlewares([Logger, Timing]);
+app.registerService(MyService, new MyService())
+  .registerService(LogService, new ConsoleLogService());
 
 const origin = 'http://localhost:8000';
 const jsonClient = JSONResource.createClient(origin);
@@ -17,33 +27,23 @@ sseClient.get().then(eventSource => {
   eventSource.addEventListener('hello', console.log);
 }).catch(console.error);
 
-const app = Application.instance;
 app.registerResources([BaseResource, SSEResource, JSONResource, UserResource, RedirectResource]);
 
 app.addEventListener('ready', (e) => {
-  e.waitUntil(new Promise((resolve) => setTimeout(resolve, 5000)));
+  // e.waitUntil(new Promise((resolve) => setTimeout(resolve, 5000)));
 });
 
 app.ready.then(() => {
   console.log("Ready promise");
 });
 
-class MyService {
-  [Symbol.asyncDispose]() {
-    return new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-}
-
-app.registerService(MyService, new MyService());
-
-Deno.addSignalListener('SIGINT', () => {
-  app.finish();
-  app.finished.then(() => {
-    console.log('Graceful shutdown');
-    Deno.exit();
-  });
-
-});
+// Deno.addSignalListener('SIGINT', () => {
+//   app.finish();
+//   app.finished.then(() => {
+//     console.log('Graceful shutdown');
+//     Deno.exit();
+//   });
+// });
 
 export default {
   fetch: app.fetch

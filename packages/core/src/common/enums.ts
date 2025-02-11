@@ -1,15 +1,14 @@
 export enum Headers {
-  Allow = 'Allow',
-  Authorization = 'Authorization',
-  CacheControl = 'Cache-Control',
-  Connection = 'Connection',
-  TraceId = 'X-Trace-ID',
-  Location = 'Location',
-  ContentType = 'Content-Type',
-  ForwardedFor = 'X-Forwarded-For',
-  UserAgent = 'User-Agent',
-  ResponseTime = 'X-Response-Time',
-  Timestamp = 'X-Timestamp'
+  Allow = 'allow',
+  Authorization = 'authorization',
+  CacheControl = 'cache-control',
+  Connection = 'connection',
+  Traceparent = 'traceparent',
+  Location = 'location',
+  ContentType = 'content-type',
+  UserAgent = 'user-agent',
+  Date = 'date',
+  ServerTiming = 'server-timing',
 }
 
 export enum ContentTypes {

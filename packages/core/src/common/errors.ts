@@ -1,31 +1,5 @@
+import { HttpError } from "../HttpError.ts";
 import { HttpStatusCodes } from "./enums.ts";
-
-export abstract class HttpError extends Error {
-  public abstract readonly status: HttpStatusCodes;
-  public abstract readonly type: string;
-  public readonly title: string;
-  public readonly detail: string;
-
-  constructor(message?: string, options?: ErrorOptions) {
-    super(message, options);
-
-    this.title = this.name = this.constructor.name;
-    this.detail = message ?? "";
-  }
-  
-  static override [Symbol.hasInstance](obj: unknown): boolean {
-    if (typeof obj !== 'object' || obj === null) return false;
-    if (this === HttpError) {
-        return Object.prototype.isPrototypeOf.call(this.prototype, obj);
-    } else if (obj instanceof HttpError && obj.name === this.name) {
-        // implicit cast to derived HttpError instance, e.g. BadRequestError, NotFoundError etc.
-        if (Object.getPrototypeOf(obj) !== this.prototype)
-            Object.setPrototypeOf(obj, this.prototype);
-        return true;
-    }
-    return false;
-  }
-}
 
 export class GenericHttpError extends HttpError {
   public override readonly status: number;
