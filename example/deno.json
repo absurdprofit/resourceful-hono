@@ -7,6 +7,6 @@
   },
   "exports": {},
   "tasks": {
-    "serve": "deno serve -A --watch-hmr --inspect index.ts"
+    "serve": "OTEL_DENO=true deno serve -A --unstable-otel --watch-hmr --inspect index.ts"
   }
 }
