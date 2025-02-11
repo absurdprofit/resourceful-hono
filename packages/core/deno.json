@@ -2,5 +2,11 @@
   "name": "@resourceful-hono/core",
   "version": "1.0.0",
   "license": "MIT",
-  "exports": "./src/index.ts"
+  "exports": "./src/index.ts",
+  "exclude": [
+    "./src/__tests__/**/*.ts"
+  ],
+  "imports": {
+    "hono": "jsr:@hono/hono@4.6.14"
+  }
 }
