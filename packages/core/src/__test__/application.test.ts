@@ -58,7 +58,6 @@ Deno.test("register resources with invalid resource throws", () => {
 
 Deno.test("state transitions from idle to ready and finally to finish and service disposed", async () => {
   const app = Application.instance;
-  console.log('Here')
   
   // resolve ready.waitUntil
   promiseWrapper.resolve();
