@@ -1,6 +1,7 @@
 {
   "name": "@resourceful-hono/example",
   "version": "1.0.0",
+  "license": "MIT",
   "imports": {
     "@resourceful-hono/core": "../packages/core/src/index.ts",
     "zod": "npm:zod@3.24.1"
