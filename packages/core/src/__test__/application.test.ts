@@ -1,19 +1,17 @@
 import { expect } from "expect";
 import { Application, Resource } from "../index.ts";
+import { PromiseWrapper } from "../common/promise-wrapper.ts";
 
-Deno.test("state transitions from idle to ready and finally to finish", async () => {
-  const app = Application.instance;
-  // Initially, state should be 'idle'.
-  expect(app.state).toBe("idle");
+const promiseWrapper = new PromiseWrapper<void>();
+Application.instance.addEventListener('ready', (e) => e.waitUntil(promiseWrapper.promise));
+class DummyService {
+  value = true;
+  disposed = false;
 
-  // Wait for the ready promise to resolve and update the state.
-  await app.ready;
-  expect(app.state).toBe("running");
-
-  app.finish();
-  await app.finished;
-  expect(app.state).toBe("finished");
-});
+  [Symbol.dispose]() {
+    this.disposed = true;
+  }
+}
 
 Deno.test("Application instance getter returns the same reference", () => {
   const instanceRef1 = Application.instance;
@@ -29,9 +27,6 @@ Deno.test("creating new Application instance throws an Error", () => {
 });
 
 Deno.test("Register and get service", () => {
-  class DummyService {
-    value = true;
-  }
   const app = Application.instance;
   const service = new DummyService();
   app.registerService(DummyService, service);
@@ -59,4 +54,25 @@ Deno.test("register resources with invalid resource throws", () => {
   expect(() => {
     app.registerResources([falseResource as unknown as typeof Resource]);
   }).toThrow(TypeError);
+});
+
+Deno.test("state transitions from idle to ready and finally to finish and service disposed", async () => {
+  const app = Application.instance;
+  console.log('Here')
+  
+  // resolve ready.waitUntil
+  promiseWrapper.resolve();
+
+  // Initially, state should be 'idle'.
+  expect(app.state).toBe("idle");
+
+  // Wait for the ready promise to resolve and update the state.
+  await app.ready;
+  expect(app.state).toBe("running");
+
+  const service = app.getService(DummyService);
+  app.finish();
+  await app.finished;
+  expect(app.state).toBe("finished");
+  expect(service.disposed).toBeTruthy();
 });
