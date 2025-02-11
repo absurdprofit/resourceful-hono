@@ -32,10 +32,10 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     if (instanceId !== Application.#instanceId)
       throw new TypeError('Illegal constructor');
 
-    this.#hono.notFound(NotFoundHandler);
     this.#hono.onError(ErrorHandler);
     this.registerMiddlewares([
-      TraceContext
+      TraceContext,
+      NotFoundHandler
     ]);
 
     this.#readyPromise = new PromiseWrapper<void>();

@@ -1,10 +1,9 @@
-import type { NotFoundHandler as HonoNotFoundHandler } from 'jsr:@hono/hono@4.6.14';
+import { HttpStatusCodes } from "../common/enums.ts";
 import { NotFoundError } from "../common/errors.ts";
-import { endTimers } from "../common/utils.ts";
+import type { MiddlewareHandler } from "jsr:@hono/hono@4.6.14/types";
 
-export const NotFoundHandler: HonoNotFoundHandler = (context) => {
-  const { timers } = context.get('metric') ?? {};
-  if (timers)
-    endTimers(context, timers);
-  throw new NotFoundError('No Resource found at path: ' + context.req.path);
+export const NotFoundHandler: MiddlewareHandler = async (context, next) => {
+  await next();
+  if (context.res.status === HttpStatusCodes.NotFound && !context.error)
+    throw new NotFoundError('No Resource found at path: ' + context.req.path);
 };

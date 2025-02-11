@@ -36,8 +36,3 @@ export function isSuppressedError(value: unknown): value is SuppressedError {
 export type ServerSentEventGenerator = () => Generator<ServerSentEvent, void, unknown> | AsyncGenerator<ServerSentEvent, void, unknown>;
 
 export type OwnProperties<T> = { -readonly [P in keyof T]: TypedPropertyDescriptor<T[P]>; }
-
-export interface Timer {
-  description?: string
-  start: number
-}

@@ -47,12 +47,3 @@ export function parseTotalDuration(input: string[]): string | null {
   }
   return null;
 }
-
-export function endTimers(context: Context, timers: Map<string, Timer>) {
-  timers.keys().forEach((name) => {
-    endTime(context, name);
-  });
-  const { headers } = context.get('metric') ?? {};
-  if (headers)
-    context.res.headers.set(Headers.ServerTiming, headers.join(', '));
-}
