@@ -1,4 +1,4 @@
-import type { Hono, MiddlewareHandler, ErrorHandler as HonoErrorHandler } from 'jsr:@hono/hono@4.6.14';
+import type { Hono, MiddlewareHandler } from 'jsr:@hono/hono@4.6.14';
 import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from "./ServiceMap.ts";
 import { type Constructor, isResourceConstructor } from "./common/types.ts";
@@ -6,6 +6,7 @@ import { ErrorHandler, NotFoundHandler } from "./middleware/index.ts";
 import { FinishEvent, ReadyEvent } from "./common/events.ts";
 import { PromiseWrapper } from "./common/promise-wrapper.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
+import { TraceContext } from "./middleware/TraceContext.ts";
 
 export interface ApplicationEventMap {
   "ready": ReadyEvent;
@@ -32,7 +33,10 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
       throw new TypeError('Illegal constructor');
 
     this.#hono.notFound(NotFoundHandler);
-    this.registerErrorHandler(ErrorHandler);
+    this.#hono.onError(ErrorHandler);
+    this.registerMiddlewares([
+      TraceContext
+    ]);
 
     this.#readyPromise = new PromiseWrapper<void>();
     this.#finishedPromise = new PromiseWrapper<void>();
@@ -73,10 +77,6 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     this.#services.set(key, value);
 
     return { registerService: this.registerService.bind(this) };
-  }
-
-  public registerErrorHandler(errorHandler: HonoErrorHandler) {
-    this.#hono.onError(errorHandler);
   }
 
   public getService<T extends Service>(key: Constructor<T>): T {

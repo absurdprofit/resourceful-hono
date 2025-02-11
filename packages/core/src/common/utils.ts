@@ -1,4 +1,8 @@
+import { endTime } from "jsr:@hono/hono@4.6.14/timing";
 import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
+import type { Timer } from './types.ts';
+import type { Context } from "jsr:@hono/hono@4.6.14";
+import { Headers } from "./enums.ts";
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
@@ -42,4 +46,13 @@ export function parseTotalDuration(input: string[]): string | null {
     }
   }
   return null;
+}
+
+export function endTimers(context: Context, timers: Map<string, Timer>) {
+  timers.keys().forEach((name) => {
+    endTime(context, name);
+  });
+  const { headers } = context.get('metric') ?? {};
+  if (headers)
+    context.res.headers.set(Headers.ServerTiming, headers.join(', '));
 }

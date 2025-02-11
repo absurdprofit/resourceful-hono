@@ -212,7 +212,6 @@ export abstract class Resource implements IResource {
   private readonly handleRequest: Handler = async (context) => {
     const method = context.req.method.toUpperCase() as RequestMethod;
     const methodHandler = (this as IResource)[method]?.bind(this.clone(context));
-    context.res.headers.set(Headers.TraceId, crypto.randomUUID()); // set trace header
     const { parameters, issues } = await this.collectParameters(context.req);
 
     if (issues.length)
