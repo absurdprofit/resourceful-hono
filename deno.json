@@ -4,6 +4,11 @@
     "list": "deno run --allow-all tasks/list.ts",
     "test": "deno test --coverage --parallel"
   },
+  "publish": {
+    "exclude": [
+      "./example"
+    ]
+  },
   "compilerOptions": {
     "strict": true,
     "emitDecoratorMetadata": true,
