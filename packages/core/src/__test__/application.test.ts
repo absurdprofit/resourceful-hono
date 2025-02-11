@@ -1,6 +1,20 @@
 import { expect } from "expect";
 import { Application, Resource } from "../index.ts";
 
+Deno.test("state transitions from idle to ready and finally to finish", async () => {
+  const app = Application.instance;
+  // Initially, state should be 'idle'.
+  expect(app.state).toBe("idle");
+
+  // Wait for the ready promise to resolve and update the state.
+  await app.ready;
+  expect(app.state).toBe("running");
+
+  app.finish();
+  await app.finished;
+  expect(app.state).toBe("finished");
+});
+
 Deno.test("Application instance getter returns the same reference", () => {
   const instanceRef1 = Application.instance;
   const instanceRef2 = Application.instance;
@@ -45,18 +59,4 @@ Deno.test("register resources with invalid resource throws", () => {
   expect(() => {
     app.registerResources([falseResource as unknown as typeof Resource]);
   }).toThrow(TypeError);
-});
-
-Deno.test("state transitions from idle to ready and finally to finish", async () => {
-  const app = Application.instance;
-  // Initially, state should be 'idle'.
-  expect(app.state).toBe("idle");
-
-  // Wait for the ready promise to resolve and update the state.
-  await app.ready;
-  expect(app.state).toBe("running");
-
-  app.finish();
-  await app.finished;
-  expect(app.state).toBe("finished");
 });

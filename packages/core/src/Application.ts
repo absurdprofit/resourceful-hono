@@ -39,14 +39,10 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
 
     this.#readyPromise = new PromiseWrapper<void>();
     this.#finishedPromise = new PromiseWrapper<void>();
-    this.ready = this.#readyPromise.promise
-      .then(() => {
-        this.#state = 'running'
-      });
-    this.finished = this.#finishedPromise.promise
-      .then(() => {
-        this.#state = 'finished'
-      });
+    this.ready = this.#readyPromise.promise;
+    this.finished = this.#finishedPromise.promise;
+    this.ready.then(() => this.#state = 'running');
+    this.finished.then(() => this.#state = 'finished');
     queueMicrotask(() => {
       const readyEvent = new ReadyEvent(() => {
         this.#readyPromise.resolve();
