@@ -1,4 +1,4 @@
-import type { Context } from "jsr:@hono/hono@4.6.14";
+import type { Context } from "hono";
 
 export interface LogData {
   payload?: object;

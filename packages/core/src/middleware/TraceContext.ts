@@ -1,4 +1,4 @@
-import type { MiddlewareHandler } from "jsr:@hono/hono@4.6.14";
+import type { MiddlewareHandler } from "hono";
 import { Headers } from "../common/enums.ts";
 
 // Helper to generate a random hex string

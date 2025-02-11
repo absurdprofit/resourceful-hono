@@ -1,7 +1,7 @@
-import type { HonoRequest, Handler, Context, MiddlewareHandler } from 'jsr:@hono/hono@4.6.14';
-import { mergePath } from 'jsr:@hono/hono@4.6.14/utils/url';
-import { Hono } from 'jsr:@hono/hono@4.6.14';
-import { z } from 'npm:zod@3.24.1';
+import type { HonoRequest, Handler, Context, MiddlewareHandler } from 'hono';
+import { mergePath } from 'hono/utils/url';
+import { Hono } from 'hono';
+import { z } from 'zod';
 import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
 import type { OwnProperties, ParameterMetadata, ResourceMethodReturn } from './common/types.ts';
 import { isBodyInit } from "./common/types.ts";

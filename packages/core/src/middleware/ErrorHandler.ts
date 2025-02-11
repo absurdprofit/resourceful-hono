@@ -1,4 +1,4 @@
-import type { ErrorHandler as HonoErrorHandler } from 'jsr:@hono/hono@4.6.14';
+import type { ErrorHandler as HonoErrorHandler } from 'hono';
 import { InternalServerError } from "../common/errors.ts";
 import { ContentTypes, Headers } from "../common/enums.ts";
 import { isSuppressedError } from "../common/types.ts";

@@ -1,11 +1,11 @@
 import { MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ACCEPT_METADATA_KEY, ROUTE_METADATA_KEY } from './constants.ts';
-import type { z } from 'npm:zod@3.24.1';
+import type { z } from 'zod';
 import { type ContentTypes, RequestMethod } from "./enums.ts";
 import type { NonAbstractResourceLikeConstructor, Resource, ResourceLikeConstructor } from "../Resource.ts";
 import type { Constructor, ParameterMetadata, PrimitiveType, ResourceMethod } from "./types.ts";
 import { Application } from "../Application.ts";
 import type { Service } from "../ServiceMap.ts";
-import type { MiddlewareHandler } from "jsr:@hono/hono@4.6.14";
+import type { MiddlewareHandler } from "hono";
 
 export function Accept(acceptedContentTypes: ContentTypes[]): (target: Resource, propertyKey: string) => void {
   return function(target: Resource, propertyKey: string) {

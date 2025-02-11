@@ -1,5 +1,5 @@
-import type { MiddlewareHandler } from 'jsr:@hono/hono@4.6.14';
-import { timing } from 'jsr:@hono/hono@4.6.14/timing';
+import type { MiddlewareHandler } from 'hono';
+import { timing } from 'hono/timing';
 import { Headers } from "../common/enums.ts";
 
 const timer = timing();

@@ -1,12 +1,11 @@
-import type { Hono, MiddlewareHandler } from 'jsr:@hono/hono@4.6.14';
+import type { Hono, MiddlewareHandler } from 'hono';
 import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from "./ServiceMap.ts";
 import { type Constructor, isResourceConstructor } from "./common/types.ts";
-import { ErrorHandler, NotFoundHandler } from "./middleware/index.ts";
+import { ErrorHandler, NotFoundHandler, TraceContext } from "./middleware/index.ts";
 import { FinishEvent, ReadyEvent } from "./common/events.ts";
 import { PromiseWrapper } from "./common/promise-wrapper.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
-import { TraceContext } from "./middleware/TraceContext.ts";
 
 export interface ApplicationEventMap {
   "ready": ReadyEvent;
@@ -40,10 +39,14 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
 
     this.#readyPromise = new PromiseWrapper<void>();
     this.#finishedPromise = new PromiseWrapper<void>();
-    this.ready = this.#readyPromise.promise;
-    this.finished = this.#finishedPromise.promise;
-    this.ready.then(() => this.#state = 'running');
-    this.finished.then(() => this.#state = 'finished');
+    this.ready = this.#readyPromise.promise
+      .then(() => {
+        this.#state = 'running'
+      });
+    this.finished = this.#finishedPromise.promise
+      .then(() => {
+        this.#state = 'finished'
+      });
     queueMicrotask(() => {
       const readyEvent = new ReadyEvent(() => {
         this.#readyPromise.resolve();

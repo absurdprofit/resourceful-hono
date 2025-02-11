@@ -1,7 +1,7 @@
-import type { z } from 'npm:zod@3.24.1';
+import type { z } from 'zod';
 import { type NonAbstractResourceLikeConstructor, Resource } from "../Resource.ts";
-import { RequestMethod } from "./enums.ts";
-import { ServerSentEvent } from "../ServerSentEvent.ts";
+import type { RequestMethod } from "./enums.ts";
+import type { ServerSentEvent } from "../ServerSentEvent.ts";
 
 export type Constructor<T = unknown> = abstract new (...args: never[]) => T;
 export type PrimitiveType = z.ZodString | z.ZodNumber | z.ZodBoolean;

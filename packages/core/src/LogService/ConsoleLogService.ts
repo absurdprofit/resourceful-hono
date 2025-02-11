@@ -1,7 +1,7 @@
-import type { Context } from "jsr:@hono/hono@4.6.14";
+import type { Context } from "hono";
 import { Headers, HttpStatusCodes } from "../common/enums.ts";
 import { type LogData, LogService } from "./LogService.ts";
-import { TimingVariables } from "jsr:@hono/hono@4.6.14/timing";
+import type { TimingVariables } from "hono/timing";
 import { parseTotalDuration } from "../common/utils.ts";
 
 enum StatusColour {

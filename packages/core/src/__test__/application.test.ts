@@ -1,4 +1,4 @@
-import { expect } from "jsr:@std/expect";
+import { expect } from "expect";
 import { Application, Resource } from "../index.ts";
 
 Deno.test("Application instance getter returns the same reference", () => {

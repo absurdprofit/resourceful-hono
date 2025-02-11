@@ -7,6 +7,9 @@
     "./src/__tests__/**/*.ts"
   ],
   "imports": {
-    "hono": "jsr:@hono/hono@4.6.14"
+    "hono": "jsr:@hono/hono@4.6.14",
+    "zod": "npm:zod@3.24.1",
+    "eventsource": "npm:eventsource@3.0.2",
+    "expect": "jsr:@std/expect"
   }
 }
