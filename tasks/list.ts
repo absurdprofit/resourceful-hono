@@ -12,11 +12,18 @@ async function summaryFromPackage(path: string) {
   const denoJSONPath = join(path, 'deno.json');
   if (await exists(denoJSONPath)) {
     const denoJSON = JSON.parse(await Deno.readTextFile(denoJSONPath));
-    return {
-      name: denoJSON.name,
-      version: denoJSON.version,
-      path
-    };
+    const exclude = [
+      ...DenoJSON.publish.exclude,
+      ...(denoJSON?.exclude ?? []),
+      ...(denoJSON?.publish?.exclude ?? [])
+    ].map(pattern => join(Deno.cwd(), pattern));
+    if (!exclude.some(pattern => globToRegExp(pattern).test(path))) {
+      return {
+        name: denoJSON.name,
+        version: denoJSON.version,
+        path
+      };
+    }
   }
   return null;
 }
@@ -60,7 +67,7 @@ async function getChangedPackages(sinceHash: string) {
         }
       }
     } else if (changedFilePaths.some(path => path.startsWith(pattern))) {
-      list.push(await summaryFromPackage(pattern));
+      list.push(await summaryFromPackage(join(Deno.cwd(), pattern)));
     }
   }
 
