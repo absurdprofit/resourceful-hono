@@ -1,7 +1,7 @@
 import { PromiseAllDynamic } from "./utils.ts";
 
 export class ReadyEvent extends Event {
-  readonly #promises: Promise<void>[] = [];
+  readonly #promises: Promise<unknown>[] = [];
 
   constructor(resolve: (value: void) => void) {
     super('ready', {
@@ -13,7 +13,7 @@ export class ReadyEvent extends Event {
     PromiseAllDynamic(this.#promises).then(() => resolve());
   }
 
-  public waitUntil = (promise: Promise<void>): void => {
+  public waitUntil = (promise: Promise<unknown>): void => {
     this.#promises.push(promise);
   }
 }
