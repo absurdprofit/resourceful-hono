@@ -15,17 +15,23 @@ app.registerMiddlewares([Logger, Timing]);
 app.registerService(MyService, new MyService())
   .registerService(LogService, new ConsoleLogService());
 
-const origin = 'http://localhost:8000';
-const jsonClient = JSONResource.createClient(origin);
-jsonClient.get({ id: '9491d710-3185-4e06-bea0-6a2f275345e0', name: 'nathan' }, { page: 10 }).then(console.log).catch(console.error);
-jsonClient.put({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, 'name').catch(console.error);
-jsonClient.post('1').catch(console.error);
-jsonClient.delete({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, { page: 10 }).catch(console.error);
-jsonClient.get({ name: 'nathan', id: "9491d710-3185-4e06-bea0-6a2f275345e0" }, { page: 10 }).then(console.log).catch(console.error);
-const sseClient = SSEResource.createClient(origin);
-sseClient.get().then(eventSource => {
-  eventSource.addEventListener('hello', console.log);
-}).catch(console.error);
+JSONResource.contentTypes.use('text/*', { encode(object) {
+  return new Response(String(object));
+}, decode(request) {
+  return request.text();
+}, });
+
+// const origin = 'http://localhost:8000';
+// const jsonClient = JSONResource.createClient(origin);
+// jsonClient.get({ id: '9491d710-3185-4e06-bea0-6a2f275345e0', name: 'nathan' }, { page: 10 }).then(console.log).catch(console.error);
+// jsonClient.put({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, 'name').catch(console.error);
+// jsonClient.post('1').catch(console.error);
+// jsonClient.delete({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, { page: 10 }).catch(console.error);
+// jsonClient.get({ name: 'nathan', id: "9491d710-3185-4e06-bea0-6a2f275345e0" }, { page: 10 }).then(console.log).catch(console.error);
+// const sseClient = SSEResource.createClient(origin);
+// sseClient.get().then(eventSource => {
+//   eventSource.addEventListener('hello', console.log);
+// }).catch(console.error);
 
 app.registerResources([BaseResource, SSEResource, JSONResource, UserResource, RedirectResource]);
 

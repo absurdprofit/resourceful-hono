@@ -10,6 +10,7 @@ import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/
 import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
 import { ResourceClient, type IResourceClient } from "./ResourceClient.ts";
+import { ContentTypeRouter } from "./ContentTypeRouter.ts";
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
   readonly status: S;
@@ -42,25 +43,26 @@ export function Result<
   status: S,
   content?: C,
   contentType?: T
-): TypedResultResponse<C, T> {
-  if ((isBodyInit(content) && contentType !== ContentTypes.Json) || content === undefined || typeof content === "function") {
-    const headers = new globalThis.Headers();
-    let body;
-    if (contentType) headers.set(Headers.ContentType, contentType);
-    if (typeof content === "function") {
-      body = createReadableFromIterable(content());
-      if (contentType?.startsWith(ContentTypes.ServerSentEvent)) {
-        body = body.pipeThrough(new TextEncoderStream());
-        headers.set(Headers.CacheControl, 'no-cache');
-        headers.set(Headers.Connection, 'keep-alive');
-      }
-    } else {
-      body = content;
+): TypedResultResponse<C, T> | Promise<TypedResultResponse<C, T>> {
+  const headers = new globalThis.Headers();
+  let body;
+  if (isBodyInit(content)) {
+    body = content;
+  } else if (typeof content === "function") {
+    body = createReadableFromIterable(content());
+    if (contentType?.startsWith(ContentTypes.ServerSentEvent)) {
+      body = body.pipeThrough(new TextEncoderStream());
+      headers.set(Headers.CacheControl, 'no-cache');
+      headers.set(Headers.Connection, 'keep-alive');
     }
-    return new Response(body, { status, headers });
   } else {
-    return Response.json(content);
+    if (!contentType && content !== undefined && typeof content !== "function")
+      contentType = ContentTypes.Json as T;
+    const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
+    if (encode)
+      return encode(content, { status, headers });
   }
+  return new Response(body, { status, headers });
 }
 export interface IResource {
   readonly route: string;
@@ -83,6 +85,7 @@ export type AbstractResourceLikeConstructor = abstract new (...args: ResourceCon
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
 export abstract class Resource implements IResource {
   declare public readonly context: Context;
+  public static readonly contentTypes = new ContentTypeRouter();
   /**
    * The root hono instance.
    */
@@ -93,11 +96,30 @@ export abstract class Resource implements IResource {
   readonly #bodySchema = this.collectParameterSchema('body');
   readonly #querySchema = this.collectParameterSchema('query');
   readonly #routeSchema = this.collectParameterSchema<z.AnyZodObject>('route');
-  readonly #acceptMetadata = this.collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
+  readonly #acceptMetadata = this.collectMethodMetadata<ContentTypes[] | undefined>(ACCEPT_METADATA_KEY);
   readonly #middlewareMetadata = this.collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
-  readonly HEAD = (this as IResource)['GET'];
+  readonly #acceptedContentTypes;
 
   constructor() {
+    this.#acceptedContentTypes = new Map(
+      this.#acceptMetadata.entries().map(([method, contentTypes]) => {
+        const router = new ContentTypeRouter();
+        contentTypes ??= [ContentTypes.Json];
+        contentTypes.forEach((contentType) => {
+          const handler = Resource.contentTypes.get(contentType);
+          if (handler)
+            router.use(contentType, handler);
+          else
+            throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
+        });
+        return [method, router];
+      })
+    );
+
+    this.#registerRoutes();
+  }
+
+  #registerRoutes() {
     const { hono, handleRequest } = this;
     const methods = this.methods.filter(method => RequestMethod.Head !== method);
     const parentInstance = Object.getPrototypeOf(Object.getPrototypeOf(this));
@@ -223,7 +245,7 @@ export abstract class Resource implements IResource {
     return response ?? Result(HttpStatusCodes.NoContent);
   };
 
-  private async parseParameters(type: ParameterMetadata['type'], request: HonoRequest) {
+  private parseParameters(type: ParameterMetadata['type'], request: HonoRequest) {
     const method = request.method as RequestMethod;
     switch (type) {
       case 'route':
@@ -231,18 +253,13 @@ export abstract class Resource implements IResource {
       case 'query':
         return request.query();
       case 'body': {
-        const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
-        if (![RequestMethod.Get, RequestMethod.Head].includes(method) && contentType) {
-          const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
-          switch(acceptedContentTypes.find(accepted => contentType.startsWith(accepted))) {
-            case ContentTypes.FormUrlEncoded:
-            case ContentTypes.MultipartFormData:
-              return await request.parseBody();
-            case ContentTypes.Json:
-              return await request.json();
-            default:
-              throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
-          }    
+        if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
+          const acceptedContentTypes = this.#acceptedContentTypes.get(method);
+          const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
+          const handler = acceptedContentTypes?.get(contentType);
+          if (handler)
+            return handler.decode(request.raw);
+          throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
         }
         return {};
       }

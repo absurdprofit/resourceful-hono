@@ -32,11 +32,14 @@ export default class JSONResource extends BaseResource {
     console.log(data, name);
   }
 
+  @Accept([ContentTypes.PlainText])
   public POST(@FromBody(z.string()) numberString: string) {
+    console.log(numberString);
     return Result(200);
   }
 
+  @Accept([ContentTypes.MultipartFormData])
   public DELETE(@FromBody(PUTBody) body1: z.infer<typeof PUTBody>, @FromBody(GETQuery) body2: z.infer<typeof GETQuery>) {
-    return Result(200);
+    return Result(201, { body1, body2 });
   }
 }
