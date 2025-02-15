@@ -7,10 +7,10 @@ import type { OwnProperties, ParameterMetadata, ResourceMethodReturn } from './c
 import { isBodyInit } from "./common/types.ts";
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
+import { createGlobalContentTypeRouter, literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
 import { ResourceClient, type IResourceClient } from "./ResourceClient.ts";
-import { ContentTypeRouter } from "./ContentTypeRouter.ts";
+import { type ContentTypeHandler, ContentTypeRouter } from "./ContentTypeRouter.ts";
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
   readonly status: S;
@@ -88,7 +88,8 @@ export type AbstractResourceLikeConstructor = abstract new (...args: ResourceCon
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
 export abstract class Resource implements IResource {
   declare public readonly context: Context;
-  public static readonly contentTypes = new ContentTypeRouter();
+  static readonly #contentTypeRouter = createGlobalContentTypeRouter();
+  private readonly contentTypeRouter = new ContentTypeRouter();
   /**
    * The root hono instance.
    */
@@ -101,23 +102,18 @@ export abstract class Resource implements IResource {
   readonly #routeSchema = this.collectParameterSchema<z.AnyZodObject>('route');
   readonly #acceptMetadata = this.collectMethodMetadata<ContentTypes[] | undefined>(ACCEPT_METADATA_KEY);
   readonly #middlewareMetadata = this.collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
-  readonly #acceptedContentTypes;
 
   constructor() {
-    this.#acceptedContentTypes = new Map(
-      this.#acceptMetadata.entries().map(([method, contentTypes]) => {
-        const router = new ContentTypeRouter();
-        contentTypes ??= [ContentTypes.Json];
-        contentTypes.forEach((contentType) => {
-          const handler = Resource.contentTypes.get(contentType);
-          if (handler)
-            router.use(contentType, handler);
-          else
-            throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
-        });
-        return [method, router];
-      })
-    );
+    this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
+      contentTypes ??= [ContentTypes.Json];
+      contentTypes.forEach((contentType) => {
+        const handler = Resource.contentTypes.get(contentType);
+        if (handler)
+          this.contentTypeRouter.use(method, contentType, handler);
+        else
+          throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
+      });
+    });
 
     this.#registerRoutes();
   }
@@ -197,6 +193,17 @@ export abstract class Resource implements IResource {
     return new ResourceClient(this, origin) as unknown as IResourceClient<T>;
   }
 
+  public static get contentTypes() {
+    return {
+      use: (pattern: string | string[], handler: ContentTypeHandler) => {
+        return this.#contentTypeRouter.use('*', pattern, handler)
+      },
+      get: (contentType: string) => {
+        return this.#contentTypeRouter.get('*', contentType);
+      }
+    }
+  }
+
   public static get methods(): RequestMethod[] {
     return Object.values(RequestMethod).filter((method => method in this.prototype));
   }
@@ -257,9 +264,8 @@ export abstract class Resource implements IResource {
         return request.query();
       case 'body': {
         if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
-          const acceptedContentTypes = this.#acceptedContentTypes.get(method);
           const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
-          const handler = acceptedContentTypes?.get(contentType);
+          const handler = this.contentTypeRouter.get(method, contentType);
           if (handler)
             return handler.decode(request.raw);
           throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);

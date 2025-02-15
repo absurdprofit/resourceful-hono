@@ -6,7 +6,8 @@ import type { Resource, TypedResultResponse, TypedRedirectResponse } from "./Res
 import { z } from 'zod';
 import { UnsupportedMediaTypeError } from "./common/errors.ts";
 import type { EventSource } from 'eventsource';
-import { ContentTypeRouter } from "./ContentTypeRouter.ts";
+import { type ContentTypeHandler, ContentTypeRouter } from "./ContentTypeRouter.ts";
+import { createGlobalContentTypeRouter } from "./common/utils.ts";
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -46,12 +47,12 @@ export type IResourceClient<R extends typeof Resource> = {
 }
 
 export class ResourceClient<R extends typeof Resource> {
-  public static readonly contentTypes = new ContentTypeRouter();
+  static readonly #contentTypeRouter = createGlobalContentTypeRouter();
+  private readonly contentTypeRouter = new ContentTypeRouter();
   readonly methods: RequestMethod[];
   readonly #parameterMetadata;
   readonly #routeSchema;
   readonly #acceptMetadata;
-  readonly #acceptedContentTypes;
   readonly #resource;
   readonly #origin;
 
@@ -63,20 +64,16 @@ export class ResourceClient<R extends typeof Resource> {
     this.#acceptMetadata = this.#collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
     this.#origin = origin;
 
-    this.#acceptedContentTypes = new Map(
-      this.#acceptMetadata.entries().map(([method, contentTypes]) => {
-        const router = new ContentTypeRouter();
-        contentTypes ??= [ContentTypes.Json];
-        contentTypes.forEach((contentType) => {
-          const handler = ResourceClient.contentTypes.get(contentType);
-          if (handler)
-            router.use(contentType, handler);
-          else
-            throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
-        });
-        return [method, router];
-      })
-    );
+    this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
+      contentTypes ??= [ContentTypes.Json];
+      contentTypes.forEach((contentType) => {
+        const handler = ResourceClient.contentTypes.get(contentType);
+        if (handler)
+          this.contentTypeRouter.use(method, contentType, handler);
+        else
+          throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
+      });
+    });
 
     Object.defineProperties(
       this,
@@ -105,6 +102,17 @@ export class ResourceClient<R extends typeof Resource> {
     );
   }
 
+  public static get contentTypes() {
+    return {
+      use: (pattern: string | string[], handler: ContentTypeHandler) => {
+        return this.#contentTypeRouter.use('*', pattern, handler)
+      },
+      get: (contentType: string) => {
+        return this.#contentTypeRouter.get('*', contentType);
+      }
+    }
+  }
+
   get [Symbol.toStringTag](): string {
     return `${this.#resource.name}Client`;
   }
@@ -124,7 +132,7 @@ export class ResourceClient<R extends typeof Resource> {
     const responseContentType = response.headers.get(Headers.ContentType) ?? "";
     
     if (!responseContentType.length || response.status === HttpStatusCodes.NoContent) return;
-    const handler = this.#acceptedContentTypes.get(method)?.get(responseContentType);
+    const handler = this.contentTypeRouter.get(method, responseContentType);
     if (handler)
       return handler.decode(response);
     throw new UnsupportedMediaTypeError(`Content type '${responseContentType}' is unsupported`);
@@ -219,8 +227,7 @@ export class ResourceClient<R extends typeof Resource> {
 
   #serialiseBody(body: z.infer<z.ZodType>, method: RequestMethod, contentType: string) {
     if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
-      const handler = this.#acceptedContentTypes.get(method)?.get(contentType);
-      console.log({method, contentType, body}, handler?.encode(body));
+      const handler = this.contentTypeRouter.get(method, contentType);
       return handler?.encode(body);
     }
   }
