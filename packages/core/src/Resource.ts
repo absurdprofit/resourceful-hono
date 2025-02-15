@@ -35,7 +35,7 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
 }
 
 export interface TypedResultResponse<_ = unknown, ___ = unknown> extends Response {}
-export function Result<
+export async function Result<
   S extends HttpStatusCodes | number,
   C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
   T extends ContentTypes | string | undefined = undefined
@@ -43,24 +43,27 @@ export function Result<
   status: S,
   content?: C,
   contentType?: T
-): TypedResultResponse<C, T> | Promise<TypedResultResponse<C, T>> {
+): Promise<TypedResultResponse<C, T>> {
   const headers = new globalThis.Headers();
   let body;
   if (isBodyInit(content)) {
     body = content;
-  } else if (typeof content === "function") {
-    body = createReadableFromIterable(content());
-    if (contentType?.startsWith(ContentTypes.ServerSentEvent)) {
+  } else {
+    if (!contentType && content !== undefined)
+      contentType = ContentTypes.Json as T;
+
+    if (contentType) headers.set(Headers.ContentType, contentType);
+    const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
+    if (encode)
+      body = await encode(content);
+    if (
+      contentType?.startsWith(ContentTypes.ServerSentEvent)
+      && body instanceof ReadableStream
+    ) {
       body = body.pipeThrough(new TextEncoderStream());
       headers.set(Headers.CacheControl, 'no-cache');
       headers.set(Headers.Connection, 'keep-alive');
     }
-  } else {
-    if (!contentType && content !== undefined && typeof content !== "function")
-      contentType = ContentTypes.Json as T;
-    const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
-    if (encode)
-      return encode(content, { status, headers });
   }
   return new Response(body, { status, headers });
 }

@@ -1,9 +1,11 @@
-import { Application, Logger, ConsoleLogService, LogService, Timing } from '@resourceful-hono/core';
+import { Application, Logger, ConsoleLogService, LogService, Timing, Resource, ContentTypes } from '@resourceful-hono/core';
 import BaseResource from "./resources/BaseResource.ts";
 import SSEResource from './resources/SSEResource.ts';
 import JSONResource from "./resources/JSONResource.ts";
 import UserResource from "./resources/UserResource.ts";
 import RedirectResource from "./resources/RedirectResource.ts";
+import { plainTextHandler } from "./common/utils.ts";
+import { ResourceClient } from "../packages/core/src/ResourceClient.ts";
 
 class MyService {
   [Symbol.asyncDispose]() {
@@ -15,14 +17,11 @@ app.registerMiddlewares([Logger, Timing]);
 app.registerService(MyService, new MyService())
   .registerService(LogService, new ConsoleLogService());
 
-JSONResource.contentTypes.use('text/*', { encode(object) {
-  return new Response(String(object));
-}, decode(request) {
-  return request.text();
-}, });
+ResourceClient.contentTypes.use(ContentTypes.PlainText, plainTextHandler);
+Resource.contentTypes.use(ContentTypes.PlainText, plainTextHandler);
 
-// const origin = 'http://localhost:8000';
-// const jsonClient = JSONResource.createClient(origin);
+const origin = 'http://localhost:8000';
+const jsonClient = JSONResource.createClient(origin);
 // jsonClient.get({ id: '9491d710-3185-4e06-bea0-6a2f275345e0', name: 'nathan' }, { page: 10 }).then(console.log).catch(console.error);
 // jsonClient.put({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, 'name').catch(console.error);
 // jsonClient.post('1').catch(console.error);

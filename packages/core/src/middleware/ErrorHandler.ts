@@ -4,8 +4,9 @@ import { ContentTypes, Headers } from "../common/enums.ts";
 import { isSuppressedError } from "../common/types.ts";
 import { Application } from "../index.ts";
 import { HttpError } from "../HttpError.ts";
+import { Resource } from "../Resource.ts";
 
-export const ErrorHandler: HonoErrorHandler = (error, context) => {
+export const ErrorHandler: HonoErrorHandler = async (error, context) => {
   if (isSuppressedError(error))
     error = error.error ?? error.suppressed; // error.error contains user error, error.suppressed contains rollback error
   if (!HttpError[Symbol.hasInstance](error)) {
@@ -22,11 +23,14 @@ export const ErrorHandler: HonoErrorHandler = (error, context) => {
       message: httpError.message
     })
   );
-  return Promise.resolve(
-    context.json(
-      httpError,
-      httpError.status,
-      { [Headers.ContentType]: ContentTypes.ProblemDetails }
-    )
+  const { encode } = Resource.contentTypes.get(ContentTypes.ProblemDetails) ?? {};
+  return new Response(
+    await encode?.(httpError),
+    {
+      status: httpError.status,
+      headers: {
+        [Headers.ContentType]: ContentTypes.ProblemDetails
+      }
+    }
   );
 };
