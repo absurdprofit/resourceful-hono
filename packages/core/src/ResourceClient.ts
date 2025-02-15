@@ -132,7 +132,7 @@ export class ResourceClient<R extends typeof Resource> {
     const responseContentType = response.headers.get(Headers.ContentType) ?? "";
     
     if (!responseContentType.length || response.status === HttpStatusCodes.NoContent) return;
-    const handler = this.contentTypeRouter.get(method, responseContentType);
+    const handler = ResourceClient.contentTypes.get(responseContentType);
     if (handler)
       return handler.decode(response);
     throw new UnsupportedMediaTypeError(`Content type '${responseContentType}' is unsupported`);

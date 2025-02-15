@@ -14,7 +14,8 @@ export enum Headers {
 export enum ContentTypes {
   ProblemDetails = 'application/problem+json',
   Json = 'application/json',
-  MultipartFormData = 'multipart/form-data; boundary=*',
+  OctetStream = 'application/octet-stream',
+  MultipartFormData = 'multipart/form-data',
   FormUrlEncoded = 'application/x-www-form-urlencoded',
   ServerSentEvent = 'text/event-stream',
   PlainText = 'text/plain'

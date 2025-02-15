@@ -107,7 +107,10 @@ export function createGlobalContentTypeRouter() {
       return toFormData(data);
     },
   });
-  router.use('*', '*-stream', {
+  router.use('*', [
+    ContentTypes.ServerSentEvent,
+    ContentTypes.OctetStream
+  ], {
     decode(resource) {
       if (resource.headers.get(Headers.ContentType) === ContentTypes.ServerSentEvent) {
         let response;

@@ -1,15 +1,14 @@
 import { SmartRouter } from "hono/router/smart-router";
 import { RegExpRouter } from "hono/router/reg-exp-router";
-import { TrieRouter } from "hono/router/trie-router";
 
 export interface ContentTypeHandler {
   encode: (data: unknown) => BodyInit | null | Promise<BodyInit | null>;
   decode: (resource: Request | Response) => unknown | Promise<unknown>;
 }
 
-export class ContentTypeRouter {
+export class ContentTypeRouter extends RegExpRouter<ContentTypeHandler> {
   readonly #router = new SmartRouter<ContentTypeHandler>({
-    routers: [new RegExpRouter(), new TrieRouter()],
+    routers: [new RegExpRouter()],
   });
 
   public use(method: string, pattern: string | string[], handler: ContentTypeHandler) {
@@ -17,11 +16,13 @@ export class ContentTypeRouter {
       pattern = [pattern];
 
     pattern.forEach(pattern => {
+      pattern = pattern === '*/*' ? '*' : pattern;
       this.#router.add(method, pattern.replaceAll(':', ';'), handler);
     });
   }
 
   public get(method: string, contentType: string) {
+    contentType = contentType.split(';')[0];
     return this.#router.match(
       method,
       contentType.replaceAll(':', ';')
