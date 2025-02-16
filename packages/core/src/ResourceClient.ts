@@ -6,8 +6,7 @@ import type { Resource, TypedResultResponse, TypedRedirectResponse } from "./Res
 import { z } from 'zod';
 import { UnsupportedMediaTypeError } from "./common/errors.ts";
 import type { EventSource } from 'eventsource';
-import { type ContentTypeHandler, ContentTypeRouter } from "./ContentTypeRouter.ts";
-import { createGlobalContentTypeRouter } from "./common/utils.ts";
+import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -47,8 +46,8 @@ export type IResourceClient<R extends typeof Resource> = {
 }
 
 export class ResourceClient<R extends typeof Resource> {
-  static readonly #contentTypeRouter = createGlobalContentTypeRouter();
-  private readonly contentTypeRouter = new ContentTypeRouter();
+  private static readonly contentTypeRegistry = ContentTypeRegistry.default;
+  private readonly contentTypeRegistry = new ContentTypeRegistry();
   readonly methods: RequestMethod[];
   readonly #parameterMetadata;
   readonly #routeSchema;
@@ -69,7 +68,7 @@ export class ResourceClient<R extends typeof Resource> {
       contentTypes.forEach((contentType) => {
         const handler = ResourceClient.contentTypes.get(contentType);
         if (handler)
-          this.contentTypeRouter.use(method, contentType, handler);
+          this.contentTypeRegistry.use(method, contentType, handler);
         else
           throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
       });
@@ -105,10 +104,10 @@ export class ResourceClient<R extends typeof Resource> {
   public static get contentTypes() {
     return {
       use: (pattern: string | string[], handler: ContentTypeHandler) => {
-        return this.#contentTypeRouter.use('*', pattern, handler)
+        return this.contentTypeRegistry.use('*', pattern, handler)
       },
       get: (contentType: string) => {
-        return this.#contentTypeRouter.get('*', contentType);
+        return this.contentTypeRegistry.get('*', contentType);
       }
     }
   }
@@ -227,7 +226,7 @@ export class ResourceClient<R extends typeof Resource> {
 
   #serialiseBody(body: z.infer<z.ZodType>, method: RequestMethod, contentType: string) {
     if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
-      const handler = this.contentTypeRouter.get(method, contentType);
+      const handler = this.contentTypeRegistry.get(method, contentType);
       return handler?.encode(body);
     }
   }

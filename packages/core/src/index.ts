@@ -11,5 +11,5 @@ export * from './ServerSentEvent.ts';
 export * from './TransactionScope.ts';
 export * from './common/errors.ts';
 export * from './LogService/index.ts';
-export type { ContentTypeHandler } from './ContentTypeRouter.ts';
+export type { ContentTypeHandler } from './ContentTypeRegistry.ts';
 export { Timing, Logger } from './middleware/index.ts';

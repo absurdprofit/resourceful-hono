@@ -40,7 +40,7 @@ export class ConsoleLogService extends LogService {
     const userAgent = context.req.header(Headers.UserAgent);
     const date = context.res.headers.get(Headers.Date);
     const { origin, pathname, search } = new URL(context.req.url);
-    const log = `[${context.req.method} %c${context.res.status}%c] ${[origin, pathname, search].join('%c')} %c- ${[date, userAgent, responseTimeMs].join(' | ')}\n`;
+    const log = `\n[${context.req.method} %c${context.res.status}%c] ${[origin, pathname, search].join('%c')} %c- ${[date, userAgent, responseTimeMs].join(' | ')}`;
     let statusColour;
     if (context.res.status < HttpStatusCodes.MultipleChoices) {
       statusColour = StatusColour.SUCCESS;
@@ -49,6 +49,6 @@ export class ConsoleLogService extends LogService {
     } else {
       statusColour = StatusColour.ERROR;
     }
-    console.log(log, `color: ${statusColour}`, 'color: white', 'color: rgb(244, 188, 0)', 'color: blue', 'color: white');
+    console.log(log, `color: ${statusColour}`, 'color: white', 'color: rgb(244, 188, 0)', 'color: lightblue', 'color: white');
   }
 }

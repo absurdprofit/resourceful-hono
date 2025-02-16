@@ -1,5 +1,5 @@
 import { EventSource } from "eventsource";
-import { ContentTypeRouter } from "../ContentTypeRouter.ts";
+import { ContentTypeRegistry } from "../ContentTypeRegistry.ts";
 import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 import { ContentTypes, Headers } from "./enums.ts";
 import { GenericHttpError } from "./errors.ts";
@@ -72,73 +72,4 @@ export function toFormData(input: unknown): FormData {
   }
 
   return formData;
-}
-
-export function createGlobalContentTypeRouter() {
-  const router = new ContentTypeRouter();
-  router.use('*', ContentTypes.Json, {
-    decode(resource) {
-      return resource.json();
-    },
-    encode(object) {
-      return JSON.stringify(object);
-    },
-  });
-  router.use('*', ContentTypes.ProblemDetails, {
-    async decode(resource) {
-      return new GenericHttpError(await resource.json());
-    },
-    encode(data) {
-      return JSON.stringify(data);
-    },
-  });
-  router.use('*', [
-    ContentTypes.FormUrlEncoded,
-    ContentTypes.MultipartFormData
-  ], {
-    decode(resource) {
-      return resource
-        .formData()
-        .then(formData => 
-          Object.fromEntries(formData.entries())
-        );
-    },
-    encode(data) {
-      return toFormData(data);
-    },
-  });
-  router.use('*', [
-    ContentTypes.ServerSentEvent,
-    ContentTypes.OctetStream
-  ], {
-    decode(resource) {
-      if (resource.headers.get(Headers.ContentType) === ContentTypes.ServerSentEvent) {
-        let response;
-        if (resource instanceof Request)
-          response = new Response(
-            resource.body,
-            { headers: resource.headers }
-          );
-        else
-          response = resource;
-
-        return new EventSource(
-          resource.url,
-          { fetch: () => Promise.resolve(response) }
-        );
-      } else {
-        return resource.body;
-      }
-    },
-    encode(data) {
-      if (typeof data === 'function') {
-        return createReadableFromIterable(data());
-      }
-      if (data instanceof ReadableStream)
-        return data;
-      throw new TypeError('Only generators or ReadableStreams can be turned into Resource streams');
-    },
-  });
-
-  return router;
 }

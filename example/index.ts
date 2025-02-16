@@ -4,7 +4,6 @@ import SSEResource from './resources/SSEResource.ts';
 import JSONResource from "./resources/JSONResource.ts";
 import UserResource from "./resources/UserResource.ts";
 import RedirectResource from "./resources/RedirectResource.ts";
-import { plainTextHandler } from "./common/utils.ts";
 import { ResourceClient } from "../packages/core/src/ResourceClient.ts";
 
 class MyService {
@@ -16,9 +15,6 @@ const app = Application.instance;
 app.registerMiddlewares([Logger, Timing]);
 app.registerService(MyService, new MyService())
   .registerService(LogService, new ConsoleLogService());
-
-ResourceClient.contentTypes.use(ContentTypes.PlainText, plainTextHandler);
-Resource.contentTypes.use(ContentTypes.PlainText, plainTextHandler);
 
 const origin = 'http://localhost:8000';
 const jsonClient = JSONResource.createClient(origin);

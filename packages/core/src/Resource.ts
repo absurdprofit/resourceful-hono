@@ -7,10 +7,10 @@ import type { OwnProperties, ParameterMetadata, ResourceMethodReturn } from './c
 import { isBodyInit } from "./common/types.ts";
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { createGlobalContentTypeRouter, literalToLowerCase } from "./common/utils.ts";
+import { literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
 import { ResourceClient, type IResourceClient } from "./ResourceClient.ts";
-import { type ContentTypeHandler, ContentTypeRouter } from "./ContentTypeRouter.ts";
+import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
   readonly status: S;
@@ -87,21 +87,21 @@ export type NonAbstractResourceLikeConstructor = new (...args: ResourceConstruct
 export type AbstractResourceLikeConstructor = abstract new (...args: ResourceConstructorArgs) => Resource;
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
 export abstract class Resource implements IResource {
-  declare public readonly context: Context;
-  static readonly #contentTypeRouter = createGlobalContentTypeRouter();
-  private readonly contentTypeRouter = new ContentTypeRouter();
+  public readonly context: Context = null!;
+  private static readonly contentTypeRegistry = ContentTypeRegistry.default;
+  private readonly contentTypeRegistry = new ContentTypeRegistry();
   /**
    * The root hono instance.
    */
   public static readonly hono: Hono = Resource.honoBuilder();
   private readonly hono = Resource.honoBuilder(this);
   readonly methods: RequestMethod[] = Object.values(RequestMethod).filter((method => method in this));
-  readonly #parameterMetadata = this.collectParameterMetadata();
-  readonly #bodySchema = this.collectParameterSchema('body');
-  readonly #querySchema = this.collectParameterSchema('query');
-  readonly #routeSchema = this.collectParameterSchema<z.AnyZodObject>('route');
-  readonly #acceptMetadata = this.collectMethodMetadata<ContentTypes[] | undefined>(ACCEPT_METADATA_KEY);
-  readonly #middlewareMetadata = this.collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
+  readonly #parameterMetadata = this.#collectParameterMetadata();
+  readonly #bodySchema = this.#collectParameterSchema('body');
+  readonly #querySchema = this.#collectParameterSchema('query');
+  readonly #routeSchema = this.#collectParameterSchema<z.AnyZodObject>('route');
+  readonly #acceptMetadata = this.#collectMethodMetadata<ContentTypes[] | undefined>(ACCEPT_METADATA_KEY);
+  readonly #middlewareMetadata = this.#collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
 
   constructor() {
     this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
@@ -109,7 +109,7 @@ export abstract class Resource implements IResource {
       contentTypes.forEach((contentType) => {
         const handler = Resource.contentTypes.get(contentType);
         if (handler)
-          this.contentTypeRouter.use(method, contentType, handler);
+          this.contentTypeRegistry.use(method, contentType, handler);
         else
           throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
       });
@@ -196,10 +196,10 @@ export abstract class Resource implements IResource {
   public static get contentTypes() {
     return {
       use: (pattern: string | string[], handler: ContentTypeHandler) => {
-        return this.#contentTypeRouter.use('*', pattern, handler)
+        return this.contentTypeRegistry.use('*', pattern, handler)
       },
       get: (contentType: string) => {
-        return this.#contentTypeRouter.get('*', contentType);
+        return this.contentTypeRegistry.get('*', contentType);
       }
     }
   }
@@ -255,7 +255,7 @@ export abstract class Resource implements IResource {
     return response ?? Result(HttpStatusCodes.NoContent);
   };
 
-  private parseParameters(type: ParameterMetadata['type'], request: HonoRequest) {
+  #parseParameters(type: ParameterMetadata['type'], request: HonoRequest) {
     const method = request.method as RequestMethod;
     switch (type) {
       case 'route':
@@ -265,7 +265,7 @@ export abstract class Resource implements IResource {
       case 'body': {
         if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
           const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
-          const handler = this.contentTypeRouter.get(method, contentType);
+          const handler = this.contentTypeRegistry.get(method, contentType);
           if (handler)
             return handler.decode(request.raw);
           throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
@@ -277,7 +277,7 @@ export abstract class Resource implements IResource {
     }
   }
 
-  private collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
+  #collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
     return this.methods.reduce((metadata, method) => {
       const schema = this.#parameterMetadata.get(method)?.filter(metadata => metadata.type === type).reduce((schema: z.ZodType | undefined, metadata) => {
         // avoid mutating metadata
@@ -297,13 +297,13 @@ export abstract class Resource implements IResource {
     }, new Map<RequestMethod, T | undefined>());
   }
 
-  private collectMethodMetadata<T>(key: symbol) {
+  #collectMethodMetadata<T>(key: symbol) {
     return this.methods.reduce((metadata, method) => {
       return metadata.set(method, Reflect.getMetadata(key, this, method));
     }, new Map<RequestMethod, T>());
   }
 
-  private collectParameterMetadata() {
+  #collectParameterMetadata() {
     return this.methods.reduce((metadata, method) => {
       return metadata.set(method, Reflect.getMetadata(PARAMETER_METADATA_KEY, this, method) ?? []);
     }, new Map<RequestMethod, ParameterMetadata[]>());
@@ -327,7 +327,7 @@ export abstract class Resource implements IResource {
           Object.entries(schemas).map(async ([type, schema]) => {
             if (!schema) return [type, { [DEFAULT_PARAMETER_KEY]: undefined }];
             const result = await schema.safeParseAsync(
-              await this.parseParameters(type as ParameterMetadata['type'], request)
+              await this.#parseParameters(type as ParameterMetadata['type'], request)
             );
             const parsedData = {...(result['data'] ?? {})};
             parsedData[DEFAULT_PARAMETER_KEY] = result['data'];
