@@ -1,6 +1,6 @@
 import { RegExpRouter } from "hono/router/reg-exp-router";
-import { SmartRouter } from "https://jsr.io/@hono/hono/4.6.14/src/router/smart-router/router.ts";
-import { TrieRouter } from "https://jsr.io/@hono/hono/4.6.14/src/router/trie-router/router.ts";
+import { SmartRouter } from "hono/router/smart-router";
+import { TrieRouter } from "hono/router/trie-router";
 import { ContentTypes, Headers } from "./common/enums.ts";
 import { GenericHttpError } from "./common/errors.ts";
 import { createReadableFromIterable, toFormData } from "./common/utils.ts";

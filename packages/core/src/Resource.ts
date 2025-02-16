@@ -3,7 +3,7 @@ import { mergePath } from 'hono/utils/url';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
-import type { OwnProperties, ParameterMetadata, ResourceMethodReturn } from './common/types.ts';
+import type { OwnProperties, ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
 import { isBodyInit } from "./common/types.ts";
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
@@ -193,7 +193,7 @@ export abstract class Resource implements IResource {
     return new ResourceClient(this, origin) as unknown as IResourceClient<T>;
   }
 
-  public static get contentTypes() {
+  public static get contentTypes(): SimpleContentTypeRegistry {
     return {
       use: (pattern: string | string[], handler: ContentTypeHandler) => {
         return this.contentTypeRegistry.use('*', pattern, handler)

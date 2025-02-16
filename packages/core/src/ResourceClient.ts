@@ -1,7 +1,7 @@
 import { mergePath } from "hono/utils/url";
 import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY } from "./common/constants.ts";
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from "./common/enums.ts";
-import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator } from "./common/types.ts";
+import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from "./common/types.ts";
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from "./Resource.ts";
 import { z } from 'zod';
 import { UnsupportedMediaTypeError } from "./common/errors.ts";
@@ -101,7 +101,7 @@ export class ResourceClient<R extends typeof Resource> {
     );
   }
 
-  public static get contentTypes() {
+  public static get contentTypes(): SimpleContentTypeRegistry {
     return {
       use: (pattern: string | string[], handler: ContentTypeHandler) => {
         return this.contentTypeRegistry.use('*', pattern, handler)
