@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { UnsupportedMediaTypeError } from "./common/errors.ts";
 import type { EventSource } from 'eventsource';
 import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
+import { HttpError } from "./HttpError.ts";
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -132,8 +133,12 @@ export class ResourceClient<R extends typeof Resource> {
     
     if (!responseContentType.length || response.status === HttpStatusCodes.NoContent) return;
     const handler = ResourceClient.contentTypes.get(responseContentType);
-    if (handler)
-      return handler.decode(response);
+    if (handler) {
+      const result = handler.decode(response);
+      if (result instanceof HttpError)
+        throw result;
+      return result;
+    }
     throw new UnsupportedMediaTypeError(`Content type '${responseContentType}' is unsupported`);
   }
 
