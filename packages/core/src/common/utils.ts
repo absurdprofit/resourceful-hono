@@ -1,8 +1,4 @@
-import { EventSource } from "eventsource";
-import { ContentTypeRegistry } from "../ContentTypeRegistry.ts";
 import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
-import { ContentTypes, Headers } from "./enums.ts";
-import { GenericHttpError } from "./errors.ts";
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
