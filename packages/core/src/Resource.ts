@@ -3,13 +3,14 @@ import { mergePath } from 'hono/utils/url';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
-import type { OwnProperties, ParameterMetadata, ResourceMethodReturn } from './common/types.ts';
+import type { OwnProperties, ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
 import { isBodyInit } from "./common/types.ts";
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
+import { literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
 import { ResourceClient, type IResourceClient } from "./ResourceClient.ts";
+import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
   readonly status: S;
@@ -34,7 +35,7 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
 }
 
 export interface TypedResultResponse<_ = unknown, ___ = unknown> extends Response {}
-export function Result<
+export async function Result<
   S extends HttpStatusCodes | number,
   C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
   T extends ContentTypes | string | undefined = undefined
@@ -42,25 +43,29 @@ export function Result<
   status: S,
   content?: C,
   contentType?: T
-): TypedResultResponse<C, T> {
-  if ((isBodyInit(content) && contentType !== ContentTypes.Json) || content === undefined || typeof content === "function") {
-    const headers = new globalThis.Headers();
-    let body;
-    if (contentType) headers.set(Headers.ContentType, contentType);
-    if (typeof content === "function") {
-      body = createReadableFromIterable(content());
-      if (contentType?.startsWith(ContentTypes.ServerSentEvent)) {
-        body = body.pipeThrough(new TextEncoderStream());
-        headers.set(Headers.CacheControl, 'no-cache');
-        headers.set(Headers.Connection, 'keep-alive');
-      }
-    } else {
-      body = content;
-    }
-    return new Response(body, { status, headers });
+): Promise<TypedResultResponse<C, T>> {
+  const headers = new globalThis.Headers();
+  let body;
+  if (isBodyInit(content)) {
+    body = content;
   } else {
-    return Response.json(content);
+    if (!contentType && content !== undefined)
+      contentType = ContentTypes.Json as T;
+
+    if (contentType) headers.set(Headers.ContentType, contentType);
+    const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
+    if (encode)
+      body = await encode(content);
+    if (
+      contentType?.startsWith(ContentTypes.ServerSentEvent)
+      && body instanceof ReadableStream
+    ) {
+      body = body.pipeThrough(new TextEncoderStream());
+      headers.set(Headers.CacheControl, 'no-cache');
+      headers.set(Headers.Connection, 'keep-alive');
+    }
   }
+  return new Response(body, { status, headers });
 }
 export interface IResource {
   readonly route: string;
@@ -82,22 +87,38 @@ export type NonAbstractResourceLikeConstructor = new (...args: ResourceConstruct
 export type AbstractResourceLikeConstructor = abstract new (...args: ResourceConstructorArgs) => Resource;
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
 export abstract class Resource implements IResource {
-  declare public readonly context: Context;
+  public readonly context: Context = null!;
+  private static readonly contentTypeRegistry = ContentTypeRegistry.default;
+  private readonly contentTypeRegistry = new ContentTypeRegistry();
   /**
    * The root hono instance.
    */
   public static readonly hono: Hono = Resource.honoBuilder();
   private readonly hono = Resource.honoBuilder(this);
   readonly methods: RequestMethod[] = Object.values(RequestMethod).filter((method => method in this));
-  readonly #parameterMetadata = this.collectParameterMetadata();
-  readonly #bodySchema = this.collectParameterSchema('body');
-  readonly #querySchema = this.collectParameterSchema('query');
-  readonly #routeSchema = this.collectParameterSchema<z.AnyZodObject>('route');
-  readonly #acceptMetadata = this.collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
-  readonly #middlewareMetadata = this.collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
-  readonly HEAD = (this as IResource)['GET'];
+  readonly #parameterMetadata = this.#collectParameterMetadata();
+  readonly #bodySchema = this.#collectParameterSchema('body');
+  readonly #querySchema = this.#collectParameterSchema('query');
+  readonly #routeSchema = this.#collectParameterSchema<z.AnyZodObject>('route');
+  readonly #acceptMetadata = this.#collectMethodMetadata<ContentTypes[] | undefined>(ACCEPT_METADATA_KEY);
+  readonly #middlewareMetadata = this.#collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
 
   constructor() {
+    this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
+      contentTypes ??= [ContentTypes.Json];
+      contentTypes.forEach((contentType) => {
+        const handler = Resource.contentTypes.get(contentType);
+        if (handler)
+          this.contentTypeRegistry.use(method, contentType, handler);
+        else
+          throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
+      });
+    });
+
+    this.#registerRoutes();
+  }
+
+  #registerRoutes() {
     const { hono, handleRequest } = this;
     const methods = this.methods.filter(method => RequestMethod.Head !== method);
     const parentInstance = Object.getPrototypeOf(Object.getPrototypeOf(this));
@@ -172,6 +193,17 @@ export abstract class Resource implements IResource {
     return new ResourceClient(this, origin) as unknown as IResourceClient<T>;
   }
 
+  public static get contentTypes(): SimpleContentTypeRegistry {
+    return {
+      use: (pattern: string | string[], handler: ContentTypeHandler) => {
+        return this.contentTypeRegistry.use('*', pattern, handler)
+      },
+      get: (contentType: string) => {
+        return this.contentTypeRegistry.get('*', contentType);
+      }
+    }
+  }
+
   public static get methods(): RequestMethod[] {
     return Object.values(RequestMethod).filter((method => method in this.prototype));
   }
@@ -223,7 +255,7 @@ export abstract class Resource implements IResource {
     return response ?? Result(HttpStatusCodes.NoContent);
   };
 
-  private async parseParameters(type: ParameterMetadata['type'], request: HonoRequest) {
+  #parseParameters(type: ParameterMetadata['type'], request: HonoRequest) {
     const method = request.method as RequestMethod;
     switch (type) {
       case 'route':
@@ -231,18 +263,12 @@ export abstract class Resource implements IResource {
       case 'query':
         return request.query();
       case 'body': {
-        const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
-        if (![RequestMethod.Get, RequestMethod.Head].includes(method) && contentType) {
-          const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
-          switch(acceptedContentTypes.find(accepted => contentType.startsWith(accepted))) {
-            case ContentTypes.FormUrlEncoded:
-            case ContentTypes.MultipartFormData:
-              return await request.parseBody();
-            case ContentTypes.Json:
-              return await request.json();
-            default:
-              throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
-          }    
+        if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
+          const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
+          const handler = this.contentTypeRegistry.get(method, contentType);
+          if (handler)
+            return handler.decode(request.raw);
+          throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
         }
         return {};
       }
@@ -251,7 +277,7 @@ export abstract class Resource implements IResource {
     }
   }
 
-  private collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
+  #collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
     return this.methods.reduce((metadata, method) => {
       const schema = this.#parameterMetadata.get(method)?.filter(metadata => metadata.type === type).reduce((schema: z.ZodType | undefined, metadata) => {
         // avoid mutating metadata
@@ -271,13 +297,13 @@ export abstract class Resource implements IResource {
     }, new Map<RequestMethod, T | undefined>());
   }
 
-  private collectMethodMetadata<T>(key: symbol) {
+  #collectMethodMetadata<T>(key: symbol) {
     return this.methods.reduce((metadata, method) => {
       return metadata.set(method, Reflect.getMetadata(key, this, method));
     }, new Map<RequestMethod, T>());
   }
 
-  private collectParameterMetadata() {
+  #collectParameterMetadata() {
     return this.methods.reduce((metadata, method) => {
       return metadata.set(method, Reflect.getMetadata(PARAMETER_METADATA_KEY, this, method) ?? []);
     }, new Map<RequestMethod, ParameterMetadata[]>());
@@ -301,7 +327,7 @@ export abstract class Resource implements IResource {
           Object.entries(schemas).map(async ([type, schema]) => {
             if (!schema) return [type, { [DEFAULT_PARAMETER_KEY]: undefined }];
             const result = await schema.safeParseAsync(
-              await this.parseParameters(type as ParameterMetadata['type'], request)
+              await this.#parseParameters(type as ParameterMetadata['type'], request)
             );
             const parsedData = {...(result['data'] ?? {})};
             parsedData[DEFAULT_PARAMETER_KEY] = result['data'];

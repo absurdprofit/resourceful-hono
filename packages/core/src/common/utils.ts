@@ -43,3 +43,29 @@ export function parseTotalDuration(input: string[]): string | null {
   }
   return null;
 }
+
+export function toFormData(input: unknown): FormData {
+  if (input instanceof FormData) {
+    return input;
+  }
+  
+  if (typeof input !== 'object' || input === null) {
+    throw new TypeError('Input must be an object or FormData');
+  }
+
+  const formData = new FormData();
+
+  for (const [key, value] of Object.entries(input)) {
+    if (value instanceof File || value instanceof Blob) {
+      formData.append(key, value);
+    } else if (Array.isArray(value)) {
+      value.forEach((item) => {
+        formData.append(key, item);
+      });
+    } else {
+      formData.append(key, String(value));
+    }
+  }
+
+  return formData;
+}

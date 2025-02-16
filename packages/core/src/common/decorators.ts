@@ -7,7 +7,7 @@ import { Application } from "../Application.ts";
 import type { Service } from "../ServiceMap.ts";
 import type { MiddlewareHandler } from "hono";
 
-export function Accept(acceptedContentTypes: ContentTypes[]): (target: Resource, propertyKey: string) => void {
+export function Accept(acceptedContentTypes: ContentTypes | string[]): (target: Resource, propertyKey: string) => void {
   return function(target: Resource, propertyKey: string) {
     Reflect.defineMetadata(ACCEPT_METADATA_KEY, acceptedContentTypes, target, propertyKey);
     Reflect.defineMetadata(ACCEPT_METADATA_KEY, acceptedContentTypes, target.constructor, propertyKey);

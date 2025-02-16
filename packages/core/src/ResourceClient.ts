@@ -1,11 +1,12 @@
 import { mergePath } from "hono/utils/url";
 import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY } from "./common/constants.ts";
-import { ContentTypes, Headers, HttpStatusCodes, type RequestMethod } from "./common/enums.ts";
-import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator } from "./common/types.ts";
+import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from "./common/enums.ts";
+import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from "./common/types.ts";
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from "./Resource.ts";
 import { z } from 'zod';
-import { GenericHttpError, UnsupportedMediaTypeError } from "./common/errors.ts";
-import { EventSource } from 'eventsource';
+import { UnsupportedMediaTypeError } from "./common/errors.ts";
+import type { EventSource } from 'eventsource';
+import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -45,13 +46,14 @@ export type IResourceClient<R extends typeof Resource> = {
 }
 
 export class ResourceClient<R extends typeof Resource> {
+  private static readonly contentTypeRegistry = ContentTypeRegistry.default;
+  private readonly contentTypeRegistry = new ContentTypeRegistry();
   readonly methods: RequestMethod[];
   readonly #parameterMetadata;
   readonly #routeSchema;
   readonly #acceptMetadata;
   readonly #resource;
   readonly #origin;
-  readonly #contentTypes = Object.values(ContentTypes);
 
   constructor(resource: R, origin: string) {
     this.#resource = resource;
@@ -60,6 +62,17 @@ export class ResourceClient<R extends typeof Resource> {
     this.#routeSchema = this.#collectParameterSchema<z.AnyZodObject>('route');
     this.#acceptMetadata = this.#collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
     this.#origin = origin;
+
+    this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
+      contentTypes ??= [ContentTypes.Json];
+      contentTypes.forEach((contentType) => {
+        const handler = ResourceClient.contentTypes.get(contentType);
+        if (handler)
+          this.contentTypeRegistry.use(method, contentType, handler);
+        else
+          throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
+      });
+    });
 
     Object.defineProperties(
       this,
@@ -88,33 +101,40 @@ export class ResourceClient<R extends typeof Resource> {
     );
   }
 
+  public static get contentTypes(): SimpleContentTypeRegistry {
+    return {
+      use: (pattern: string | string[], handler: ContentTypeHandler) => {
+        return this.contentTypeRegistry.use('*', pattern, handler)
+      },
+      get: (contentType: string) => {
+        return this.contentTypeRegistry.get('*', contentType);
+      }
+    }
+  }
+
   get [Symbol.toStringTag](): string {
     return `${this.#resource.name}Client`;
   }
 
   async #METHOD(method: RequestMethod, ...parameters: unknown[]) {
     const [requestContentType] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
-    const { pathname, search, body } = this.#serialiseParameters(method, requestContentType, parameters);
+    const { pathname, search, body } = await this.#serialiseParameters(method, requestContentType, parameters);
     const signal = parameters.at(-1) instanceof AbortSignal ? parameters.at(-1) as AbortSignal : undefined;
 
     const url = new URL(pathname, this.#origin);
     url.search = search;
 
-    const headers = new globalThis.Headers({ [Headers.ContentType]: requestContentType });
+    const headers = new globalThis.Headers();
+    if (!FormData[Symbol.hasInstance](body))
+      headers.set(Headers.ContentType, requestContentType);
     const response = await fetch(url, { signal, method, body, headers });
     const responseContentType = response.headers.get(Headers.ContentType) ?? "";
     
     if (!responseContentType.length || response.status === HttpStatusCodes.NoContent) return;
-    switch (this.#contentTypes.find(accepted => responseContentType.startsWith(accepted))) {
-      case ContentTypes.ProblemDetails:
-        throw new GenericHttpError(await response.json());
-      case ContentTypes.ServerSentEvent:
-        return new EventSource(url, { fetch: () => Promise.resolve(response) });
-      case ContentTypes.Json:
-        return await response.json();
-      default:
-        throw new UnsupportedMediaTypeError(`The server returned an unsupported content type: '${responseContentType}'`);
-    }
+    const handler = ResourceClient.contentTypes.get(responseContentType);
+    if (handler)
+      return handler.decode(response);
+    throw new UnsupportedMediaTypeError(`Content type '${responseContentType}' is unsupported`);
   }
 
   #collectMethodMetadata<T>(key: symbol) {
@@ -149,7 +169,7 @@ export class ResourceClient<R extends typeof Resource> {
       }, new Map<RequestMethod, T | undefined>());
     }
 
-  #serialiseParameters(method: RequestMethod, contentType: string, parameters: unknown[]) {
+  async #serialiseParameters(method: RequestMethod, contentType: string, parameters: unknown[]) {
     const data = this.#parameterMetadata.get(method)?.reduce((
       data: Record<ParameterMetadata['type'], z.infer<z.ZodType> | undefined>,
       metadata,
@@ -200,30 +220,14 @@ export class ResourceClient<R extends typeof Resource> {
     return {
       search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
       pathname,
-      body: this.#serialiseBody(data?.body, contentType),
+      body: await this.#serialiseBody(data?.body, method, contentType),
     }
   }
 
-  #serialiseBody(body: z.infer<z.ZodType>, contentType: string) {
-    if (body) {
-      switch (contentType) {
-        case ContentTypes.FormUrlEncoded:
-        case ContentTypes.MultipartFormData:
-          if (typeof body === 'object' && body !== null) {
-            const formData = new FormData();
-            for (const key of body)
-              formData.append(key, body[key]);
-            body = formData;
-          } else {
-            // This is sus. Should we instead select JSON if that's available?
-            throw new TypeError('Body must be object type for FormData');
-          }
-        break;
-        case ContentTypes.Json:
-          body = JSON.stringify(body);
-        break;
-      }
+  #serialiseBody(body: z.infer<z.ZodType>, method: RequestMethod, contentType: string) {
+    if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
+      const handler = this.contentTypeRegistry.get(method, contentType);
+      return handler?.encode(body);
     }
-    return body;
   }
 }

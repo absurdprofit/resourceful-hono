@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import { type NonAbstractResourceLikeConstructor, Resource } from "../Resource.ts";
 import type { RequestMethod } from "./enums.ts";
 import type { ServerSentEvent } from "../ServerSentEvent.ts";
+import { ContentTypeHandler } from "../ContentTypeRegistry.ts";
 
 export type Constructor<T = unknown> = abstract new (...args: never[]) => T;
 export type PrimitiveType = z.ZodString | z.ZodNumber | z.ZodBoolean;
@@ -36,3 +37,8 @@ export function isSuppressedError(value: unknown): value is SuppressedError {
 export type ServerSentEventGenerator = () => Generator<ServerSentEvent, void, unknown> | AsyncGenerator<ServerSentEvent, void, unknown>;
 
 export type OwnProperties<T> = { -readonly [P in keyof T]: TypedPropertyDescriptor<T[P]>; }
+
+export type SimpleContentTypeRegistry = {
+  use: (pattern: string | string[], handler: ContentTypeHandler) => void;
+  get: (contentType: string) => ContentTypeHandler | undefined;
+};
