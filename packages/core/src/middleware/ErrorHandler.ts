@@ -28,6 +28,7 @@ export const ErrorHandler: HonoErrorHandler = async (error, context) => {
     await encode?.(httpError),
     {
       status: httpError.status,
+      statusText: httpError.title,
       headers: {
         [Headers.ContentType]: ContentTypes.ProblemDetails
       }
