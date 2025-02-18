@@ -1,10 +1,9 @@
-import { Application, Logger, ConsoleLogService, LogService, Timing, Resource, ContentTypes } from '@resourceful-hono/core';
+import { Application, Logger, ConsoleLogService, LogService, Timing } from '@resourceful-hono/core';
 import BaseResource from "./resources/BaseResource.ts";
 import SSEResource from './resources/SSEResource.ts';
 import JSONResource from "./resources/JSONResource.ts";
 import UserResource from "./resources/UserResource.ts";
 import RedirectResource from "./resources/RedirectResource.ts";
-import { ResourceClient } from "../packages/core/src/ResourceClient.ts";
 
 class MyService {
   [Symbol.asyncDispose]() {

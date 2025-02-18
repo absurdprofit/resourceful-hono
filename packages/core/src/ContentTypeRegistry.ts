@@ -22,7 +22,12 @@ export class ContentTypeRegistry {
 
     pattern.forEach(pattern => {
       pattern = pattern === '*/*' ? '*' : pattern;
-      this.#router.add(method, pattern.replaceAll(':', ';'), handler);
+      pattern = pattern.split(';')[0];
+      this.#router.add(
+        method,
+        pattern.replaceAll(':', ';').toLowerCase(),
+        handler
+      );
     });
   }
 
@@ -30,7 +35,7 @@ export class ContentTypeRegistry {
     contentType = contentType.split(';')[0];
     return this.#router.match(
       method,
-      contentType.replaceAll(':', ';')
+      contentType.replaceAll(':', ';').toLowerCase()
     ).at(0)?.at(-1)?.at(0) as ContentTypeHandler | undefined;
   }
 

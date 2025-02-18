@@ -68,10 +68,8 @@ export class ResourceClient<R extends typeof Resource> {
       contentTypes ??= [ContentTypes.Json];
       contentTypes.forEach((contentType) => {
         const handler = ResourceClient.contentTypes.get(contentType);
-        if (handler)
-          this.contentTypeRegistry.use(method, contentType, handler);
-        else
-          throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
+        if (!handler) return;
+        this.contentTypeRegistry.use(method, contentType, handler);
       });
     });
 
@@ -93,7 +91,6 @@ export class ResourceClient<R extends typeof Resource> {
                 return await this.#METHOD(method, ...parameters);
               }
             }[method.toLowerCase()],
-            enumerable: true,
           };
           return properties;
         },
@@ -118,28 +115,31 @@ export class ResourceClient<R extends typeof Resource> {
   }
 
   async #METHOD(method: RequestMethod, ...parameters: unknown[]) {
-    const [requestContentType] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
-    const { pathname, search, body } = await this.#serialiseParameters(method, requestContentType, parameters);
-    const signal = parameters.at(-1) instanceof AbortSignal ? parameters.at(-1) as AbortSignal : undefined;
+    const {
+      pathname,
+      search,
+      body,
+      headers
+    } = await this.#serialiseParameters(method, parameters);
+    const signal = parameters.at(-1) instanceof AbortSignal
+      ? parameters.at(-1) as AbortSignal
+      : undefined;
 
     const url = new URL(pathname, this.#origin);
     url.search = search;
 
-    const headers = new globalThis.Headers();
-    if (!FormData[Symbol.hasInstance](body))
-      headers.set(Headers.ContentType, requestContentType);
     const response = await fetch(url, { signal, method, body, headers });
     const responseContentType = response.headers.get(Headers.ContentType) ?? "";
     
     if (!responseContentType.length || response.status === HttpStatusCodes.NoContent) return;
     const handler = ResourceClient.contentTypes.get(responseContentType);
-    if (handler) {
+    if (handler?.decode) {
       const result = handler.decode(response);
       if (result instanceof HttpError)
         throw result;
       return result;
     }
-    throw new UnsupportedMediaTypeError(`Content type '${responseContentType}' is unsupported`);
+    throw new UnsupportedMediaTypeError(`Could not find a decoder for ${this.#resource.name}.${method}`);
   }
 
   #collectMethodMetadata<T>(key: symbol) {
@@ -174,7 +174,7 @@ export class ResourceClient<R extends typeof Resource> {
       }, new Map<RequestMethod, T | undefined>());
     }
 
-  async #serialiseParameters(method: RequestMethod, contentType: string, parameters: unknown[]) {
+  async #serialiseParameters(method: RequestMethod, parameters: unknown[]) {
     const data = this.#parameterMetadata.get(method)?.reduce((
       data: Record<ParameterMetadata['type'], z.infer<z.ZodType> | undefined>,
       metadata,
@@ -205,34 +205,54 @@ export class ResourceClient<R extends typeof Resource> {
       return data;
     }, { route: undefined, query: undefined, body: undefined });
     
-    if (data?.route && typeof data.route === 'object') {
-      // order matters for route params
-      const routeSchema = this.#routeSchema.get(method)!;
-      data.route = Object.fromEntries(
-        Object.keys(routeSchema.shape)
-          .reverse()
-          .filter(key => key in data.route)
-          .map(key => [key, data.route[key]])
-      );
+    const acceptedContentTypes = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
+    let matchedContentType = '';
+    let matchedEncoder = undefined;
+    for (const contentType of acceptedContentTypes) {
+      const handler = this.contentTypeRegistry.get(method, contentType);
+      if (handler?.encode) {
+        matchedContentType = contentType;
+        matchedEncoder = handler.encode;
+        break;
+      }
     }
-
-    const pathname = data?.route && typeof data.route === 'object'
-      ? mergePath(
-          this.#resource.pathname,
-          ...Object.values<string>(data?.route ?? {})
-        )
-      : mergePath(this.#resource.pathname, data?.route ?? "");
+    const headers = new globalThis.Headers();
+    if (!matchedEncoder)
+      throw new UnsupportedMediaTypeError(`Could not find an encoder for ${this.#resource.name}.${method}`);
+    if (matchedContentType !== ContentTypes.MultipartFormData)
+      headers.set(Headers.ContentType, matchedContentType);
     return {
+      headers,
       search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
-      pathname,
-      body: await this.#serialiseBody(data?.body, method, contentType),
+      pathname: this.#serialiseRoute(data?.route, method),
+      body: await this.#serialiseBody(data?.body, method, matchedEncoder),
     }
   }
 
-  #serialiseBody(body: z.infer<z.ZodType>, method: RequestMethod, contentType: string) {
+  #serialiseRoute(route: z.infer<z.ZodType>, method: RequestMethod) {
+    if (route === undefined) route = '';
+    if (typeof route === 'object') {
+      // order matters for route params
+      const routeSchema = this.#routeSchema.get(method)!;
+      route = Object.fromEntries(
+        Object.keys(routeSchema.shape)
+          .reverse()
+          .filter(key => key in route)
+          .map(key => [key, route[key]])
+      );
+    }
+
+    return typeof route === 'object'
+      ? mergePath(
+          this.#resource.pathname,
+          ...Object.values<string>(route ?? {})
+        )
+      : mergePath(this.#resource.pathname, route ?? "");
+  }
+
+  #serialiseBody(body: z.infer<z.ZodType>, method: RequestMethod, encode: ContentTypeHandler['encode']) {
     if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
-      const handler = this.contentTypeRegistry.get(method, contentType);
-      return handler?.encode(body);
+      return encode(body);
     }
   }
 }
