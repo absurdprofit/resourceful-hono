@@ -206,7 +206,7 @@ export class ResourceClient<R extends typeof Resource> {
     }, { route: undefined, query: undefined, body: undefined });
     
     const acceptedContentTypes = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
-    let matchedContentType = '';
+    let matchedContentType = undefined;
     let matchedEncoder = undefined;
     for (const contentType of acceptedContentTypes) {
       const handler = this.contentTypeRegistry.get(method, contentType);
@@ -219,13 +219,16 @@ export class ResourceClient<R extends typeof Resource> {
     const headers = new globalThis.Headers();
     if (!matchedEncoder)
       throw new UnsupportedMediaTypeError(`Could not find an encoder for ${this.#resource.name}.${method}`);
-    if (matchedContentType !== ContentTypes.MultipartFormData)
+    if (
+      matchedContentType !== ContentTypes.MultipartFormData
+      && matchedContentType
+    )
       headers.set(Headers.ContentType, matchedContentType);
     return {
       headers,
       search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
       pathname: this.#serialiseRoute(data?.route, method),
-      body: await this.#serialiseBody(data?.body, method, matchedEncoder),
+      body: await this.#serialiseBody(data?.body, method, matchedContentType, matchedEncoder),
     }
   }
 
@@ -250,9 +253,14 @@ export class ResourceClient<R extends typeof Resource> {
       : mergePath(this.#resource.pathname, route ?? "");
   }
 
-  #serialiseBody(body: z.infer<z.ZodType>, method: RequestMethod, encode: ContentTypeHandler['encode']) {
+  #serialiseBody(
+    body: z.infer<z.ZodType>,
+    method: RequestMethod,
+    contentType: string | undefined,
+    encode: ContentTypeHandler['encode']
+  ) {
     if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
-      return encode(body);
+      return encode(body, contentType);
     }
   }
 }

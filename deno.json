@@ -2,7 +2,7 @@
   "workspace": ["packages/*", "example"],
   "tasks": {
     "list": "deno run --allow-all tasks/list.ts",
-    "test": "deno test --coverage --parallel"
+    "test": "deno test --trace-leaks --coverage --parallel"
   },
   "publish": {
     "exclude": [

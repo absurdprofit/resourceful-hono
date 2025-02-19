@@ -55,12 +55,11 @@ export async function Result<
     if (contentType) headers.set(Headers.ContentType, contentType);
     const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
     if (encode)
-      body = await encode(content);
+      body = await encode(content, contentType);
     if (
       contentType?.startsWith(ContentTypes.ServerSentEvent)
       && body instanceof ReadableStream
     ) {
-      body = body.pipeThrough(new TextEncoderStream());
       headers.set(Headers.CacheControl, 'no-cache');
       headers.set(Headers.Connection, 'keep-alive');
     }
