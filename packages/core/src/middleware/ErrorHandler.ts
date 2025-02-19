@@ -11,10 +11,10 @@ export const ErrorHandler: HonoErrorHandler = async (error, context) => {
     error = error.error ?? error.suppressed; // error.error contains user error, error.suppressed contains rollback error
   if (!HttpError[Symbol.hasInstance](error)) {
     error = new InternalServerError('There was an error.', { cause: error });
-    context.error = error;
   }
-
+  
   const httpError = error as HttpError;
+  context.error = httpError;
   httpError.traceparent = context.res.headers.get(Headers.Traceparent);
   httpError.instance = context.req.url;
   Application.instance.dispatchEvent(

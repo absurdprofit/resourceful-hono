@@ -1,7 +1,7 @@
 export class RollbackError extends Error {
   constructor() {
     super('rollback');
-    this.message = 'If you are seeing this error, make to call TransactionScope.complete().';
+    this.message = 'If you are seeing this error, make sure to call TransactionScope.complete().';
   }
 }
 

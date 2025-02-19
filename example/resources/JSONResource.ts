@@ -1,6 +1,8 @@
 import { ContentTypes, Result, HttpStatusCodes, FromRoute, FromBody, Accept, FromQuery, Middleware } from "@resourceful-hono/core";
 import { z } from 'zod';
 import BaseResource from "./BaseResource.ts";
+import { TransactionScope } from "../../packages/core/src/TransactionScope.ts";
+import { NotFoundError } from "../../packages/core/src/common/errors.ts";
 
 const GETQuery = z.object({ page: z.coerce.number() });
 const GETParam = z.object({ name: z.string(), id: z.string().uuid() });
@@ -20,10 +22,12 @@ export default class JSONResource extends BaseResource {
     await next();
     console.debug('Middleware 3');
   })
-  public GET(
+  public async GET(
     @FromRoute(GETParam) param: z.infer<typeof GETParam>,
     @FromQuery(GETQuery) query: z.infer<typeof GETQuery>
   ) {
+    await using scope = new TransactionScope({ commit: () => {}, rollback: () => {} });
+    throw new NotFoundError();
     return Result(HttpStatusCodes.Ok, { param, query });
   }
 
