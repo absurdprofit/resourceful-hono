@@ -22,12 +22,10 @@ export default class JSONResource extends BaseResource {
     await next();
     console.debug('Middleware 3');
   })
-  public async GET(
+  public GET(
     @FromRoute(GETParam) param: z.infer<typeof GETParam>,
     @FromQuery(GETQuery) query: z.infer<typeof GETQuery>
   ) {
-    await using scope = new TransactionScope({ commit: () => {}, rollback: () => {} });
-    throw new NotFoundError();
     return Result(HttpStatusCodes.Ok, { param, query });
   }
 
