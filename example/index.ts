@@ -11,7 +11,8 @@ class MyService {
   }
 }
 const app = Application.instance;
-app.registerMiddlewares([Logger, Timing]);
+// app.registerMiddlewares([Logger, Timing]);
+app.registerMiddlewares([Timing]);
 app.registerService(MyService, new MyService())
   .registerService(LogService, new ConsoleLogService());
 
