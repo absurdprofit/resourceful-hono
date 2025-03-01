@@ -31,13 +31,12 @@ export default class JSONResource extends BaseResource {
 
   @Accept([ContentTypes.Json])
   public PUT(@FromBody(PUTBody) data: z.infer<typeof PUTBody>, @FromBody('name', PUTBody.shape.name) name: z.infer<typeof PUTBody['shape']['name']>) {
-    console.log(data, name);
+    return Result(HttpStatusCodes.Ok, { data, name });
   }
 
   @Accept([ContentTypes.PlainText])
   public POST(@FromBody(z.string()) numberString: string) {
-    console.log(numberString);
-    return Result(200);
+    return Result(200, numberString);
   }
 
   @Accept([ContentTypes.MultipartFormData])

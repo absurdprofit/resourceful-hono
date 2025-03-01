@@ -243,7 +243,7 @@ export abstract class Resource implements IResource {
   private readonly handleRequest: Handler = async (context) => {
     const method = context.req.method.toUpperCase() as RequestMethod;
     const methodHandler = (this as IResource)[method]?.bind(this.clone(context));
-    const { parameters, issues } = await this.collectParameters(context.req);
+    const { parameters, issues } = await this.#collectParameters(context.req);
 
     if (issues.length)
       throw new BadRequestError('There were issues in your request.', { issues });
@@ -308,7 +308,7 @@ export abstract class Resource implements IResource {
     }, new Map<RequestMethod, ParameterMetadata[]>());
   }
 
-  private async collectParameters(request: HonoRequest) {
+  async #collectParameters(request: HonoRequest) {
     const method = request.method as RequestMethod;
     const parameterMetadata = this.#parameterMetadata.get(method) ?? [];
     const issues: z.ZodIssue[] = [];
@@ -341,7 +341,15 @@ export abstract class Resource implements IResource {
         )
       );
   
-      parameters = parameterMetadata.map(({ type, key }) => {
+      parameters = parameterMetadata.map(({ type, key, keys }) => {
+        if (!key && keys) {
+          // create object with only the expected key-value pairs
+          const object = data[type][DEFAULT_PARAMETER_KEY];
+          return keys.reduce((parameter, key) => {
+            parameter[key] = object[key];
+            return parameter;
+          }, {} as Record<string, unknown>);
+        }
         return data[type][key ?? DEFAULT_PARAMETER_KEY];
       });
     }
