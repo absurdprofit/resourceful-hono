@@ -36,7 +36,7 @@ type IResourceClientMethod<HttpMethod, ResourceMethod> =
           : Promise<R>
     : never;
 
-export type IResourceClient<R extends typeof Resource> = {
+export type IResourceClient<R extends typeof Resource> = ResourceClient<typeof Resource> & {
   [
     K in ResourceMethod | Lowercase<ResourceMethod> as Uppercase<K> extends keyof InstanceType<R>
       ? K
@@ -44,7 +44,7 @@ export type IResourceClient<R extends typeof Resource> = {
   ]: Uppercase<K> extends keyof InstanceType<R>
       ? IResourceClientMethod<Uppercase<K>, InstanceType<R>[Uppercase<K>]>
       : never;
-}
+};
 
 export class ResourceClient<R extends typeof Resource> {
   private static readonly contentTypeRegistry = ContentTypeRegistry.default;
@@ -55,6 +55,8 @@ export class ResourceClient<R extends typeof Resource> {
   readonly #acceptMetadata;
   readonly #resource;
   readonly #origin;
+  public static fetch = globalThis.fetch;
+  public fetch = ResourceClient.fetch;
 
   constructor(resource: R, origin: string) {
     this.#resource = resource;
@@ -128,7 +130,7 @@ export class ResourceClient<R extends typeof Resource> {
     const url = new URL(pathname, this.#origin);
     url.search = search;
 
-    const response = await fetch(url, { signal, method, body, headers });
+    const response = await this.fetch(url, { signal, method, body, headers });
     const responseContentType = response.headers.get(Headers.ContentType) ?? "";
     
     if (!responseContentType.length || response.status === HttpStatusCodes.NoContent) return;
