@@ -346,7 +346,7 @@ export abstract class Resource implements IResource {
           // create object with only the expected key-value pairs
           const object = data[type][DEFAULT_PARAMETER_KEY];
           return keys.reduce((parameter, key) => {
-            parameter[key] = object[key];
+            parameter[key] = object?.[key];
             return parameter;
           }, {} as Record<string, unknown>);
         }

@@ -16,6 +16,8 @@ export function Accept(acceptedContentTypes: ContentTypes | string[]): (target: 
 export function Route(path: string): <T extends ResourceLikeConstructor>(target: T) => void {
   if (path.includes(':'))
     throw new Error('Your route includes a path param which must be a mistake. Path params are automatically inferred.');
+  if (path.includes('*'))
+    throw new Error('Your route includes a wildcard which must be a mistake. Wildcards are automatically inferred.');
   return function <T extends ResourceLikeConstructor>(target: T) {
     Object.defineProperty(target, ROUTE_METADATA_KEY, { value: path, writable: false });
   }
