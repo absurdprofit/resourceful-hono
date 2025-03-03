@@ -1,7 +1,7 @@
 import type { HttpStatusCodes } from "./common/enums.ts";
 
 export abstract class HttpError extends Error {
-  public abstract readonly status: HttpStatusCodes;
+  public abstract readonly status: HttpStatusCodes | number;
   public abstract readonly type: string;
   public readonly title: string;
   public readonly detail: string;
