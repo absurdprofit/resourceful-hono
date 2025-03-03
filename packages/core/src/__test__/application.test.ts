@@ -13,6 +13,18 @@ class DummyService {
   }
 }
 
+class AsyncDummyService {
+  value = true;
+  disposed = false;
+
+  [Symbol.asyncDispose]() {
+    return new Promise<void>(resolve => {
+      this.disposed = true;
+      resolve();
+    });
+  }
+}
+
 Deno.test("Application instance getter returns the same reference", () => {
   const instanceRef1 = Application.instance;
   const instanceRef2 = Application.instance;
@@ -24,6 +36,27 @@ Deno.test("creating new Application instance throws an Error", () => {
     /* @ts-ignore */
     return new Application(crypto.randomUUID());
   }).toThrow(TypeError);
+});
+
+Deno.test("Registering a service with unrelated class throws", () => {
+  const app = Application.instance;
+  const service = new AsyncDummyService();
+
+  expect(() => {
+    app.registerService(DummyService, service as unknown as DummyService);
+  }).toThrow(
+    'Service DummyService should be initialised with an instance of DummyService.'
+  );
+});
+
+Deno.test("Retrieving an unregistered service throws", () => {
+  const app = Application.instance;
+  
+  expect(() => {
+    app.getService(DummyService);
+  }).toThrow(
+    'Service DummyService not found.'
+  );
 });
 
 Deno.test("Register and get service", () => {
@@ -69,7 +102,8 @@ Deno.test("state transitions from idle to ready and finally to finish and servic
   await app.ready;
   expect(app.state).toBe("running");
 
-  const service = app.getService(DummyService);
+  const service = new AsyncDummyService();
+  app.registerService(AsyncDummyService, service);
   app.finish();
   await app.finished;
   expect(app.state).toBe("finished");

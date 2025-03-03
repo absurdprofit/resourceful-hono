@@ -1,12 +1,16 @@
 import { expect } from "expect";
 import { ContentTypes, Headers, HttpStatusCodes } from "../common/enums.ts";
-import { Result, Resource } from "../Resource.ts";
-import { Application, Route } from "../index.ts";
+import { Result, Resource, Redirect } from "../Resource.ts";
 import { Hono } from "hono";
-import { Accept, FromBody, FromQuery, FromRoute } from "../common/decorators.ts";
+import { Accept, FromBody, FromQuery, FromRoute, Middleware, Route } from "../common/decorators.ts";
 import { z } from "zod";
+import { Application } from "../Application.ts";
+import { ServerSentEvent } from "../ServerSentEvent.ts";
+import { PromiseWrapper } from "../common/promise-wrapper.ts";
 
-const _app = Application.instance;
+const app = Application.instance;
+const promiseWrapper = new PromiseWrapper<void>();
+app.addEventListener('ready', (e) => e.waitUntil(promiseWrapper.promise));
 const origin = 'http://localhost:8080';
 
 function cleanupResources() {
@@ -15,6 +19,32 @@ function cleanupResources() {
     writable: false,
   });
 }
+
+Deno.test('Resource waits on Application ready state before processing requests', () => {
+  // hack to remove resources
+  cleanupResources();
+
+  class TestResource extends Resource {
+    public GET() {
+      return Result(HttpStatusCodes.Ok, {
+        responseTime: performance.now()
+      });
+    }
+  }
+  
+  const _resource = new TestResource();
+  const url = new URL('test', origin);
+  let readyTime = 0;
+
+  queueMicrotask(async () => {
+    const response = await Resource.hono.request(url);
+    const json = await response.json();
+    expect(json.responseTime).toBeGreaterThan(readyTime);
+  });
+
+  promiseWrapper.resolve();
+  readyTime = performance.now();
+});
 
 Deno.test("Resources can't extend non-virtual resources", () => {
   class BaseResource extends Resource {
@@ -36,7 +66,19 @@ Deno.test("Resources can't extend non-virtual resources", () => {
   );
 });
 
+Deno.test('Resource methods getter returns only methods implemented', () => {
+  class TestResource extends Resource {
+    public GET() {}
+    public POST() {}
+  }
+
+  expect(TestResource.methods).toStrictEqual(['GET', 'POST']);
+});
+
 Deno.test('Resource has context, request and response injected', async () => {
+  // hack to remove resources
+  cleanupResources();
+
   let context: Resource['context'] = null!;
   let request;
   let response;
@@ -73,6 +115,22 @@ Deno.test('Resource cannot Accept unregistered content type', () => {
   }).toThrow(
     "A handler hasn't been registered for application/cbor"
   );
+});
+
+Deno.test('Resource returns only allowed methods in OPTIONS request', async () => {
+  // hack to remove resources
+  cleanupResources();
+
+  class TestResource extends Resource {
+    public GET() {}
+    public POST() {}
+  }
+  const _resource = new TestResource();
+  const url = new URL('test', origin);
+  const response = await Resource.hono.request(url, { method: 'OPTIONS' });
+  
+  expect(response.status).toBe(HttpStatusCodes.NoContent);
+  expect(response.headers.get(Headers.Allow)).toBe('GET, POST');
 });
 
 Deno.test('Resource returns 200 for defined method', async () => {
@@ -150,6 +208,82 @@ Deno.test('Route decorator disallows path params and wildcards', () => {
   );
 });
 
+Deno.test('Middleware decorator per resource registers middleware handler', async () => {
+  // hack to remove resources
+  cleanupResources();
+
+  const testHeader = 'MiddlewareCalled';
+  @Middleware((context, next) => {
+    context.res.headers.set(testHeader, 'true');
+    return next();
+  })
+  class TestResource extends Resource {
+    public GET() {
+      return Result(HttpStatusCodes.Ok);
+    }
+
+    public POST() {
+      return Result(HttpStatusCodes.Ok);
+    }
+  }
+
+  class SecondTestResource extends Resource {
+    public GET() {
+      return Result(HttpStatusCodes.Ok);
+    }
+  }
+
+  const _resource = new TestResource();
+  const _resource2 = new SecondTestResource();
+  const url = new URL('test', origin);
+  const url2 = new URL('secondtest', origin);
+  const response = await Resource.hono.request(url);
+  const response2 = await Resource.hono.request(url, { method: 'POST' });
+  const response3 = await Resource.hono.request(url2);
+
+  expect(response.headers.get(testHeader)).toBe('true');
+  expect(response2.headers.get(testHeader)).toBe('true');
+  expect(response3.headers.get(testHeader)).toBe(null);
+});
+
+Deno.test('Middleware decorator per method registers middleware handler', async () => {
+  // hack to remove resources
+  cleanupResources();
+
+  const testHeader = 'MiddlewareCalled';
+  class TestResource extends Resource {
+    @Middleware((context, next) => {
+      context.res.headers.set(testHeader, 'true');
+      return next();
+    })
+    public GET() {
+      return Result(HttpStatusCodes.Ok);
+    }
+
+    public POST() {
+      return Result(HttpStatusCodes.Ok);
+    }
+  }
+
+  class SecondTestResource extends Resource {
+    public GET() {
+      return Result(HttpStatusCodes.Ok);
+    }
+  }
+
+  const _resource = new TestResource();
+  const _resource2 = new SecondTestResource();
+  const url = new URL('test', origin);
+  const url2 = new URL('secondtest', origin);
+  const response = await Resource.hono.request(url);
+  const response2 = await Resource.hono.request(url, { method: 'POST' });
+  const response3 = await Resource.hono.request(url2);
+
+  expect(response.headers.get(testHeader)).toBe('true');
+  expect(response2.headers.get(testHeader)).toBe(null);
+  expect(response3.headers.get(testHeader)).toBe(null);
+});
+
 Deno.test('Resource overrides route with Route decorator', async () => {
   // hack to remove resources
   cleanupResources();
@@ -165,6 +299,29 @@ Deno.test('Resource overrides route with Route decorator', async () => {
   const url = new URL('user', origin);
   const response = await Resource.hono.request(url);
 
+  expect(response.status).toBe(HttpStatusCodes.Ok);
+});
+
+Deno.test('FromRoute decorator registers route with optional param', async () => {
+  // hack to remove resources
+  cleanupResources();
+
+  const schema1 = z.object({ id: z.string().optional() });
+  class TestResource extends Resource {
+    public GET(@FromRoute(schema1) object: z.infer<typeof schema1>) {
+      return Result(HttpStatusCodes.Ok, { object });
+    }
+  }
+  const _resource = new TestResource();
+  const id = crypto.randomUUID();
+  let url = new URL(`test/${id}`, origin);
+  let response = await Resource.hono.request(url);
+  
+  expect(response.status).toBe(HttpStatusCodes.Ok);
+
+  url = new URL('test', origin);
+  response = await Resource.hono.request(url);
+  
   expect(response.status).toBe(HttpStatusCodes.Ok);
 });
 
@@ -268,4 +425,78 @@ Deno.test('Resource parses using FromBody decorator', async () => {
   expect(json['object']).toStrictEqual({ id });
   expect(json['id']).toStrictEqual(id);
   expect(json['object2']).toStrictEqual({ id2 });
+});
+
+Deno.test('Resource intersects non-object types using FromBody decorator', async () => {
+  // hack to remove resources
+  cleanupResources();
+
+  class TestResource extends Resource {
+    public POST(
+      @FromBody(z.string()) e: string,
+      @FromBody(z.literal('type')) e2: string,
+    ) {
+      return Result(HttpStatusCodes.Ok, { e, e2 });
+    }
+  }
+  const _resource = new TestResource();
+  const url = new URL('test', origin);
+  const body = JSON.stringify('type');
+  const method = 'POST';
+  const headers = { [Headers.ContentType]: ContentTypes.Json };
+  const response = await Resource.hono.request(url, { body, method, headers });
+  const json = await response.json();
+
+  expect(json.e).toBe('type');
+  expect(json.e2).toBe('type');
+
+  const body2 = JSON.stringify('types');
+  const response2 = await Resource.hono.request(url, { body: body2, method, headers });
+
+  expect(response2.ok).toBe(false);
+});
+
+Deno.test('Result adds required headers for SSE response', async () => {
+  const generator = function* () {
+    yield new ServerSentEvent('test');
+  };
+  const response = await Result(HttpStatusCodes.Ok, generator, ContentTypes.ServerSentEvent);
+
+  expect(response.headers.get(Headers.CacheControl)).toBe('no-cache');
+  expect(response.headers.get(Headers.Connection)).toBe('keep-alive');
+});
+
+Deno.test('Result defaults to octet-stream content type when given a generator', async () => {
+  const generator = function* () {
+    yield new ServerSentEvent('test');
+  };
+  const response = await Result(HttpStatusCodes.Ok, generator);
+
+  expect(response.headers.get(Headers.ContentType)).toBe(ContentTypes.OctetStream);
+});
+
+Deno.test('Redirect throws on out of bounds status codes', () => {
+  expect(() => {
+    Redirect(HttpStatusCodes.Ok, '/');
+  }).toThrow('Invalid redirect status code: 200');
+
+  expect(() => {
+    Redirect(HttpStatusCodes.BadRequest, '/');
+  }).toThrow('Invalid redirect status code: 400');
+});
+
+Deno.test('Redirect can accept Resource as destination', () => {
+  // hack to remove resources
+  cleanupResources();
+
+  class TestResource extends Resource {
+    public POST() {
+      return Result(HttpStatusCodes.Ok);
+    }
+  }
+
+  const response = Redirect(HttpStatusCodes.PermanentRedirect, TestResource);
+
+  expect(response.status).toBe(HttpStatusCodes.PermanentRedirect);
+  expect(response.headers.get(Headers.Location)).toBe(TestResource.pathname);
 });

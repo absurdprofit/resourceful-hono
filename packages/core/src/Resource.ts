@@ -37,7 +37,7 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
 export interface TypedResultResponse<_ = unknown, ___ = unknown> extends Response {}
 export async function Result<
   S extends HttpStatusCodes | number,
-  C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
+  C extends BodyInit | (() => Iterator<unknown, unknown, unknown>) | (() => AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
   T extends ContentTypes | string | undefined = undefined
 >(
   status: S,
@@ -49,8 +49,12 @@ export async function Result<
   if (isBodyInit(content)) {
     body = content;
   } else {
-    if (!contentType && content !== undefined)
-      contentType = ContentTypes.Json as T;
+    if (!contentType) {
+      if (typeof content === 'function')
+        contentType = ContentTypes.OctetStream as T;
+      else
+        contentType = ContentTypes.Json as T;
+    }
 
     if (contentType) headers.set(Headers.ContentType, contentType);
     const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
