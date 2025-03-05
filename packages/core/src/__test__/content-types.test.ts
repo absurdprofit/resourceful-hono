@@ -97,35 +97,91 @@ Deno.test("PlainText handler works", async () => {
 Deno.test("ServerSentEvent handler works", async () => {
   const handler = defaultRegistry.get("*", ContentTypes.ServerSentEvent);
   expect(handler).toBeDefined();
-  const data = function* () {
-    yield new ServerSentEvent(
-      'message',
-      {
-        comment: 'comment',
-        data: 'some data',
-        id: 1
-      }
-    );
-  }
-
-  const encoded = await handler?.encode(data, ContentTypes.ServerSentEvent);
-  expect(encoded).toBeInstanceOf(ReadableStream);
 
   const headers = new globalThis.Headers();
   headers.set(Headers.ContentType, ContentTypes.ServerSentEvent);
   headers.set(Headers.CacheControl, 'no-cache');
   headers.set(Headers.Connection, 'keep-alive');
-  const response = new Response(encoded, { headers });
-  Object.defineProperty(response, 'url', {
-    get: () => 'http://localhost:80/'
-  });
+  // decode response
+  {
+    const data = function* () {
+      yield new ServerSentEvent(
+        'message',
+        {
+          comment: 'comment',
+          data: 'some data',
+          id: 1
+        }
+      );
+    }
+    const encoded = await handler?.encode(data, ContentTypes.ServerSentEvent);
+    expect(encoded).toBeInstanceOf(ReadableStream);
+    const response = new Response(encoded, { headers });
+    Object.defineProperty(response, 'url', {
+      get: () => 'http://localhost:80/'
+    });
+    const decoded = await handler?.decode(response);
+    expect(decoded).toBeInstanceOf(EventSource);
+    const event = await new Promise<MessageEvent>(resolve => {
+      (decoded as EventSource).onmessage = resolve;  
+    });
+    expect(event.type).toBe('message');
+    expect(event.data).toBe('some data');
+    expect(event.lastEventId).toBe('1');
+    (decoded as EventSource).close();
+  }
+  // decode request
+  {
+    const data = function* () {
+      yield new ServerSentEvent(
+        'message',
+        {
+          comment: 'comment',
+          data: { some: 'data' },
+          id: 1
+        }
+      );
+    }
+    const encoded = await handler?.encode(data, ContentTypes.ServerSentEvent);
+    expect(encoded).toBeInstanceOf(ReadableStream);
+    const method = 'POST';
+    const body = encoded;
+    const request = new Request(
+      'http://localhost:80/',
+      { body , method, headers }
+    );
+    const decoded = await handler?.decode(request);
+    expect(decoded).toBeInstanceOf(EventSource);
+    const event = await new Promise<MessageEvent>(resolve => {
+      (decoded as EventSource).onmessage = resolve;  
+    });
+    expect(event.type).toBe('message');
+    expect(event.data).toBe('{"some":"data"}');
+    expect(event.lastEventId).toBe('1');
+    (decoded as EventSource).close();
+  }
+});
+
+Deno.test('OctetStream handler works', async () => {
+  const handler = defaultRegistry.get("*", ContentTypes.OctetStream);
+  expect(handler).toBeDefined();
+
+  const stream = new ReadableStream();
+  const encoded = await handler?.encode(stream);
+  const response = new Response(encoded);
   const decoded = await handler?.decode(response);
-  expect(decoded).toBeInstanceOf(EventSource);
-  const event = await new Promise<MessageEvent>(resolve => {
-    (decoded as EventSource).onmessage = resolve;  
-  });
-  expect(event.type).toBe('message');
-  expect(event.data).toBe('some data');
-  expect(event.lastEventId).toBe('1');
-  (decoded as EventSource).close();
+
+  expect(encoded).toBe(stream);
+  expect(decoded).toBe(response.body);
+});
+
+Deno.test('Stream encoder throws if given non-iterable', async () => {
+  const handler = defaultRegistry.get("*", ContentTypes.OctetStream);
+  expect(handler).toBeDefined();
+
+  expect(() => {
+    handler?.encode('data')
+  }).toThrow(
+    'Only generators or ReadableStreams can be turned into Resource streams'
+  );
 });

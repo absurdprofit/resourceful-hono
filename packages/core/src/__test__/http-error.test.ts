@@ -1,4 +1,4 @@
-import { expect } from "expect/expect";
+import { expect } from "expect";
 import { HttpError } from "../HttpError.ts";
 import { GenericHttpError, NotFoundError } from "../common/errors.ts";
 

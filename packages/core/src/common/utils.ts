@@ -69,3 +69,12 @@ export function toFormData(input: unknown): FormData {
 
   return formData;
 }
+
+// Helper to generate a random hex string
+export function generateHex(bytesCount: number): string {
+  const array = new Uint8Array(bytesCount);
+  crypto.getRandomValues(array);
+  return Array.from(array)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}

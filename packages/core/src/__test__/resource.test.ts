@@ -2,13 +2,35 @@ import { expect } from "expect";
 import { ContentTypes, Headers, HttpStatusCodes } from "../common/enums.ts";
 import { Result, Resource, Redirect } from "../Resource.ts";
 import { Hono } from "hono";
-import { Accept, FromBody, FromQuery, FromRoute, Middleware, Route } from "../common/decorators.ts";
+import { Accept, FromBody, FromQuery, FromRoute, Inject, Middleware, Route } from "../common/decorators.ts";
 import { z } from "zod";
 import { Application } from "../Application.ts";
 import { ServerSentEvent } from "../ServerSentEvent.ts";
 import { PromiseWrapper } from "../common/promise-wrapper.ts";
 
+class DummyService {
+  value = true;
+  disposed = false;
+
+  [Symbol.dispose]() {
+    this.disposed = true;
+  }
+}
+
+class AsyncDummyService {
+  value = true;
+  disposed = false;
+
+  [Symbol.asyncDispose]() {
+    return new Promise<void>(resolve => {
+      this.disposed = true;
+      resolve();
+    });
+  }
+}
+
 const app = Application.instance;
+app.registerService(DummyService, new DummyService());
 const promiseWrapper = new PromiseWrapper<void>();
 app.addEventListener('ready', (e) => e.waitUntil(promiseWrapper.promise));
 const origin = 'http://localhost:8080';
@@ -19,6 +41,71 @@ function cleanupResources() {
     writable: false,
   });
 }
+
+Deno.test('Resource service injection works', () => {
+  // hack to remove resources
+  cleanupResources();
+
+  class TestResource extends Resource {
+    @Inject()
+    declare public readonly service: DummyService;
+
+    public GET() {
+      return Result(HttpStatusCodes.Ok, {
+        responseTime: performance.now()
+      });
+    }
+  }
+
+  const _resource = new TestResource();
+  expect(_resource.service).toBeInstanceOf(DummyService);
+});
+
+Deno.test('Resource service injection throws if service doesn\'t exist', () => {
+  // hack to remove resources
+  cleanupResources();
+
+  expect(() => {
+    class TestResource extends Resource {
+      @Inject()
+      declare public readonly service: AsyncDummyService;
+  
+      public GET() {
+        return Result(HttpStatusCodes.Ok, {
+          responseTime: performance.now()
+        });
+      }
+    }
+  
+    const _resource = new TestResource();
+    const _service = _resource.service;
+  }).toThrow(
+    'Service AsyncDummyService not found.'
+  );
+});
+
+Deno.test('@Inject throws if service type cannot be inferred', () => {
+  // hack to remove resources
+  cleanupResources();
+
+  expect(() => {
+    class TestResource extends Resource {
+      @Inject()
+      declare public readonly service: never;
+  
+      public GET() {
+        return Result(HttpStatusCodes.Ok, {
+          responseTime: performance.now()
+        });
+      }
+    }
+  
+    const _resource = new TestResource();
+    const _service = _resource.service;
+  }).toThrow(
+    'Could not determine type for property service'
+  );
+});
 
 Deno.test('Resource waits on Application ready state before processing requests', () => {
   // hack to remove resources

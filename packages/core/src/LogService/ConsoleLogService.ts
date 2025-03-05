@@ -14,25 +14,25 @@ export class ConsoleLogService extends LogService {
   public debug(message: string, data: LogData = {}): void {
     const { context, payload } = data;
     if (context) this.printAccessLog(context);
-    return console.debug(message, payload ?? '');
+    return console.debug(message, payload);
   }
 
   public info(message: string, data: LogData = {}): void {
     const { context, payload } = data;
     if (context) this.printAccessLog(context);
-    return console.info(message, payload ?? '');
+    return console.info(message, payload);
   }
 
   public warn(message: string, error?: Error | null, data: LogData = {}): void {
     const { context, payload } = data;
     if (context) this.printAccessLog(context);
-    return console.warn(message, error, payload ?? '');
+    return console.warn(message, error, payload);
   }
 
   public error(error: Error, data: LogData = {}): void {
     const { context, payload } = data;
     if (context) this.printAccessLog(context);
-    return console.error(error, payload ?? '');
+    return console.error(error, payload);
   }
 
   private printAccessLog(context: Context<{ Variables: TimingVariables }>) {

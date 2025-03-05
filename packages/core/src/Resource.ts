@@ -52,7 +52,7 @@ export async function Result<
     if (!contentType) {
       if (typeof content === 'function')
         contentType = ContentTypes.OctetStream as T;
-      else
+      else if (typeof content !== 'undefined')
         contentType = ContentTypes.Json as T;
     }
 
