@@ -56,7 +56,6 @@ export async function Result<
         contentType = ContentTypes.Json as T;
     }
 
-    if (contentType) headers.set(Headers.ContentType, contentType);
     const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
     if (encode)
       body = await encode(content, contentType);
@@ -68,6 +67,7 @@ export async function Result<
       headers.set(Headers.Connection, 'keep-alive');
     }
   }
+  if (contentType) headers.set(Headers.ContentType, contentType);
   return new Response(body, { status, headers });
 }
 export interface IResource {

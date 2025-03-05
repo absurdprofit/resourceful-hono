@@ -136,11 +136,12 @@ export class ResourceClient<R extends typeof Resource> {
     if (!responseContentType.length || response.status === HttpStatusCodes.NoContent) return;
     const handler = ResourceClient.contentTypes.get(responseContentType);
     if (handler?.decode) {
-      const result = handler.decode(response);
+      const result = await handler.decode(response);
       if (result instanceof HttpError)
         throw result;
       return result;
     }
+    response.body?.cancel();
     throw new UnsupportedMediaTypeError(`Could not find a decoder for ${this.#resource.name}.${method}`);
   }
 
