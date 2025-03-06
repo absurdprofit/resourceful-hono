@@ -3,7 +3,7 @@ import { mergePath } from 'hono/utils/url';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
-import type { OwnProperties, ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
+import type { ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
 import { isBodyInit } from "./common/types.ts";
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
@@ -243,7 +243,7 @@ export abstract class Resource implements IResource {
   }
 
   private readonly handleRequest: Handler = async (context) => {
-    const method = context.req.method.toUpperCase() as RequestMethod;
+    const method = context.req.method as RequestMethod;
     const methodHandler = (this as IResource)[method]?.bind(this.clone(context));
     const { parameters, issues } = await this.#collectParameters(context.req);
 

@@ -58,7 +58,7 @@ Deno.test('Timing middleware adds server timing headers', async () => {
   expect(response.headers.get(Headers.ServerTiming)).toMatch(regex);
 });
 
-Deno.test('ErrorHandler unwraps SuppressedErrors', async () => {
+Deno.test('ErrorHandler throws user error in TransactionScope', async () => {
   const response = await Resource.hono.request('test', { method: 'POST' });
 
   const error = await response.json();
@@ -74,7 +74,7 @@ Deno.test('ErrorHandler wraps arbitrary errors with InternalServerError', async 
   expect(error.title).toEqual(InternalServerError.name);
 });
 
-Deno.test('ErrorHandler wraps SuppressedError with InternalServerError', async () => {
+Deno.test('ErrorHandler wraps RollbackError with InternalServerError', async () => {
   const response = await Resource.hono.request('test', { method: 'PATCH' });
 
   const error = await response.json();
