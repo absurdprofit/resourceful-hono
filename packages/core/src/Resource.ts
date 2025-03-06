@@ -90,7 +90,7 @@ export type NonAbstractResourceLikeConstructor = new (...args: ResourceConstruct
 export type AbstractResourceLikeConstructor = abstract new (...args: ResourceConstructorArgs) => Resource;
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
 export abstract class Resource implements IResource {
-  public readonly context: Context = null!;
+  public context: Context = null!;
   private static readonly contentTypeRegistry = ContentTypeRegistry.default;
   private readonly contentTypeRegistry = new ContentTypeRegistry();
   /**
@@ -105,7 +105,6 @@ export abstract class Resource implements IResource {
   readonly #routeSchema = this.#collectParameterSchema<z.AnyZodObject>('route');
   readonly #acceptMetadata = this.#collectMethodMetadata<ContentTypes[] | undefined>(ACCEPT_METADATA_KEY);
   readonly #middlewareMetadata = this.#collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
-  readonly #descriptors: OwnProperties<unknown> = Object.getOwnPropertyDescriptors(this);
 
   constructor() {
     this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
@@ -238,13 +237,9 @@ export abstract class Resource implements IResource {
   }
 
   public clone(context: Context): this {
-    const descriptors = {
-      ...this.#descriptors,
-      context: {
-        get: () => context,
-      }
-    };
-    return Object.create(Object.getPrototypeOf(this), descriptors);
+    const instance = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    instance.context = context;
+    return instance;
   }
 
   private readonly handleRequest: Handler = async (context) => {
