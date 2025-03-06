@@ -13,7 +13,7 @@ Deno.test('ConsoleLogService should log debug messages', () => {
   logger.debug(message);
   logger.debug(message, { payload });
 
-  assertSpyCall(debug, 0, { args: [message, undefined] });
+  assertSpyCall(debug, 0, { args: [message, ''] });
   assertSpyCall(debug, 1, { args: [message, payload] });
 });
 
@@ -27,7 +27,7 @@ Deno.test('ConsoleLogService should log info messages', () => {
   logger.info(message);
   logger.info(message, { payload });
 
-  assertSpyCall(info, 0, { args: [message, undefined] });
+  assertSpyCall(info, 0, { args: [message, ''] });
   assertSpyCall(info, 1, { args: [message, payload] });
 });
 
@@ -42,7 +42,7 @@ Deno.test('ConsoleLogService should log warnings', () => {
   logger.warn(message, error);
   logger.warn(message, error, { payload });
 
-  assertSpyCall(warn, 0, { args: [message, error, undefined] });
+  assertSpyCall(warn, 0, { args: [message, error, ''] });
   assertSpyCall(warn, 1, { args: [message, error, payload] });
 });
 
@@ -56,7 +56,7 @@ Deno.test('ConsoleLogService should log errors', () => {
   logger.error(error);
   logger.error(error, { payload });
 
-  assertSpyCall(errorLog, 0, { args: [error, undefined] });
+  assertSpyCall(errorLog, 0, { args: [error, ''] });
   assertSpyCall(errorLog, 1, { args: [error, payload] });
 });
 
