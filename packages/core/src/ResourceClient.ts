@@ -131,9 +131,9 @@ export class ResourceClient<R extends typeof Resource> {
     url.search = search;
 
     const response = await this.fetch(url, { signal, method, body, headers });
-    const responseContentType = response.headers.get(Headers.ContentType) ?? "";
+    const responseContentType = response.headers.get(Headers.ContentType);
     
-    if (!responseContentType.length || response.status === HttpStatusCodes.NoContent) return;
+    if (!responseContentType?.length || response.status === HttpStatusCodes.NoContent) return;
     const handler = ResourceClient.contentTypes.get(responseContentType);
     if (handler?.decode) {
       const result = await handler.decode(response);
@@ -236,7 +236,6 @@ export class ResourceClient<R extends typeof Resource> {
   }
 
   #serialiseRoute(route: z.infer<z.ZodType>, method: RequestMethod) {
-    if (route === undefined) route = '';
     if (typeof route === 'object') {
       // order matters for route params
       const routeSchema = this.#routeSchema.get(method)!;
@@ -246,14 +245,14 @@ export class ResourceClient<R extends typeof Resource> {
           .filter(key => key in route)
           .map(key => [key, route[key]])
       );
+    } else {
+      route = {};
     }
 
-    return typeof route === 'object'
-      ? mergePath(
-          this.#resource.pathname,
-          ...Object.values<string>(route ?? {})
-        )
-      : mergePath(this.#resource.pathname, route ?? "");
+    return mergePath(
+      this.#resource.pathname,
+      ...Object.values<string>(route)
+    );
   }
 
   #serialiseBody(

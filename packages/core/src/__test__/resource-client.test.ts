@@ -27,12 +27,13 @@ class TestResource extends Resource {
 
   public PUT(
     @FromRoute('id', z.coerce.number()) id: number,
+    @FromRoute('id2', z.coerce.number()) id2: number,
     @FromBody(z.object({ name: z.string() })) object: { name: string },
     @FromBody(z.object({ displayName: z.string() })) object2: { displayName: string },
   ) {
     return Result(
       HttpStatusCodes.Ok,
-      { ...object, ...object2, id }
+      { ...object, ...object2, id, id2 }
     );
   }
 
@@ -45,6 +46,13 @@ class TestResource extends Resource {
     @FromBody(z.string()) fromBody: string
   ) {
     return Result(HttpStatusCodes.Ok, { fromRoute, fromBody });
+  }
+
+  public DELETE(
+    @FromRoute(z.object({ id: z.string() })) _object: { id: string },
+    @FromRoute(z.object({ id2: z.string() })) _object2: { id2: string }
+  ) {
+    return void 0;
   }
 }
 
@@ -84,11 +92,38 @@ Application.instance.registerResources([
 
 Deno.serve(Application.instance.fetch);
 
+Deno.test('Resource.createClient throws if origin is not defined', () => {
+  expect(() => {
+    TestResource.createClient();
+  }).toThrow(
+    'origin is undefined.'
+  );
+});
+
+Deno.test('Resource.createClient infers origin from globalThis.location', () => {
+  expect(() => {
+    Object.create(Location.prototype, {
+      origin: {
+        value: 'localhost:8000'
+      }
+    })
+      globalThis.location = Object.create(
+        Location.prototype,
+        {
+          origin: {
+            value: 'localhost:8000'
+          }
+        }
+      );
+      TestResource.createClient();  
+  }).not.toThrow();
+});
+
 Deno.test('ResourceClient only includes methods defined on Resource', () => {
-  expect(test.get).toBeDefined();
-  expect(test.GET).toBeDefined();
-  expect('delete' in test).toBe(false);
-  expect('DELETE' in test).toBe(false);
+  expect(unsupportedContent.get).toBeDefined();
+  expect(unsupportedContent.GET).toBeDefined();
+  expect('delete' in unsupportedContent).toBe(false);
+  expect('DELETE' in unsupportedContent).toBe(false);
 });
 
 Deno.test('ResourceClient.toString() returns resource specific values', () => {
@@ -142,11 +177,12 @@ Deno.test('ResourceClient reconstructs HttpError', async () => {
 
 Deno.test('ResourceClient can merge object types', async () => {
   const id = 10;
+  const id2 = 1;
   const object = { name: 'Nathan' };
   const object2 = { displayName: 'surd' };
   
-  const result = await test.put(id, object, object2);
-  expect(result).toStrictEqual({ ...object, ...object2, id });
+  const result = await test.put(id, id2, object, object2);
+  expect(result).toStrictEqual({ ...object, ...object2, id, id2 });
 });
 
 Deno.test('ResourceClient throws for unsupported content types', async () => {
@@ -154,4 +190,10 @@ Deno.test('ResourceClient throws for unsupported content types', async () => {
   const encodeError = await unsupportedContent.post('<svg></svg>').catch(e => e);
   expect(decodeError).toBeInstanceOf(UnsupportedMediaTypeError);
   expect(encodeError).toBeInstanceOf(UnsupportedMediaTypeError);
+});
+
+Deno.test('ResourceClient returns undefined for void results', async () => {
+  const result = await test.delete({ id: 'absurd' }, { id2: 'profit'});
+
+  expect(result).toBe(undefined);
 });

@@ -543,6 +543,27 @@ Deno.test('Resource intersects non-object types using FromBody decorator', async
   expect(response2.ok).toBe(false);
 });
 
+Deno.test('Resource throws if content type is missing', async () => {
+  // hack to remove resources
+  cleanupResources();
+
+  class TestResource extends Resource {
+    public POST(@FromBody(z.string()) data: string) {
+      return Result(HttpStatusCodes.Ok, data);
+    }
+  }
+
+  const _resource = new TestResource();
+  const url = new URL('test', origin);
+  const body = JSON.stringify('type');
+  const method = 'POST';
+  const request = new Request(url, { body, method });
+  request.headers.delete(Headers.ContentType);
+  const response = await Resource.hono.request(request);
+
+  expect(response.ok).toBe(false);
+});
+
 Deno.test('Result adds required headers for SSE response', async () => {
   const generator = function* () {
     yield new ServerSentEvent('test');

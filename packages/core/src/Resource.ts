@@ -105,6 +105,7 @@ export abstract class Resource implements IResource {
   readonly #routeSchema = this.#collectParameterSchema<z.AnyZodObject>('route');
   readonly #acceptMetadata = this.#collectMethodMetadata<ContentTypes[] | undefined>(ACCEPT_METADATA_KEY);
   readonly #middlewareMetadata = this.#collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
+  readonly #descriptors: OwnProperties<unknown> = Object.getOwnPropertyDescriptors(this);
 
   constructor() {
     this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
@@ -191,7 +192,7 @@ export abstract class Resource implements IResource {
     if (globalThis.location instanceof Location)
       origin ??= globalThis.location.origin;
     else if (typeof origin !== 'string')
-      throw new TypeError('origin is required.');
+      throw new TypeError('origin is undefined.');
 
     return new ResourceClient(this, origin) as unknown as IResourceClient<T>;
   }
@@ -237,9 +238,11 @@ export abstract class Resource implements IResource {
   }
 
   public clone(context: Context): this {
-    const descriptors: OwnProperties<this> = Object.getOwnPropertyDescriptors(this);
-    descriptors.context = {
-      get: () => context,
+    const descriptors = {
+      ...this.#descriptors,
+      context: {
+        get: () => context,
+      }
     };
     return Object.create(Object.getPrototypeOf(this), descriptors);
   }
