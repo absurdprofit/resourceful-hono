@@ -188,11 +188,6 @@ export abstract class Resource implements IResource {
     this: T,
     ...[origin]: typeof globalThis extends { location: { origin: string } } ? [origin?: string] : [origin: string]
   ): IResourceClient<T> {
-    if (globalThis.location instanceof Location)
-      origin ??= globalThis.location.origin;
-    else if (typeof origin !== 'string')
-      throw new TypeError('origin is undefined.');
-
     return new ResourceClient(this, origin) as unknown as IResourceClient<T>;
   }
 

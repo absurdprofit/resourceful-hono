@@ -58,7 +58,15 @@ export class ResourceClient<R extends typeof Resource> {
   public static fetch = globalThis.fetch;
   public fetch = ResourceClient.fetch;
 
-  constructor(resource: R, origin: string) {
+  constructor(
+    resource: R,
+    origin?: string
+  ) {
+    if (globalThis.location instanceof Location)
+      origin ??= globalThis.location.origin;
+    else if (typeof origin !== 'string')
+      throw new TypeError('origin is undefined.');
+
     this.#resource = resource;
     this.methods = resource.methods;
     this.#parameterMetadata = this.#collectParameterMetadata();
