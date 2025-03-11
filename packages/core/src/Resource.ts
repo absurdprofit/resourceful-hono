@@ -11,6 +11,7 @@ import { literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
 import { ResourceClient } from "./ResourceClient.ts";
 import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
+import { ResourceClientInstance } from "./index.ts";
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
   readonly status: S;
@@ -189,7 +190,7 @@ export abstract class Resource implements IResource {
   public static createClient<T extends typeof Resource>(
     this: T,
     ...[origin]: typeof globalThis extends { location: { origin: string } } ? [origin?: string] : [origin: string]
-  ) {
+  ): ResourceClientInstance<T> {
     return new ResourceClient(this, origin);
   }
 
