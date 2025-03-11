@@ -9,7 +9,7 @@ import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } fro
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import { literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
-import { ResourceClient, type IResourceClient } from "./ResourceClient.ts";
+import { ResourceClient } from "./ResourceClient.ts";
 import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
@@ -70,7 +70,7 @@ export async function Result<
     }
   }
   if (contentType) headers.set(Headers.ContentType, contentType);
-  return new Response(body, { status, headers });
+  return new Response(body, { status, headers }) as TypedResultResponse<S, C, T>;
 }
 export interface IResource {
   readonly route: string;
@@ -189,8 +189,8 @@ export abstract class Resource implements IResource {
   public static createClient<T extends typeof Resource>(
     this: T,
     ...[origin]: typeof globalThis extends { location: { origin: string } } ? [origin?: string] : [origin: string]
-  ): IResourceClient<T> {
-    return new ResourceClient(this, origin) as unknown as IResourceClient<T>;
+  ) {
+    return new ResourceClient(this, origin);
   }
 
   public static get contentTypes(): SimpleContentTypeRegistry {

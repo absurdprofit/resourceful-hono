@@ -12,10 +12,10 @@ import { HttpError } from "./HttpError.ts";
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
     ? M extends keyof InstanceType<D>
-      ? ReturnType<IResourceClientMethod<M, InstanceType<D>[M]>>
+      ? ReturnType<ResourceClientMethod<M, InstanceType<D>[M]>>
       : never
     : RequestMethod.Get extends keyof InstanceType<D>
-      ? ReturnType<IResourceClientMethod<M, InstanceType<D>[RequestMethod.Get]>>
+      ? ReturnType<ResourceClientMethod<M, InstanceType<D>[RequestMethod.Get]>>
       : never
   : Promise<unknown>;
 type Result<C, T> = T extends ContentTypes.ServerSentEvent
@@ -26,7 +26,7 @@ type Result<C, T> = T extends ContentTypes.ServerSentEvent
         ? Promise<void>
         : Promise<C>;
 
-type IResourceClientMethod<HttpMethod, ResourceMethod> =
+type ResourceClientMethod<HttpMethod, ResourceMethod> =
   ResourceMethod extends (...parameters: infer A) => infer R
     ? (...parameters: [...A, signal?: AbortSignal]) =>
       R extends TypedRedirectResponse<infer S, infer D> | Promise<TypedRedirectResponse<infer S, infer D>>
@@ -36,27 +36,35 @@ type IResourceClientMethod<HttpMethod, ResourceMethod> =
           : Promise<R>
     : never;
 
-export type IResourceClient<R extends typeof Resource> = ResourceClient<typeof Resource> & {
+export type ResourceClientInstance<R extends typeof Resource> = {
+  readonly methods: RequestMethod[];
+  fetch: typeof globalThis.fetch;
+} & {
   [
     K in ResourceMethod | Lowercase<ResourceMethod> as Uppercase<K> extends keyof InstanceType<R>
       ? K
       : never
   ]: Uppercase<K> extends keyof InstanceType<R>
-      ? IResourceClientMethod<Uppercase<K>, InstanceType<R>[Uppercase<K>]>
+      ? ResourceClientMethod<Uppercase<K>, InstanceType<R>[Uppercase<K>]>
       : never;
-};
+}
 
-export class ResourceClient<R extends typeof Resource> {
+interface ResourceClientConstructor {
+  contentTypes: SimpleContentTypeRegistry;
+  new <R extends typeof Resource>(resource: R, origin?: string): ResourceClientInstance<R>;
+}
+
+export const ResourceClient: ResourceClientConstructor = class <R extends typeof Resource> {
   private static readonly contentTypeRegistry = ContentTypeRegistry.default;
   private readonly contentTypeRegistry = new ContentTypeRegistry();
-  readonly methods: RequestMethod[];
+  readonly methods;
   readonly #parameterMetadata;
   readonly #routeSchema;
   readonly #acceptMetadata;
   readonly #resource;
   readonly #origin;
   public static fetch = globalThis.fetch;
-  public fetch = ResourceClient.fetch;
+  public fetch = globalThis.fetch;
 
   constructor(
     resource: R,
@@ -109,7 +117,7 @@ export class ResourceClient<R extends typeof Resource> {
     );
   }
 
-  public static get contentTypes(): SimpleContentTypeRegistry {
+  public static get contentTypes() {
     return {
       use: (pattern: string | string[], handler: ContentTypeHandler) => {
         return this.contentTypeRegistry.use('*', pattern, handler)
@@ -273,4 +281,4 @@ export class ResourceClient<R extends typeof Resource> {
       return encode(body, contentType);
     }
   }
-}
+} as unknown as ResourceClientConstructor;
