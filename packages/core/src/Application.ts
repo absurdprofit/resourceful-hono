@@ -17,7 +17,7 @@ export type ApplicationState = 'idle' | 'running' | 'finished';
 
 export class Application extends TypedEventTarget<ApplicationEventMap> {
   static #instance: Application;
-  static readonly #instanceId = crypto.randomUUID();
+  static readonly #brand = Symbol();
   readonly #services = new ServiceMap();
   readonly #readyPromise;
   readonly #finishedPromise;
@@ -25,10 +25,10 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
   readonly finished: Promise<void>;
   #state: ApplicationState = 'idle';
 
-  private constructor(instanceId: string) {
+  private constructor(brand: symbol) {
     super();
 
-    if (instanceId !== Application.#instanceId)
+    if (brand !== Application.#brand)
       throw new TypeError('Illegal constructor');
 
     this.#hono.onError(ErrorHandler);
@@ -52,7 +52,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
   }
 
   public static get instance(): Application {
-    Application.#instance ??= new Application(Application.#instanceId);
+    Application.#instance ??= new Application(Application.#brand);
     return Application.#instance;
   }
 

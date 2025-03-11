@@ -1,5 +1,5 @@
 import { MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ACCEPT_METADATA_KEY, ROUTE_METADATA_KEY } from './constants.ts';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { type ContentTypes, RequestMethod } from "./enums.ts";
 import type { NonAbstractResourceLikeConstructor, Resource, ResourceLikeConstructor } from "../Resource.ts";
 import type { Constructor, ParameterMetadata, PrimitiveType, ResourceMethod } from "./types.ts";
@@ -16,6 +16,8 @@ export function Accept(acceptedContentTypes: ContentTypes | string[]): (target: 
 export function Route(path: string): <T extends ResourceLikeConstructor>(target: T) => void {
   if (path.includes(':'))
     throw new Error('Your route includes a path param which must be a mistake. Path params are automatically inferred.');
+  if (path.includes('*'))
+    throw new Error('Your route includes a wildcard which must be a mistake. Wildcards are automatically inferred.');
   return function <T extends ResourceLikeConstructor>(target: T) {
     Object.defineProperty(target, ROUTE_METADATA_KEY, { value: path, writable: false });
   }
@@ -28,7 +30,8 @@ export function FromRoute(keyOrSchema: string | z.AnyZodObject, schemaOrUndefine
     if (metadata[parameterIndex]) throw new Error('Parameter decorators cannot be composed');
     const key = typeof keyOrSchema === 'string' ? keyOrSchema : undefined;
     const schema = typeof keyOrSchema === 'string' ? schemaOrUndefined! : keyOrSchema;
-    metadata[parameterIndex] = { type: 'route', key, schema };
+    const keys = schema instanceof z.ZodObject ? Object.keys(schema.shape) : undefined;
+    metadata[parameterIndex] = { type: 'route', key, keys, schema };
     Reflect.defineMetadata(PARAMETER_METADATA_KEY, metadata, target, propertyKey);
     Reflect.defineMetadata(PARAMETER_METADATA_KEY, metadata, target.constructor, propertyKey);
     if (propertyKey === RequestMethod.Get) {
@@ -45,7 +48,8 @@ export function FromQuery(keyOrSchema: string | z.AnyZodObject, schemaOrUndefine
     if (metadata[parameterIndex]) throw new Error('Parameter decorators cannot be composed');
     const key = typeof keyOrSchema === 'string' ? keyOrSchema : undefined;
     const schema = typeof keyOrSchema === 'string' ? schemaOrUndefined! : keyOrSchema;
-    metadata[parameterIndex] = { type: 'query', key, schema };
+    const keys = schema instanceof z.ZodObject ? Object.keys(schema.shape) : undefined;
+    metadata[parameterIndex] = { type: 'query', key, keys, schema };
     Reflect.defineMetadata(PARAMETER_METADATA_KEY, metadata, target, propertyKey);
     Reflect.defineMetadata(PARAMETER_METADATA_KEY, metadata, target.constructor, propertyKey);
     if (propertyKey === RequestMethod.Get) {
@@ -62,7 +66,8 @@ export function FromBody(keyOrSchema: string | z.ZodType, schemaOrUndefined?: z.
     if (metadata[parameterIndex]) throw new Error('Parameter decorators cannot be composed');
     const key = typeof keyOrSchema === 'string' ? keyOrSchema : undefined;
     const schema = typeof keyOrSchema === 'string' ? schemaOrUndefined! : keyOrSchema;
-    metadata[parameterIndex] = { type: 'body', key, schema };
+    const keys = schema instanceof z.ZodObject ? Object.keys(schema.shape) : undefined;
+    metadata[parameterIndex] = { type: 'body', key, keys, schema };
     Reflect.defineMetadata(PARAMETER_METADATA_KEY, metadata, target, propertyKey);
     Reflect.defineMetadata(PARAMETER_METADATA_KEY, metadata, target.constructor, propertyKey);
   }

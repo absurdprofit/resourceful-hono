@@ -7,7 +7,7 @@ import { createReadableFromIterable, toFormData } from "./common/utils.ts";
 import { EventSource } from "eventsource";
 
 export interface ContentTypeHandler {
-  encode: (data: unknown) => BodyInit | null | Promise<BodyInit | null>;
+  encode: (data: unknown, contentType?: string) => BodyInit | null | Promise<BodyInit | null>;
   decode: (resource: Request | Response) => unknown | Promise<unknown>;
 }
 
@@ -22,7 +22,12 @@ export class ContentTypeRegistry {
 
     pattern.forEach(pattern => {
       pattern = pattern === '*/*' ? '*' : pattern;
-      this.#router.add(method, pattern.replaceAll(':', ';'), handler);
+      pattern = pattern.split(';')[0];
+      this.#router.add(
+        method,
+        pattern.replaceAll(':', ';').toLowerCase(),
+        handler
+      );
     });
   }
 
@@ -30,26 +35,24 @@ export class ContentTypeRegistry {
     contentType = contentType.split(';')[0];
     return this.#router.match(
       method,
-      contentType.replaceAll(':', ';')
+      contentType.replaceAll(':', ';').toLowerCase()
     ).at(0)?.at(-1)?.at(0) as ContentTypeHandler | undefined;
   }
 
   public static get default() {
     const router = new ContentTypeRegistry();
-    router.use('*', ContentTypes.Json, {
-      decode(resource) {
-        return resource.json();
+    router.use('*', [
+      ContentTypes.Json,
+      ContentTypes.ProblemDetails
+    ], {
+      async decode(resource) {
+        const json = await resource.json();
+        if (resource.headers.get(Headers.ContentType) === ContentTypes.ProblemDetails)
+          return new GenericHttpError(json);
+        return json;
       },
       encode(object) {
         return JSON.stringify(object);
-      },
-    });
-    router.use('*', ContentTypes.ProblemDetails, {
-      async decode(resource) {
-        return new GenericHttpError(await resource.json());
-      },
-      encode(data) {
-        return JSON.stringify(data);
       },
     });
     router.use('*', [
@@ -60,7 +63,14 @@ export class ContentTypeRegistry {
         return resource
           .formData()
           .then(formData => 
-            Object.fromEntries(formData.entries())
+            formData.keys().reduce((object, key) => {
+              const values = formData.getAll(key);
+              if (values.length === 1)
+                object[key] = values[0];
+              else
+                object[key] = values;
+              return object;
+            }, {} as Record<string, FormDataEntryValue | FormDataEntryValue[]>)
           );
       },
       encode(data) {
@@ -72,7 +82,7 @@ export class ContentTypeRegistry {
       ContentTypes.OctetStream
     ], {
       decode(resource) {
-        if (resource.headers.get(Headers.ContentType) === ContentTypes.ServerSentEvent) {
+        if (resource.headers.get(Headers.ContentType)?.startsWith(ContentTypes.ServerSentEvent)) {
           let response;
           if (resource instanceof Request)
             response = new Response(
@@ -90,9 +100,12 @@ export class ContentTypeRegistry {
           return resource.body;
         }
       },
-      encode(data) {
+      encode(data, contentType) {
         if (typeof data === 'function') {
-          return createReadableFromIterable(data());
+          let stream = createReadableFromIterable(data());
+          if (contentType?.startsWith(ContentTypes.ServerSentEvent))
+            stream = stream.pipeThrough(new TextEncoderStream());
+          return stream;
         }
         if (data instanceof ReadableStream)
           return data;

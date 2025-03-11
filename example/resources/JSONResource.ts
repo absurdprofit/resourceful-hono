@@ -1,6 +1,8 @@
 import { ContentTypes, Result, HttpStatusCodes, FromRoute, FromBody, Accept, FromQuery, Middleware } from "@resourceful-hono/core";
 import { z } from 'zod';
 import BaseResource from "./BaseResource.ts";
+import { TransactionScope } from "../../packages/core/src/TransactionScope.ts";
+import { NotFoundError } from "../../packages/core/src/common/errors.ts";
 
 const GETQuery = z.object({ page: z.coerce.number() });
 const GETParam = z.object({ name: z.string(), id: z.string().uuid() });
@@ -29,13 +31,12 @@ export default class JSONResource extends BaseResource {
 
   @Accept([ContentTypes.Json])
   public PUT(@FromBody(PUTBody) data: z.infer<typeof PUTBody>, @FromBody('name', PUTBody.shape.name) name: z.infer<typeof PUTBody['shape']['name']>) {
-    console.log(data, name);
+    return Result(HttpStatusCodes.Ok, { data, name });
   }
 
   @Accept([ContentTypes.PlainText])
   public POST(@FromBody(z.string()) numberString: string) {
-    console.log(numberString);
-    return Result(200);
+    return Result(200, numberString);
   }
 
   @Accept([ContentTypes.MultipartFormData])

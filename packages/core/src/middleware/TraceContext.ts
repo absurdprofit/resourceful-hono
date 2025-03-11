@@ -1,14 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import { Headers } from "../common/enums.ts";
-
-// Helper to generate a random hex string
-function generateHex(bytesCount: number): string {
-  const array = new Uint8Array(bytesCount);
-  crypto.getRandomValues(array);
-  return Array.from(array)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
+import { generateHex } from "../common/utils.ts";
 
 export const TraceContext: MiddlewareHandler = async (context, next) => {
   const incomingTraceparent = context.req.header(Headers.Traceparent);

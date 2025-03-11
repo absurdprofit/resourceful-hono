@@ -3,13 +3,13 @@ import { mergePath } from 'hono/utils/url';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
-import type { OwnProperties, ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
+import type { ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
 import { isBodyInit } from "./common/types.ts";
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import { literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
-import { ResourceClient, type IResourceClient } from "./ResourceClient.ts";
+import { ResourceClient } from "./ResourceClient.ts";
 import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
@@ -34,38 +34,43 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
   ) as TypedRedirectResponse<S, D>;
 }
 
-export interface TypedResultResponse<_ = unknown, ___ = unknown> extends Response {}
+export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, ___ = unknown> extends Response {
+  readonly status: S;
+}
 export async function Result<
   S extends HttpStatusCodes | number,
-  C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
+  C extends BodyInit | (() => Iterator<unknown, unknown, unknown>) | (() => AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
   T extends ContentTypes | string | undefined = undefined
 >(
   status: S,
   content?: C,
   contentType?: T
-): Promise<TypedResultResponse<C, T>> {
+): Promise<TypedResultResponse<S, C, T>> {
   const headers = new globalThis.Headers();
   let body;
   if (isBodyInit(content)) {
     body = content;
   } else {
-    if (!contentType && content !== undefined)
-      contentType = ContentTypes.Json as T;
+    if (!contentType) {
+      if (typeof content === 'function')
+        contentType = ContentTypes.OctetStream as T;
+      else if (typeof content !== 'undefined')
+        contentType = ContentTypes.Json as T;
+    }
 
-    if (contentType) headers.set(Headers.ContentType, contentType);
     const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
     if (encode)
-      body = await encode(content);
+      body = await encode(content, contentType);
     if (
       contentType?.startsWith(ContentTypes.ServerSentEvent)
       && body instanceof ReadableStream
     ) {
-      body = body.pipeThrough(new TextEncoderStream());
       headers.set(Headers.CacheControl, 'no-cache');
       headers.set(Headers.Connection, 'keep-alive');
     }
   }
-  return new Response(body, { status, headers });
+  if (contentType) headers.set(Headers.ContentType, contentType);
+  return new Response(body, { status, headers }) as TypedResultResponse<S, C, T>;
 }
 export interface IResource {
   readonly route: string;
@@ -87,7 +92,7 @@ export type NonAbstractResourceLikeConstructor = new (...args: ResourceConstruct
 export type AbstractResourceLikeConstructor = abstract new (...args: ResourceConstructorArgs) => Resource;
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
 export abstract class Resource implements IResource {
-  public readonly context: Context = null!;
+  public context: Context = null!;
   private static readonly contentTypeRegistry = ContentTypeRegistry.default;
   private readonly contentTypeRegistry = new ContentTypeRegistry();
   /**
@@ -184,13 +189,8 @@ export abstract class Resource implements IResource {
   public static createClient<T extends typeof Resource>(
     this: T,
     ...[origin]: typeof globalThis extends { location: { origin: string } } ? [origin?: string] : [origin: string]
-  ): IResourceClient<T> {
-    if (globalThis.location instanceof Location)
-      origin ??= globalThis.location.origin;
-    else if (typeof origin !== 'string')
-      throw new TypeError('origin is required.');
-
-    return new ResourceClient(this, origin) as unknown as IResourceClient<T>;
+  ) {
+    return new ResourceClient(this, origin);
   }
 
   public static get contentTypes(): SimpleContentTypeRegistry {
@@ -234,17 +234,15 @@ export abstract class Resource implements IResource {
   }
 
   public clone(context: Context): this {
-    const descriptors: OwnProperties<this> = Object.getOwnPropertyDescriptors(this);
-    descriptors.context = {
-      get: () => context,
-    };
-    return Object.create(Object.getPrototypeOf(this), descriptors);
+    const instance = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    instance.context = context;
+    return instance;
   }
 
   private readonly handleRequest: Handler = async (context) => {
-    const method = context.req.method.toUpperCase() as RequestMethod;
+    const method = context.req.method as RequestMethod;
     const methodHandler = (this as IResource)[method]?.bind(this.clone(context));
-    const { parameters, issues } = await this.collectParameters(context.req);
+    const { parameters, issues } = await this.#collectParameters(context.req);
 
     if (issues.length)
       throw new BadRequestError('There were issues in your request.', { issues });
@@ -309,7 +307,7 @@ export abstract class Resource implements IResource {
     }, new Map<RequestMethod, ParameterMetadata[]>());
   }
 
-  private async collectParameters(request: HonoRequest) {
+  async #collectParameters(request: HonoRequest) {
     const method = request.method as RequestMethod;
     const parameterMetadata = this.#parameterMetadata.get(method) ?? [];
     const issues: z.ZodIssue[] = [];
@@ -342,7 +340,15 @@ export abstract class Resource implements IResource {
         )
       );
   
-      parameters = parameterMetadata.map(({ type, key }) => {
+      parameters = parameterMetadata.map(({ type, key, keys }) => {
+        if (!key && keys) {
+          // create object with only the expected key-value pairs
+          const object = data[type][DEFAULT_PARAMETER_KEY];
+          return keys.reduce((parameter, key) => {
+            parameter[key] = object?.[key];
+            return parameter;
+          }, {} as Record<string, unknown>);
+        }
         return data[type][key ?? DEFAULT_PARAMETER_KEY];
       });
     }

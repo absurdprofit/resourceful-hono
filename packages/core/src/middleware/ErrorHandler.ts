@@ -8,13 +8,13 @@ import { Resource } from "../Resource.ts";
 
 export const ErrorHandler: HonoErrorHandler = async (error, context) => {
   if (isSuppressedError(error))
-    error = error.error ?? error.suppressed; // error.error contains user error, error.suppressed contains rollback error
+    error = error.error; // error.error contains user error, error.suppressed contains rollback error
   if (!HttpError[Symbol.hasInstance](error)) {
     error = new InternalServerError('There was an error.', { cause: error });
-    context.error = error;
   }
-
+  
   const httpError = error as HttpError;
+  context.error = httpError;
   httpError.traceparent = context.res.headers.get(Headers.Traceparent);
   httpError.instance = context.req.url;
   Application.instance.dispatchEvent(
@@ -23,11 +23,12 @@ export const ErrorHandler: HonoErrorHandler = async (error, context) => {
       message: httpError.message
     })
   );
-  const { encode } = Resource.contentTypes.get(ContentTypes.ProblemDetails) ?? {};
+  const handler = Resource.contentTypes.get(ContentTypes.ProblemDetails);
   return new Response(
-    await encode?.(httpError),
+    await handler?.encode(httpError),
     {
       status: httpError.status,
+      statusText: httpError.title,
       headers: {
         [Headers.ContentType]: ContentTypes.ProblemDetails
       }

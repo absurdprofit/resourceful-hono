@@ -12,27 +12,27 @@ enum StatusColour {
 
 export class ConsoleLogService extends LogService {
   public debug(message: string, data: LogData = {}): void {
-    const { context, payload } = data;
+    const { context, payload = '' } = data;
     if (context) this.printAccessLog(context);
-    return console.debug(message, payload ?? '');
+    return console.debug(message, payload);
   }
 
   public info(message: string, data: LogData = {}): void {
-    const { context, payload } = data;
+    const { context, payload = '' } = data;
     if (context) this.printAccessLog(context);
-    return console.info(message, payload ?? '');
+    return console.info(message, payload);
   }
 
   public warn(message: string, error?: Error | null, data: LogData = {}): void {
-    const { context, payload } = data;
+    const { context, payload = '' } = data;
     if (context) this.printAccessLog(context);
-    return console.warn(message, error, payload ?? '');
+    return console.warn(message, error, payload);
   }
 
   public error(error: Error, data: LogData = {}): void {
-    const { context, payload } = data;
+    const { context, payload = '' } = data;
     if (context) this.printAccessLog(context);
-    return console.error(error, payload ?? '');
+    return console.error(error, payload);
   }
 
   private printAccessLog(context: Context<{ Variables: TimingVariables }>) {
@@ -40,7 +40,7 @@ export class ConsoleLogService extends LogService {
     const userAgent = context.req.header(Headers.UserAgent);
     const date = context.res.headers.get(Headers.Date);
     const { origin, pathname, search } = new URL(context.req.url);
-    const log = `\n[${context.req.method} %c${context.res.status}%c] ${[origin, pathname, search].join('%c')} %c- ${[date, userAgent, responseTimeMs].join(' | ')}`;
+    const log = `[${context.req.method} %c${context.res.status}%c] ${[origin, pathname, search].join('%c')} %c- ${[date, userAgent, responseTimeMs].join(' | ')}`;
     let statusColour;
     if (context.res.status < HttpStatusCodes.MultipleChoices) {
       statusColour = StatusColour.SUCCESS;

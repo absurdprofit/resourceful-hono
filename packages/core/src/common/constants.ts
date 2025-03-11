@@ -4,3 +4,4 @@ export const PARAMETER_METADATA_KEY = Symbol();
 export const MIDDLEWARE_METADATA_KEY = Symbol();
 export const DEFAULT_PARAMETER_KEY = Symbol();
 export const TIMING_METRIC_DURATION_REGEX = /dur=([\d.]+)/;
+export const TEXT_ENCODER = new TextEncoder();

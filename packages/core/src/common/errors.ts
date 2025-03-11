@@ -39,9 +39,12 @@ export class BadRequestError extends HttpError {
   public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
   public readonly issues: object[];
 
-  constructor(message?: string, options?: BadRequestErrorOptions) {
+  constructor(
+    message?: string,
+    options: BadRequestErrorOptions = { issues: [] }
+  ) {
     super(message, options);
-    this.issues = options?.issues ?? [];
+    this.issues = options.issues;
   }
 }
 

@@ -2,14 +2,15 @@ import type { z } from 'zod';
 import { type NonAbstractResourceLikeConstructor, Resource } from "../Resource.ts";
 import type { RequestMethod } from "./enums.ts";
 import type { ServerSentEvent } from "../ServerSentEvent.ts";
-import { ContentTypeHandler } from "../ContentTypeRegistry.ts";
+import type { ContentTypeHandler } from "../ContentTypeRegistry.ts";
 
 export type Constructor<T = unknown> = abstract new (...args: never[]) => T;
-export type PrimitiveType = z.ZodString | z.ZodNumber | z.ZodBoolean;
+export type PrimitiveType = z.ZodString | z.ZodNumber | z.ZodBoolean | z.ZodLiteral<unknown> | z.ZodNativeEnum<z.EnumLike> | z.ZodEnum<[string, ...string[]]>;
 export interface ParameterMetadata<T extends z.ZodType = z.ZodType> {
   schema: T;
   type: "route" | "query" | "body";
   key?: string;
+  keys?: string[];
 }
 
 export function isResourceConstructor(value: unknown): value is NonAbstractResourceLikeConstructor {

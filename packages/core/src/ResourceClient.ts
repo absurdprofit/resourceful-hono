@@ -12,10 +12,10 @@ import { HttpError } from "./HttpError.ts";
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
     ? M extends keyof InstanceType<D>
-      ? ReturnType<IResourceClientMethod<M, InstanceType<D>[M]>>
+      ? ReturnType<ResourceClientMethod<M, InstanceType<D>[M]>>
       : never
     : RequestMethod.Get extends keyof InstanceType<D>
-      ? ReturnType<IResourceClientMethod<M, InstanceType<D>[RequestMethod.Get]>>
+      ? ReturnType<ResourceClientMethod<M, InstanceType<D>[RequestMethod.Get]>>
       : never
   : Promise<unknown>;
 type Result<C, T> = T extends ContentTypes.ServerSentEvent
@@ -26,7 +26,7 @@ type Result<C, T> = T extends ContentTypes.ServerSentEvent
         ? Promise<void>
         : Promise<C>;
 
-type IResourceClientMethod<HttpMethod, ResourceMethod> =
+type ResourceClientMethod<HttpMethod, ResourceMethod> =
   ResourceMethod extends (...parameters: infer A) => infer R
     ? (...parameters: [...A, signal?: AbortSignal]) =>
       R extends TypedRedirectResponse<infer S, infer D> | Promise<TypedRedirectResponse<infer S, infer D>>
@@ -36,27 +36,45 @@ type IResourceClientMethod<HttpMethod, ResourceMethod> =
           : Promise<R>
     : never;
 
-export type IResourceClient<R extends typeof Resource> = {
+export type ResourceClientInstance<R extends typeof Resource> = {
+  readonly methods: RequestMethod[];
+  fetch: typeof globalThis.fetch;
+} & {
   [
     K in ResourceMethod | Lowercase<ResourceMethod> as Uppercase<K> extends keyof InstanceType<R>
       ? K
       : never
   ]: Uppercase<K> extends keyof InstanceType<R>
-      ? IResourceClientMethod<Uppercase<K>, InstanceType<R>[Uppercase<K>]>
+      ? ResourceClientMethod<Uppercase<K>, InstanceType<R>[Uppercase<K>]>
       : never;
 }
 
-export class ResourceClient<R extends typeof Resource> {
+interface ResourceClientConstructor {
+  contentTypes: SimpleContentTypeRegistry;
+  new <R extends typeof Resource>(resource: R, origin?: string): ResourceClientInstance<R>;
+}
+
+export const ResourceClient: ResourceClientConstructor = class <R extends typeof Resource> {
   private static readonly contentTypeRegistry = ContentTypeRegistry.default;
   private readonly contentTypeRegistry = new ContentTypeRegistry();
-  readonly methods: RequestMethod[];
+  readonly methods;
   readonly #parameterMetadata;
   readonly #routeSchema;
   readonly #acceptMetadata;
   readonly #resource;
   readonly #origin;
+  public static fetch = globalThis.fetch;
+  public fetch = globalThis.fetch;
 
-  constructor(resource: R, origin: string) {
+  constructor(
+    resource: R,
+    origin?: string
+  ) {
+    if (globalThis.location instanceof Location)
+      origin ??= globalThis.location.origin;
+    else if (typeof origin !== 'string')
+      throw new TypeError('origin is undefined.');
+
     this.#resource = resource;
     this.methods = resource.methods;
     this.#parameterMetadata = this.#collectParameterMetadata();
@@ -68,10 +86,8 @@ export class ResourceClient<R extends typeof Resource> {
       contentTypes ??= [ContentTypes.Json];
       contentTypes.forEach((contentType) => {
         const handler = ResourceClient.contentTypes.get(contentType);
-        if (handler)
-          this.contentTypeRegistry.use(method, contentType, handler);
-        else
-          throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
+        if (!handler) return;
+        this.contentTypeRegistry.use(method, contentType, handler);
       });
     });
 
@@ -93,7 +109,6 @@ export class ResourceClient<R extends typeof Resource> {
                 return await this.#METHOD(method, ...parameters);
               }
             }[method.toLowerCase()],
-            enumerable: true,
           };
           return properties;
         },
@@ -102,7 +117,7 @@ export class ResourceClient<R extends typeof Resource> {
     );
   }
 
-  public static get contentTypes(): SimpleContentTypeRegistry {
+  public static get contentTypes() {
     return {
       use: (pattern: string | string[], handler: ContentTypeHandler) => {
         return this.contentTypeRegistry.use('*', pattern, handler)
@@ -118,28 +133,32 @@ export class ResourceClient<R extends typeof Resource> {
   }
 
   async #METHOD(method: RequestMethod, ...parameters: unknown[]) {
-    const [requestContentType] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
-    const { pathname, search, body } = await this.#serialiseParameters(method, requestContentType, parameters);
-    const signal = parameters.at(-1) instanceof AbortSignal ? parameters.at(-1) as AbortSignal : undefined;
+    const {
+      pathname,
+      search,
+      body,
+      headers
+    } = await this.#serialiseParameters(method, parameters);
+    const signal = parameters.at(-1) instanceof AbortSignal
+      ? parameters.at(-1) as AbortSignal
+      : undefined;
 
     const url = new URL(pathname, this.#origin);
     url.search = search;
 
-    const headers = new globalThis.Headers();
-    if (!FormData[Symbol.hasInstance](body))
-      headers.set(Headers.ContentType, requestContentType);
-    const response = await fetch(url, { signal, method, body, headers });
-    const responseContentType = response.headers.get(Headers.ContentType) ?? "";
+    const response = await this.fetch(url, { signal, method, body, headers });
+    const responseContentType = response.headers.get(Headers.ContentType);
     
-    if (!responseContentType.length || response.status === HttpStatusCodes.NoContent) return;
+    if (!responseContentType?.length || response.status === HttpStatusCodes.NoContent) return;
     const handler = ResourceClient.contentTypes.get(responseContentType);
-    if (handler) {
-      const result = handler.decode(response);
+    if (handler?.decode) {
+      const result = await handler.decode(response);
       if (result instanceof HttpError)
         throw result;
       return result;
     }
-    throw new UnsupportedMediaTypeError(`Content type '${responseContentType}' is unsupported`);
+    response.body?.cancel();
+    throw new UnsupportedMediaTypeError(`Could not find a decoder for ${this.#resource.name}.${method}`);
   }
 
   #collectMethodMetadata<T>(key: symbol) {
@@ -174,7 +193,7 @@ export class ResourceClient<R extends typeof Resource> {
       }, new Map<RequestMethod, T | undefined>());
     }
 
-  async #serialiseParameters(method: RequestMethod, contentType: string, parameters: unknown[]) {
+  async #serialiseParameters(method: RequestMethod, parameters: unknown[]) {
     const data = this.#parameterMetadata.get(method)?.reduce((
       data: Record<ParameterMetadata['type'], z.infer<z.ZodType> | undefined>,
       metadata,
@@ -205,34 +224,61 @@ export class ResourceClient<R extends typeof Resource> {
       return data;
     }, { route: undefined, query: undefined, body: undefined });
     
-    if (data?.route && typeof data.route === 'object') {
+    const acceptedContentTypes = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
+    let matchedContentType = undefined;
+    let matchedEncoder = undefined;
+    for (const contentType of acceptedContentTypes) {
+      const handler = this.contentTypeRegistry.get(method, contentType);
+      if (handler?.encode) {
+        matchedContentType = contentType;
+        matchedEncoder = handler.encode;
+        break;
+      }
+    }
+    const headers = new globalThis.Headers();
+    if (!matchedEncoder)
+      throw new UnsupportedMediaTypeError(`Could not find an encoder for ${this.#resource.name}.${method}`);
+    if (
+      matchedContentType !== ContentTypes.MultipartFormData
+      && matchedContentType
+    )
+      headers.set(Headers.ContentType, matchedContentType);
+    return {
+      headers,
+      search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
+      pathname: this.#serialiseRoute(data?.route, method),
+      body: await this.#serialiseBody(data?.body, method, matchedContentType, matchedEncoder),
+    }
+  }
+
+  #serialiseRoute(route: z.infer<z.ZodType>, method: RequestMethod) {
+    if (typeof route === 'object') {
       // order matters for route params
       const routeSchema = this.#routeSchema.get(method)!;
-      data.route = Object.fromEntries(
+      route = Object.fromEntries(
         Object.keys(routeSchema.shape)
           .reverse()
-          .filter(key => key in data.route)
-          .map(key => [key, data.route[key]])
+          .filter(key => key in route)
+          .map(key => [key, route[key]])
       );
+    } else {
+      route = {};
     }
 
-    const pathname = data?.route && typeof data.route === 'object'
-      ? mergePath(
-          this.#resource.pathname,
-          ...Object.values<string>(data?.route ?? {})
-        )
-      : mergePath(this.#resource.pathname, data?.route ?? "");
-    return {
-      search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
-      pathname,
-      body: await this.#serialiseBody(data?.body, method, contentType),
-    }
+    return mergePath(
+      this.#resource.pathname,
+      ...Object.values<string>(route)
+    );
   }
 
-  #serialiseBody(body: z.infer<z.ZodType>, method: RequestMethod, contentType: string) {
+  #serialiseBody(
+    body: z.infer<z.ZodType>,
+    method: RequestMethod,
+    contentType: string | undefined,
+    encode: ContentTypeHandler['encode']
+  ) {
     if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
-      const handler = this.contentTypeRegistry.get(method, contentType);
-      return handler?.encode(body);
+      return encode(body, contentType);
     }
   }
-}
+} as unknown as ResourceClientConstructor;
