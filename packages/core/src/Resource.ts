@@ -34,7 +34,9 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
   ) as TypedRedirectResponse<S, D>;
 }
 
-export interface TypedResultResponse<_ = unknown, ___ = unknown> extends Response {}
+export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, ___ = unknown> extends Response {
+  readonly status: S;
+}
 export async function Result<
   S extends HttpStatusCodes | number,
   C extends BodyInit | (() => Iterator<unknown, unknown, unknown>) | (() => AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
@@ -43,7 +45,7 @@ export async function Result<
   status: S,
   content?: C,
   contentType?: T
-): Promise<TypedResultResponse<C, T>> {
+): Promise<TypedResultResponse<S, C, T>> {
   const headers = new globalThis.Headers();
   let body;
   if (isBodyInit(content)) {
