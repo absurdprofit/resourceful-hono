@@ -564,6 +564,13 @@ Deno.test('Resource throws if content type is missing', async () => {
   expect(response.ok).toBe(false);
 });
 
+Deno.test('Result adds date header', async () => {
+  const response = await Result(HttpStatusCodes.Ok);
+
+  const regex = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s*\d{2}\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*\d{4}\s*\d{2}:\d{2}:\d{2}\s*GMT\s*$/;
+  expect(response.headers.get(Headers.Date)).toMatch(regex);
+});
+
 Deno.test('Result adds required headers for SSE response', async () => {
   const generator = function* () {
     yield new ServerSentEvent('test');

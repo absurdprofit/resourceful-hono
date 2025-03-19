@@ -71,6 +71,7 @@ export async function Result<
     }
   }
   if (contentType) headers.set(Headers.ContentType, contentType);
+  headers.set(Headers.Date, new Date().toUTCString());
   return new Response(body, { status, headers }) as TypedResultResponse<S, C, T>;
 }
 export interface IResource {
