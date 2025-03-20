@@ -1,3 +1,4 @@
+import { Context } from "hono";
 import { PromiseAllDynamic } from "./utils.ts";
 
 export class ReadyEvent extends Event {
@@ -26,4 +27,19 @@ export class FinishEvent extends Event {
       composed: false
     })
   }  
+}
+
+export class RequestEvent extends Event {
+  readonly context;
+  constructor(context: Context) {
+    super('request');
+
+    this.context = {
+      var: context.var,
+      env: context.env,
+      get: context.get.bind(context),
+      set: context.set.bind(context)
+    };
+    
+  }
 }
