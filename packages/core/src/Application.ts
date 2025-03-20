@@ -3,7 +3,7 @@ import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from "./ServiceMap.ts";
 import { type Constructor, isResourceConstructor } from "./common/types.ts";
 import { ErrorHandler, NotFoundHandler, TraceContext } from "./middleware/index.ts";
-import { FinishEvent, ReadyEvent } from "./common/events.ts";
+import { type RequestEvent, FinishEvent, ReadyEvent } from "./common/events.ts";
 import { PromiseWrapper } from "./common/promise-wrapper.ts";
 import { TypedEventTarget } from "./TypedEventTarget.ts";
 
@@ -11,6 +11,7 @@ export interface ApplicationEventMap {
   "ready": ReadyEvent;
   "finished": FinishEvent;
   "error": ErrorEvent;
+  "request": RequestEvent;
 }
 
 export type ApplicationState = 'idle' | 'running' | 'finished';

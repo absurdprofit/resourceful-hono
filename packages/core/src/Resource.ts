@@ -11,7 +11,8 @@ import { literalToLowerCase } from "./common/utils.ts";
 import { Application } from "./Application.ts";
 import { ResourceClient } from "./ResourceClient.ts";
 import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
-import { ResourceClientInstance } from "./index.ts";
+import type { ResourceClientInstance } from "./index.ts";
+import { RequestEvent } from "./common/events.ts";
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
   readonly status: S;
@@ -71,6 +72,7 @@ export async function Result<
     }
   }
   if (contentType) headers.set(Headers.ContentType, contentType);
+  headers.set(Headers.Date, new Date().toUTCString());
   return new Response(body, { status, headers }) as TypedResultResponse<S, C, T>;
 }
 export interface IResource {
@@ -250,6 +252,7 @@ export abstract class Resource implements IResource {
 
     if (Application.instance.state === 'idle')
       await Application.instance.ready;
+    Application.instance.dispatchEvent(new RequestEvent(context));
     const response = await methodHandler?.(...parameters, context.req.raw.signal);
     return response ?? Result(HttpStatusCodes.NoContent);
   };

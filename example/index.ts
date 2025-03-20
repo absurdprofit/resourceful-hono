@@ -1,4 +1,4 @@
-import { Application, Logger, ConsoleLogService, LogService, Timing } from '@resourceful-hono/core';
+import { Application, Logger, ConsoleLogService, LogService } from '@resourceful-hono/core';
 import BaseResource from "./resources/BaseResource.ts";
 import SSEResource from './resources/SSEResource.ts';
 import JSONResource from "./resources/JSONResource.ts";
@@ -11,7 +11,7 @@ class MyService {
   }
 }
 const app = Application.instance;
-app.registerMiddlewares([Logger, Timing]);
+app.registerMiddlewares([Logger]);
 app.registerService(MyService, new MyService())
   .registerService(LogService, new ConsoleLogService());
 

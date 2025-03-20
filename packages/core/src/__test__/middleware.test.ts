@@ -1,7 +1,6 @@
 import { endTime, setMetric, startTime } from "hono/timing";
 import { Application } from "../Application.ts";
 import { Logger } from "../middleware/Logger.ts";
-import { Timing } from "../middleware/Timing.ts";
 import { Resource } from "../Resource.ts";
 import { ConsoleLogService, LogService } from "../LogService/index.ts";
 import { Headers, HttpStatusCodes } from "../common/enums.ts";
@@ -11,7 +10,7 @@ import { DependencyFailedError, InternalServerError, NotFoundError } from "../co
 import { generateHex } from "../common/utils.ts";
 
 const app = Application.instance;
-app.registerMiddlewares([Logger, Timing]);
+app.registerMiddlewares([Logger]);
 app.registerService(LogService, new ConsoleLogService());
 
 class TestResource extends Resource {
@@ -50,13 +49,6 @@ class TestResource extends Resource {
 app.registerResources([
   TestResource
 ]);
-
-Deno.test('Timing middleware adds server timing headers', async () => {
-  const response = await Resource.hono.request('test');
-
-  const regex = /test;dur=\d+\.\d+,test2,total;dur=\d+\.\d+;desc="Total Response Time"/;
-  expect(response.headers.get(Headers.ServerTiming)).toMatch(regex);
-});
 
 Deno.test('ErrorHandler throws user error in TransactionScope', async () => {
   const response = await Resource.hono.request('test', { method: 'POST' });
