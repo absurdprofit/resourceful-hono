@@ -30,7 +30,7 @@ export class FinishEvent extends Event {
 }
 
 export class RequestEvent extends Event {
-  readonly context: Pick<Context, 'var' | 'env' | 'get' | 'set'>;
+  public readonly context: Pick<Context, 'var' | 'env' | 'get' | 'set'>;
   constructor(context: Context) {
     super('request');
 

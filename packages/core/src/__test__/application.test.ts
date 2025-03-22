@@ -33,7 +33,7 @@ Deno.test('Application instance getter returns the same reference', () => {
 
 Deno.test('creating new Application instance throws an Error', () => {
   expect(() => {
-    /* @ts-ignore */
+    /* @ts-expect-error */
     return new Application(crypto.randomUUID());
   }).toThrow(TypeError);
 });
