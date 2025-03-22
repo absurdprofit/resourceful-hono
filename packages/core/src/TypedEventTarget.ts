@@ -9,7 +9,7 @@ type TypedEventListenerOrEventListenerObject<E extends Event> = TypedEventListen
 export class TypedEventTarget<EventMap extends { [K in keyof EventMap]: Event }> extends EventTarget {
   override addEventListener<K extends keyof EventMap>(type: K, listener: TypedEventListenerOrEventListenerObject<EventMap[K]> | null, options?: boolean | AddEventListenerOptions): void;
   override addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
-	override addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
+  override addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
     return super.addEventListener(type, listener, options);
   }
 

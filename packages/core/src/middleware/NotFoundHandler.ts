@@ -1,6 +1,6 @@
-import { HttpStatusCodes } from "../common/enums.ts";
-import { NotFoundError } from "../common/errors.ts";
-import type { MiddlewareHandler } from "hono/types";
+import { HttpStatusCodes } from '../common/enums.ts';
+import { NotFoundError } from '../common/errors.ts';
+import type { MiddlewareHandler } from 'hono/types';
 
 export const NotFoundHandler: MiddlewareHandler = async (context, next) => {
   await next();

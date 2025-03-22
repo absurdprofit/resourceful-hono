@@ -18,7 +18,7 @@ export function createReadableFromIterable<T, TReturn, TNext>(iterable: Iterable
       } else {
         controller.enqueue(value);
       }
-    }
+    },
   });
 }
 
@@ -75,6 +75,6 @@ export function generateHex(bytesCount: number): string {
   const array = new Uint8Array(bytesCount);
   crypto.getRandomValues(array);
   return Array.from(array)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }

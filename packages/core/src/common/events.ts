@@ -1,5 +1,5 @@
-import { Context } from "hono";
-import { PromiseAllDynamic } from "./utils.ts";
+import type { Context } from 'hono';
+import { PromiseAllDynamic } from './utils.ts';
 
 export class ReadyEvent extends Event {
   readonly #promises: Promise<unknown>[] = [];
@@ -8,7 +8,7 @@ export class ReadyEvent extends Event {
     super('ready', {
       bubbles: false,
       cancelable: false,
-      composed: false
+      composed: false,
     });
     this.#promises.push(new Promise<void>((resolve) => queueMicrotask(resolve)));
     PromiseAllDynamic(this.#promises).then(() => resolve());
@@ -16,7 +16,7 @@ export class ReadyEvent extends Event {
 
   public waitUntil = (promise: Promise<unknown>): void => {
     this.#promises.push(promise);
-  }
+  };
 }
 
 export class FinishEvent extends Event {
@@ -24,8 +24,8 @@ export class FinishEvent extends Event {
     super('finish', {
       bubbles: false,
       cancelable: false,
-      composed: false
-    })
+      composed: false,
+    });
   }  
 }
 
@@ -38,7 +38,7 @@ export class RequestEvent extends Event {
       var: context.var,
       env: context.env,
       get: context.get.bind(context),
-      set: context.set.bind(context)
+      set: context.set.bind(context),
     };
     
   }

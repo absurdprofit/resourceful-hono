@@ -1,10 +1,10 @@
-import { expect } from "expect";
-import { Application } from "../Application.ts";
-import { HttpStatusCodes } from "../common/enums.ts";
-import { Redirect, Resource, Result } from "../Resource.ts";
-import { Accept, FromBody, FromQuery, FromRoute } from "../common/decorators.ts";
-import { z } from "zod";
-import { NotFoundError, UnsupportedMediaTypeError } from "../common/errors.ts";
+import { expect } from 'expect';
+import { Application } from '../Application.ts';
+import { HttpStatusCodes } from '../common/enums.ts';
+import { Redirect, Resource, Result } from '../Resource.ts';
+import { Accept, FromBody, FromQuery, FromRoute } from '../common/decorators.ts';
+import { z } from 'zod';
+import { NotFoundError, UnsupportedMediaTypeError } from '../common/errors.ts';
 
 class RedirectResource extends Resource {
   public GET() {
@@ -21,7 +21,7 @@ class TestResource extends Resource {
     if (shouldThrow)
       throw new NotFoundError('Resource not found');
     return Result(HttpStatusCodes.Ok, {
-      hello: 'world'
+      hello: 'world',
     });
   }
 
@@ -29,7 +29,7 @@ class TestResource extends Resource {
     @FromRoute('id', z.coerce.number()) id: number,
     @FromRoute('id2', z.coerce.number()) id2: number,
     @FromBody(z.object({ name: z.string() })) object: { name: string },
-    @FromBody(z.object({ displayName: z.string() })) object2: { displayName: string },
+    @FromBody(z.object({ displayName: z.string() })) object2: { displayName: string }
   ) {
     return Result(
       HttpStatusCodes.Ok,
@@ -77,7 +77,7 @@ Resource.contentTypes.use('image/svg+xml', {
   },
   decode(resource) {
     return resource.text();
-  }
+  },
 });
 
 const origin = 'http://localhost:8000';
@@ -87,7 +87,7 @@ const unsupportedContent = UnsupportedContentResource.createClient(origin);
 Application.instance.registerResources([
   RedirectResource,
   TestResource,
-  UnsupportedContentResource
+  UnsupportedContentResource,
 ]);
 
 Deno.serve(Application.instance.fetch);
@@ -104,18 +104,18 @@ Deno.test('Resource.createClient infers origin from globalThis.location', () => 
   expect(() => {
     Object.create(Location.prototype, {
       origin: {
-        value: 'localhost:8000'
+        value: 'localhost:8000',
+      },
+    });
+    globalThis.location = Object.create(
+      Location.prototype,
+      {
+        origin: {
+          value: 'localhost:8000',
+        },
       }
-    })
-      globalThis.location = Object.create(
-        Location.prototype,
-        {
-          origin: {
-            value: 'localhost:8000'
-          }
-        }
-      );
-      TestResource.createClient();  
+    );
+    TestResource.createClient();  
   }).not.toThrow();
 });
 
@@ -135,16 +135,16 @@ Deno.test('ResourceClient follows redirects', async () => {
 
   expect(object).toStrictEqual({
     object: {
-      name: 'surd'
+      name: 'surd',
     },
-    redirected: true
+    redirected: true,
   });
 });
 
 Deno.test('ResourceClient correctly constructs path params', async () => {
   const fromRoute = {
     id: 10,
-    name: 'surd'
+    name: 'surd',
   };
   const fromBody = 'hello';
   const result = await test.PATCH(
@@ -154,7 +154,7 @@ Deno.test('ResourceClient correctly constructs path params', async () => {
 
   expect(result).toStrictEqual({
     fromRoute,
-    fromBody
+    fromBody,
   });
 });
 
@@ -193,7 +193,7 @@ Deno.test('ResourceClient throws for unsupported content types', async () => {
 });
 
 Deno.test('ResourceClient returns undefined for void results', async () => {
-  const result = await test.delete({ id: 'absurd' }, { id2: 'profit'});
+  const result = await test.delete({ id: 'absurd' }, { id2: 'profit' });
 
   expect(result).toBe(undefined);
 });

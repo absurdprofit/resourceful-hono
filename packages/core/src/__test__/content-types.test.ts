@@ -1,38 +1,38 @@
-import { expect } from "expect";
-import { EventSource } from "eventsource";
-import { ContentTypeRegistry } from "../ContentTypeRegistry.ts";
-import { ContentTypes, Headers } from "../common/enums.ts";
-import { NotFoundError } from "../common/errors.ts";
-import { HttpError } from "../HttpError.ts";
-import { ServerSentEvent } from "../index.ts";
+import { expect } from 'expect';
+import { EventSource } from 'eventsource';
+import { ContentTypeRegistry } from '../ContentTypeRegistry.ts';
+import { ContentTypes, Headers } from '../common/enums.ts';
+import { NotFoundError } from '../common/errors.ts';
+import { HttpError } from '../HttpError.ts';
+import { ServerSentEvent } from '../index.ts';
 
-Deno.test("Case insensitive matching", () => {
+Deno.test('Case insensitive matching', () => {
   const registry = ContentTypeRegistry.default;
-  const handler = registry.get("*", "APPLICATION/JSON");
+  const handler = registry.get('*', 'APPLICATION/JSON');
   expect(handler).toBeDefined();
 });
 
-Deno.test("Matching ignoring directive", () => {
+Deno.test('Matching ignoring directive', () => {
   const registry = ContentTypeRegistry.default;
-  const textPlainWithDirective = "text/plain; charset=utf-8";
-  const handler = registry.get("*", textPlainWithDirective);
+  const textPlainWithDirective = 'text/plain; charset=utf-8';
+  const handler = registry.get('*', textPlainWithDirective);
   expect(handler).toBeDefined();
 });
 
 // Test 3: Normal content type matching
-Deno.test("Normal content type matching", () => {
+Deno.test('Normal content type matching', () => {
   const registry = ContentTypeRegistry.default;
-  const handler = registry.get("*", ContentTypes.PlainText);
+  const handler = registry.get('*', ContentTypes.PlainText);
   expect(handler).toBeDefined();
 });
 
 const defaultRegistry = ContentTypeRegistry.default;
 
 // JSON Handler Test
-Deno.test("JSON handler works", async () => {
-  const handler = defaultRegistry.get("*", ContentTypes.Json);
+Deno.test('JSON handler works', async () => {
+  const handler = defaultRegistry.get('*', ContentTypes.Json);
   expect(handler).toBeDefined();
-  const data = { message: "hello" };
+  const data = { message: 'hello' };
 
   const encoded = await handler?.encode(data);
   expect(encoded).toBe(JSON.stringify(data));
@@ -43,8 +43,8 @@ Deno.test("JSON handler works", async () => {
 });
 
 // ProblemDetails Handler Test
-Deno.test("ProblemDetails handler works", async () => {
-  const handler = defaultRegistry.get("*", ContentTypes.ProblemDetails);
+Deno.test('ProblemDetails handler works', async () => {
+  const handler = defaultRegistry.get('*', ContentTypes.ProblemDetails);
   expect(handler).toBeDefined();
   const data = new NotFoundError('404 Not Found');
 
@@ -53,8 +53,8 @@ Deno.test("ProblemDetails handler works", async () => {
 
   const response = new Response(encoded, {
     headers: {
-      [Headers.ContentType]: ContentTypes.ProblemDetails
-    }
+      [Headers.ContentType]: ContentTypes.ProblemDetails,
+    },
   });
   const decoded = await handler?.decode(response);
   expect(HttpError[Symbol.hasInstance](decoded)).toBe(true);
@@ -62,16 +62,16 @@ Deno.test("ProblemDetails handler works", async () => {
 });
 
 // FormUrlEncoded / MultipartFormData Handler Test
-Deno.test("Form data handler works", async () => {
+Deno.test('Form data handler works', async () => {
   // This handler is registered for both FormUrlEncoded and MultipartFormData.
-  const handler = defaultRegistry.get("*", ContentTypes.FormUrlEncoded);
+  const handler = defaultRegistry.get('*', ContentTypes.FormUrlEncoded);
   expect(handler).toBeDefined();
-  const data = { message: "hello", array: ["1", "2", "3"] };
+  const data = { message: 'hello', array: ['1', '2', '3'] };
 
   const encoded = await handler?.encode(data);
   expect(encoded).toBeInstanceOf(FormData);
-  expect((encoded as FormData).get("message")).toBe(data.message);
-  expect((encoded as FormData).getAll("array")).toStrictEqual(data.array);
+  expect((encoded as FormData).get('message')).toBe(data.message);
+  expect((encoded as FormData).getAll('array')).toStrictEqual(data.array);
 
   const response = new Response(encoded);
   const decoded = await handler?.decode(response);
@@ -79,8 +79,8 @@ Deno.test("Form data handler works", async () => {
 });
 
 // PlainText Handler Test
-Deno.test("PlainText handler works", async () => {
-  const handler = defaultRegistry.get("*", ContentTypes.PlainText);
+Deno.test('PlainText handler works', async () => {
+  const handler = defaultRegistry.get('*', ContentTypes.PlainText);
   expect(handler).toBeDefined();
   const data = 'hello world';
 
@@ -94,8 +94,8 @@ Deno.test("PlainText handler works", async () => {
 
 
 // ServerSentEvent  Handler Tests
-Deno.test("ServerSentEvent handler works", async () => {
-  const handler = defaultRegistry.get("*", ContentTypes.ServerSentEvent);
+Deno.test('ServerSentEvent handler works', async () => {
+  const handler = defaultRegistry.get('*', ContentTypes.ServerSentEvent);
   expect(handler).toBeDefined();
 
   const headers = new globalThis.Headers();
@@ -110,15 +110,15 @@ Deno.test("ServerSentEvent handler works", async () => {
         {
           comment: 'comment',
           data: 'some data',
-          id: 1
+          id: 1,
         }
       );
-    }
+    };
     const encoded = await handler?.encode(data, ContentTypes.ServerSentEvent);
     expect(encoded).toBeInstanceOf(ReadableStream);
     const response = new Response(encoded, { headers });
     Object.defineProperty(response, 'url', {
-      get: () => 'http://localhost:80/'
+      get: () => 'http://localhost:80/',
     });
     const decoded = await handler?.decode(response);
     expect(decoded).toBeInstanceOf(EventSource);
@@ -138,10 +138,10 @@ Deno.test("ServerSentEvent handler works", async () => {
         {
           comment: 'comment',
           data: { some: 'data' },
-          id: 1
+          id: 1,
         }
       );
-    }
+    };
     const encoded = await handler?.encode(data, ContentTypes.ServerSentEvent);
     expect(encoded).toBeInstanceOf(ReadableStream);
     const method = 'POST';
@@ -163,7 +163,7 @@ Deno.test("ServerSentEvent handler works", async () => {
 });
 
 Deno.test('OctetStream handler works', async () => {
-  const handler = defaultRegistry.get("*", ContentTypes.OctetStream);
+  const handler = defaultRegistry.get('*', ContentTypes.OctetStream);
   expect(handler).toBeDefined();
 
   const stream = new ReadableStream();
@@ -176,11 +176,11 @@ Deno.test('OctetStream handler works', async () => {
 });
 
 Deno.test('Stream encoder throws if given non-iterable', async () => {
-  const handler = defaultRegistry.get("*", ContentTypes.OctetStream);
+  const handler = defaultRegistry.get('*', ContentTypes.OctetStream);
   expect(handler).toBeDefined();
 
   expect(() => {
-    handler?.encode('data')
+    handler?.encode('data');
   }).toThrow(
     'Only generators or ReadableStreams can be turned into Resource streams'
   );

@@ -1,13 +1,13 @@
-import { endTime, setMetric, startTime } from "hono/timing";
-import { Application } from "../Application.ts";
-import { Logger } from "../middleware/Logger.ts";
-import { Resource } from "../Resource.ts";
-import { ConsoleLogService, LogService } from "../LogService/index.ts";
-import { Headers, HttpStatusCodes } from "../common/enums.ts";
-import { expect } from "expect";
-import { TransactionScope } from "../index.ts";
-import { DependencyFailedError, InternalServerError, NotFoundError } from "../common/errors.ts";
-import { generateHex } from "../common/utils.ts";
+import { endTime, setMetric, startTime } from 'hono/timing';
+import { Application } from '../Application.ts';
+import { Logger } from '../middleware/Logger.ts';
+import { Resource } from '../Resource.ts';
+import { ConsoleLogService, LogService } from '../LogService/index.ts';
+import { Headers, HttpStatusCodes } from '../common/enums.ts';
+import { expect } from 'expect';
+import { TransactionScope } from '../index.ts';
+import { DependencyFailedError, InternalServerError, NotFoundError } from '../common/errors.ts';
+import { generateHex } from '../common/utils.ts';
 
 const app = Application.instance;
 app.registerMiddlewares([Logger]);
@@ -47,7 +47,7 @@ class TestResource extends Resource {
 }
 
 app.registerResources([
-  TestResource
+  TestResource,
 ]);
 
 Deno.test('ErrorHandler throws user error in TransactionScope', async () => {
@@ -88,7 +88,7 @@ Deno.test('TraceContext adds request traceparent to response traceparent', async
   const flags = '01';
   const traceparent = `${version}-${traceId}-${generateHex(8)}-${flags}`;
   const headers = {
-    [Headers.Traceparent]: traceparent
+    [Headers.Traceparent]: traceparent,
   };
   const method = 'DELETE';
 

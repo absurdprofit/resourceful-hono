@@ -1,5 +1,5 @@
-import { HttpError } from "../HttpError.ts";
-import { HttpStatusCodes } from "./enums.ts";
+import { HttpError } from '../HttpError.ts';
+import { HttpStatusCodes } from './enums.ts';
 
 export class GenericHttpError extends HttpError {
   public override readonly status: number;

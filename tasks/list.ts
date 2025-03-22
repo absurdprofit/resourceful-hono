@@ -15,13 +15,13 @@ async function summaryFromPackage(path: string) {
     const exclude = [
       ...DenoJSON.publish.exclude,
       ...(denoJSON?.exclude ?? []),
-      ...(denoJSON?.publish?.exclude ?? [])
+      ...(denoJSON?.publish?.exclude ?? []),
     ].map(pattern => join(Deno.cwd(), pattern));
     if (!exclude.some(pattern => globToRegExp(pattern).test(path))) {
       return {
         name: denoJSON.name,
         version: denoJSON.version,
-        path
+        path,
       };
     }
   }

@@ -1,13 +1,13 @@
-import { mergePath } from "hono/utils/url";
-import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY } from "./common/constants.ts";
-import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from "./common/enums.ts";
-import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from "./common/types.ts";
-import type { Resource, TypedResultResponse, TypedRedirectResponse } from "./Resource.ts";
+import { mergePath } from 'hono/utils/url';
+import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY } from './common/constants.ts';
+import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
+import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from './common/types.ts';
+import type { Resource, TypedResultResponse, TypedRedirectResponse } from './Resource.ts';
 import { z } from 'zod';
-import { UnsupportedMediaTypeError } from "./common/errors.ts";
+import { UnsupportedMediaTypeError } from './common/errors.ts';
 import type { EventSource } from 'eventsource';
-import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
-import { HttpError } from "./HttpError.ts";
+import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
+import { HttpError } from './HttpError.ts';
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -99,7 +99,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
             value: {
               [method]: async (...parameters: unknown[]) => {
                 return await this.#METHOD(method, ...parameters);
-              }
+              },
             }[method],
             enumerable: true,
           };
@@ -107,25 +107,25 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
             value: {
               [method.toLowerCase()]: async (...parameters: unknown[]) => {
                 return await this.#METHOD(method, ...parameters);
-              }
+              },
             }[method.toLowerCase()],
           };
           return properties;
         },
         {} as { [K in ResourceMethod | Lowercase<ResourceMethod>]: PropertyDescriptor }
-      ),
+      )
     );
   }
 
   public static get contentTypes() {
     return {
       use: (pattern: string | string[], handler: ContentTypeHandler) => {
-        return this.contentTypeRegistry.use('*', pattern, handler)
+        return this.contentTypeRegistry.use('*', pattern, handler);
       },
       get: (contentType: string) => {
         return this.contentTypeRegistry.get('*', contentType);
-      }
-    }
+      },
+    };
   }
 
   get [Symbol.toStringTag](): string {
@@ -137,7 +137,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
       pathname,
       search,
       body,
-      headers
+      headers,
     } = await this.#serialiseParameters(method, parameters);
     const signal = parameters.at(-1) instanceof AbortSignal
       ? parameters.at(-1) as AbortSignal
@@ -174,24 +174,24 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
   }
 
   #collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
-      return this.methods.reduce((metadata, method) => {
-        const schema = this.#parameterMetadata.get(method)?.filter(metadata => metadata.type === type).reduce((schema: z.ZodType | undefined, metadata) => {
-          // avoid mutating metadata
-          metadata = { ...metadata };
-          if (metadata.key) {
-            metadata.schema = z.object({ [metadata.key]: metadata.schema });
-          }
+    return this.methods.reduce((metadata, method) => {
+      const schema = this.#parameterMetadata.get(method)?.filter(metadata => metadata.type === type).reduce((schema: z.ZodType | undefined, metadata) => {
+        // avoid mutating metadata
+        metadata = { ...metadata };
+        if (metadata.key) {
+          metadata.schema = z.object({ [metadata.key]: metadata.schema });
+        }
   
-          if (schema) {
-            if (metadata.schema instanceof z.ZodObject && schema instanceof z.ZodObject)
-              return metadata.schema.merge(schema);
-            return metadata.schema.and(schema);
-          }
-          return metadata.schema;
-        }, undefined);
-        return metadata.set(method, schema as T);
-      }, new Map<RequestMethod, T | undefined>());
-    }
+        if (schema) {
+          if (metadata.schema instanceof z.ZodObject && schema instanceof z.ZodObject)
+            return metadata.schema.merge(schema);
+          return metadata.schema.and(schema);
+        }
+        return metadata.schema;
+      }, undefined);
+      return metadata.set(method, schema as T);
+    }, new Map<RequestMethod, T | undefined>());
+  }
 
   async #serialiseParameters(method: RequestMethod, parameters: unknown[]) {
     const data = this.#parameterMetadata.get(method)?.reduce((
@@ -204,7 +204,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
           data[metadata.type][metadata.key] = parameters[index];
         } else {
           data[metadata.type] = {
-            [metadata.key]: parameters[index]
+            [metadata.key]: parameters[index],
           };
         }
       } else if (
@@ -248,7 +248,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
       search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
       pathname: this.#serialiseRoute(data?.route, method),
       body: await this.#serialiseBody(data?.body, method, matchedContentType, matchedEncoder),
-    }
+    };
   }
 
   #serialiseRoute(route: z.infer<z.ZodType>, method: RequestMethod) {

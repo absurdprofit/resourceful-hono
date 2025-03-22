@@ -1,9 +1,9 @@
 import { Application, Logger, ConsoleLogService, LogService } from '@resourceful-hono/core';
-import BaseResource from "./resources/BaseResource.ts";
+import BaseResource from './resources/BaseResource.ts';
 import SSEResource from './resources/SSEResource.ts';
-import JSONResource from "./resources/JSONResource.ts";
-import UserResource from "./resources/UserResource.ts";
-import RedirectResource from "./resources/RedirectResource.ts";
+import JSONResource from './resources/JSONResource.ts';
+import UserResource from './resources/UserResource.ts';
+import RedirectResource from './resources/RedirectResource.ts';
 
 class MyService {
   [Symbol.asyncDispose]() {
@@ -34,7 +34,7 @@ app.addEventListener('ready', (e) => {
 });
 
 app.ready.then(() => {
-  console.log("Ready promise");
+  console.log('Ready promise');
 });
 
 // Deno.addSignalListener('SIGINT', () => {
@@ -46,5 +46,5 @@ app.ready.then(() => {
 // });
 
 export default {
-  fetch: app.fetch
-}
+  fetch: app.fetch,
+};

@@ -1,8 +1,8 @@
 export class PromiseWrapper<T> {
-	promise: Promise<T>;
-	state: 'pending' | 'resolved' | 'rejected';
-	nativeResolve: ((value: T | PromiseLike<T>) => void) | null;
-	nativeReject: ((reason: unknown) => void) | null;
+  promise: Promise<T>;
+  state: 'pending' | 'resolved' | 'rejected';
+  nativeResolve: ((value: T | PromiseLike<T>) => void) | null;
+  nativeReject: ((reason: unknown) => void) | null;
   constructor() {
     this.state = 'pending';
     this.nativeResolve = this.nativeReject = null;
@@ -15,12 +15,12 @@ export class PromiseWrapper<T> {
   resolve = (value: T) => {
     this.state = 'resolved';
     this.nativeResolve?.(value);
-  }
+  };
 
   reject = (reason: unknown) => {
     this.state = 'rejected';
     // Do not report unhandled promise rejections.
     this.promise.catch(() => {});
     this.nativeReject?.(reason);
-  }
+  };
 }

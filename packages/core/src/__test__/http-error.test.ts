@@ -1,6 +1,6 @@
-import { expect } from "expect";
-import { HttpError } from "../HttpError.ts";
-import { GenericHttpError, NotFoundError } from "../common/errors.ts";
+import { expect } from 'expect';
+import { HttpError } from '../HttpError.ts';
+import { GenericHttpError, NotFoundError } from '../common/errors.ts';
 
 Deno.test('HttpError instance returns false for non-object', () => {
   expect(HttpError[Symbol.hasInstance](0)).toBe(false);

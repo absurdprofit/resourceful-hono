@@ -49,5 +49,5 @@ export default tseslint.config(
     rules: {
       'no-magic-numbers': 'off',
     },
-  },
+  }
 );

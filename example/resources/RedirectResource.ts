@@ -1,7 +1,7 @@
-import { Redirect } from "@resourceful-hono/core";
-import BaseResource from "./BaseResource.ts";
-import { HttpStatusCodes } from "../../packages/core/src/common/enums.ts";
-import JSONResource from "./JSONResource.ts";
+import { Redirect } from '@resourceful-hono/core';
+import BaseResource from './BaseResource.ts';
+import { HttpStatusCodes } from '../../packages/core/src/common/enums.ts';
+import JSONResource from './JSONResource.ts';
 
 export default class RedirectResource extends BaseResource {
   GET() {

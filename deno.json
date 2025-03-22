@@ -3,7 +3,7 @@
   "tasks": {
     "list": "deno run --allow-all tasks/list.ts",
     "test": "deno test --trace-leaks --coverage --parallel --allow-net",
-    "lint": "deno run -A npm:eslint --config eslint.config.ts . --fix"
+    "lint": "deno lint --fix && deno run -A npm:eslint --config eslint.config.ts . --fix"
   },
   "publish": {
     "exclude": [

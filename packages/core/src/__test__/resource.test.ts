@@ -1,12 +1,12 @@
-import { expect } from "expect";
-import { ContentTypes, Headers, HttpStatusCodes } from "../common/enums.ts";
-import { Result, Resource, Redirect } from "../Resource.ts";
-import { Hono } from "hono";
-import { Accept, FromBody, FromQuery, FromRoute, Inject, Middleware, Route } from "../common/decorators.ts";
-import { z } from "zod";
-import { Application } from "../Application.ts";
-import { ServerSentEvent } from "../ServerSentEvent.ts";
-import { PromiseWrapper } from "../common/promise-wrapper.ts";
+import { expect } from 'expect';
+import { ContentTypes, Headers, HttpStatusCodes } from '../common/enums.ts';
+import { Result, Resource, Redirect } from '../Resource.ts';
+import { Hono } from 'hono';
+import { Accept, FromBody, FromQuery, FromRoute, Inject, Middleware, Route } from '../common/decorators.ts';
+import { z } from 'zod';
+import { Application } from '../Application.ts';
+import { ServerSentEvent } from '../ServerSentEvent.ts';
+import { PromiseWrapper } from '../common/promise-wrapper.ts';
 
 class DummyService {
   value = true;
@@ -52,7 +52,7 @@ Deno.test('Resource service injection works', () => {
 
     public GET() {
       return Result(HttpStatusCodes.Ok, {
-        responseTime: performance.now()
+        responseTime: performance.now(),
       });
     }
   }
@@ -72,7 +72,7 @@ Deno.test('Resource service injection throws if service doesn\'t exist', () => {
   
       public GET() {
         return Result(HttpStatusCodes.Ok, {
-          responseTime: performance.now()
+          responseTime: performance.now(),
         });
       }
     }
@@ -95,7 +95,7 @@ Deno.test('@Inject throws if service type cannot be inferred', () => {
   
       public GET() {
         return Result(HttpStatusCodes.Ok, {
-          responseTime: performance.now()
+          responseTime: performance.now(),
         });
       }
     }
@@ -114,7 +114,7 @@ Deno.test('Resource waits on Application ready state before processing requests'
   class TestResource extends Resource {
     public GET() {
       return Result(HttpStatusCodes.Ok, {
-        responseTime: performance.now()
+        responseTime: performance.now(),
       });
     }
   }
@@ -133,7 +133,7 @@ Deno.test('Resource waits on Application ready state before processing requests'
   readyTime = performance.now();
 });
 
-Deno.test("Resources can't extend non-virtual resources", () => {
+Deno.test('Resources can\'t extend non-virtual resources', () => {
   class BaseResource extends Resource {
     public GET() {
       return Result(HttpStatusCodes.Ok);
@@ -200,7 +200,7 @@ Deno.test('Resource cannot Accept unregistered content type', () => {
   expect(() => {
     const _resource = new TestResource();
   }).toThrow(
-    "A handler hasn't been registered for application/cbor"
+    'A handler hasn\'t been registered for application/cbor'
   );
 });
 
@@ -494,7 +494,7 @@ Deno.test('Resource parses using FromBody decorator', async () => {
   const url = new URL('test', origin);
   const body = JSON.stringify({
     id,
-    id2
+    id2,
   });
   const response = await Resource.hono.request(
     url,
@@ -502,8 +502,8 @@ Deno.test('Resource parses using FromBody decorator', async () => {
       body,
       method: 'post',
       headers: {
-        [Headers.ContentType]: ContentTypes.Json
-      }
+        [Headers.ContentType]: ContentTypes.Json,
+      },
     }
   );
   const json = await response.json();
@@ -521,7 +521,7 @@ Deno.test('Resource intersects non-object types using FromBody decorator', async
   class TestResource extends Resource {
     public POST(
       @FromBody(z.string()) e: string,
-      @FromBody(z.literal('type')) e2: string,
+      @FromBody(z.literal('type')) e2: string
     ) {
       return Result(HttpStatusCodes.Ok, { e, e2 });
     }

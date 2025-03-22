@@ -5,7 +5,7 @@ export interface ServerSentEventInit {
 }
 
 export class ServerSentEvent extends Event {
-  readonly data?: unknown;
+  readonly data?;
   readonly comment?: string;
   readonly id?: number;
 
@@ -16,14 +16,14 @@ export class ServerSentEvent extends Event {
     this.comment = eventInitDict?.comment;
   }
 
-  override toString(): string {
+  override toString() {
     let event = '';
     if (this.id)
       event += `id: ${this.id}\n`;
     if (this.type)
       event += `event: ${this.type}\n`;
     if (this.data)
-      event += `data: ${typeof this.data === "string" ? this.data : JSON.stringify(this.data)}\n`
+      event += `data: ${typeof this.data === 'string' ? this.data : JSON.stringify(this.data)}\n`;
     if (this.comment)
       event += `: ${this.comment}`;
 

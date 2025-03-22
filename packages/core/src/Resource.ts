@@ -4,15 +4,15 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
 import type { ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
-import { isBodyInit } from "./common/types.ts";
+import { isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { literalToLowerCase } from "./common/utils.ts";
-import { Application } from "./Application.ts";
-import { ResourceClient } from "./ResourceClient.ts";
-import { type ContentTypeHandler, ContentTypeRegistry } from "./ContentTypeRegistry.ts";
-import type { ResourceClientInstance } from "./index.ts";
-import { RequestEvent } from "./common/events.ts";
+import { literalToLowerCase } from './common/utils.ts';
+import { Application } from './Application.ts';
+import { ResourceClient } from './ResourceClient.ts';
+import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
+import type { ResourceClientInstance } from './index.ts';
+import { RequestEvent } from './common/events.ts';
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
   readonly status: S;
@@ -32,7 +32,7 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
       headers: {
         [Headers.Location]: destination.toString(),
       },
-    },
+    }
   ) as TypedRedirectResponse<S, D>;
 }
 
@@ -199,12 +199,12 @@ export abstract class Resource implements IResource {
   public static get contentTypes(): SimpleContentTypeRegistry {
     return {
       use: (pattern: string | string[], handler: ContentTypeHandler) => {
-        return this.contentTypeRegistry.use('*', pattern, handler)
+        return this.contentTypeRegistry.use('*', pattern, handler);
       },
       get: (contentType: string) => {
         return this.contentTypeRegistry.get('*', contentType);
-      }
-    }
+      },
+    };
   }
 
   public static get methods(): RequestMethod[] {
@@ -234,7 +234,7 @@ export abstract class Resource implements IResource {
   readonly #OPTIONS: Handler = (context) => {
     context.res.headers.set(Headers.Allow, this.methods.join(', '));
     return Result(HttpStatusCodes.NoContent);
-  }
+  };
 
   public clone(context: Context): this {
     const instance = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
@@ -331,7 +331,7 @@ export abstract class Resource implements IResource {
             const result = await schema.safeParseAsync(
               await this.#parseParameters(type as ParameterMetadata['type'], request)
             );
-            const parsedData = {...(result['data'] ?? {})};
+            const parsedData = { ...(result['data'] ?? {}) };
             parsedData[DEFAULT_PARAMETER_KEY] = result['data'];
             if (!result.success)
               issues.push(...result.error.issues);

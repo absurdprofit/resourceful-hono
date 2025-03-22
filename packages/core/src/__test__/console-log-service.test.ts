@@ -76,7 +76,7 @@ Deno.test('ConsoleLogService should log access logs correctly', () => {
       status: HttpStatusCodes.PermanentRedirect,
       headers: new globalThis.Headers({
         [Headers.Date]: date,
-        [Headers.Location]: '/redirect'
+        [Headers.Location]: '/redirect',
       }),
     },
     get: (key: string) => (key === 'metric' ? { headers: ['total;dur=12.5'] } : null),

@@ -1,10 +1,10 @@
-import { RegExpRouter } from "hono/router/reg-exp-router";
-import { SmartRouter } from "hono/router/smart-router";
-import { TrieRouter } from "hono/router/trie-router";
-import { ContentTypes, Headers } from "./common/enums.ts";
-import { GenericHttpError } from "./common/errors.ts";
-import { createReadableFromIterable, toFormData } from "./common/utils.ts";
-import { EventSource } from "eventsource";
+import { RegExpRouter } from 'hono/router/reg-exp-router';
+import { SmartRouter } from 'hono/router/smart-router';
+import { TrieRouter } from 'hono/router/trie-router';
+import { ContentTypes, Headers } from './common/enums.ts';
+import { GenericHttpError } from './common/errors.ts';
+import { createReadableFromIterable, toFormData } from './common/utils.ts';
+import { EventSource } from 'eventsource';
 
 export interface ContentTypeHandler {
   encode: (data: unknown, contentType?: string) => BodyInit | null | Promise<BodyInit | null>;
@@ -13,7 +13,7 @@ export interface ContentTypeHandler {
 
 export class ContentTypeRegistry {
   readonly #router = new SmartRouter<ContentTypeHandler>({
-    routers: [new RegExpRouter(), new TrieRouter()]
+    routers: [new RegExpRouter(), new TrieRouter()],
   });
 
   public use(method: string, pattern: string | string[], handler: ContentTypeHandler) {
@@ -43,7 +43,7 @@ export class ContentTypeRegistry {
     const router = new ContentTypeRegistry();
     router.use('*', [
       ContentTypes.Json,
-      ContentTypes.ProblemDetails
+      ContentTypes.ProblemDetails,
     ], {
       async decode(resource) {
         const json = await resource.json();
@@ -57,7 +57,7 @@ export class ContentTypeRegistry {
     });
     router.use('*', [
       ContentTypes.FormUrlEncoded,
-      ContentTypes.MultipartFormData
+      ContentTypes.MultipartFormData,
     ], {
       decode(resource) {
         return resource
@@ -79,7 +79,7 @@ export class ContentTypeRegistry {
     });
     router.use('*', [
       ContentTypes.ServerSentEvent,
-      ContentTypes.OctetStream
+      ContentTypes.OctetStream,
     ], {
       decode(resource) {
         if (resource.headers.get(Headers.ContentType)?.startsWith(ContentTypes.ServerSentEvent)) {

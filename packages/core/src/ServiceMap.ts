@@ -20,12 +20,12 @@ export class ServiceMap extends Map<Constructor<Service>, Service> {
   async [Symbol.asyncDispose]() {
     await Promise.all(
       this.values()
-      .map(service => {
-        if (Symbol.dispose in service)
-          return service[Symbol.dispose]();
-        if (Symbol.asyncDispose in service)
-          return service[Symbol.asyncDispose]();
-      })
+        .map(service => {
+          if (Symbol.dispose in service)
+            return service[Symbol.dispose]();
+          if (Symbol.asyncDispose in service)
+            return service[Symbol.asyncDispose]();
+        })
     );
 
     this.clear();

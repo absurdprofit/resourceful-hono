@@ -1,17 +1,17 @@
 import type { Hono, MiddlewareHandler } from 'hono';
 import { Resource } from './Resource.ts';
-import { type Service, ServiceMap } from "./ServiceMap.ts";
-import { type Constructor, isResourceConstructor } from "./common/types.ts";
-import { ErrorHandler, NotFoundHandler, TraceContext } from "./middleware/index.ts";
-import { type RequestEvent, FinishEvent, ReadyEvent } from "./common/events.ts";
-import { PromiseWrapper } from "./common/promise-wrapper.ts";
-import { TypedEventTarget } from "./TypedEventTarget.ts";
+import { type Service, ServiceMap } from './ServiceMap.ts';
+import { type Constructor, isResourceConstructor } from './common/types.ts';
+import { ErrorHandler, NotFoundHandler, TraceContext } from './middleware/index.ts';
+import { type RequestEvent, FinishEvent, ReadyEvent } from './common/events.ts';
+import { PromiseWrapper } from './common/promise-wrapper.ts';
+import { TypedEventTarget } from './TypedEventTarget.ts';
 
 export interface ApplicationEventMap {
-  "ready": ReadyEvent;
-  "finished": FinishEvent;
-  "error": ErrorEvent;
-  "request": RequestEvent;
+  'ready': ReadyEvent;
+  'finished': FinishEvent;
+  'error': ErrorEvent;
+  'request': RequestEvent;
 }
 
 export type ApplicationState = 'idle' | 'running' | 'finished';
@@ -35,7 +35,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     this.#hono.onError(ErrorHandler);
     this.registerMiddlewares([
       TraceContext,
-      NotFoundHandler
+      NotFoundHandler,
     ]);
 
     this.#readyPromise = new PromiseWrapper<void>();
@@ -103,5 +103,5 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
         this.#finishedPromise.resolve();
         this.dispatchEvent(new FinishEvent());
       });
-  }
+  };
 }
