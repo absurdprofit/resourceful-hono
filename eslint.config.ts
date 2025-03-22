@@ -1,9 +1,14 @@
-module.exports = [
+import js from '@eslint/js';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
   {
-    ignores: ['**/dist', 'libs/prisma/.generated'],
-  },
-  {
-    files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ['**/*.ts'],
+    languageOptions: {
+      globals: globals.browser,
+    },
     rules: {
       'no-magic-numbers': [
         'error',
@@ -39,10 +44,10 @@ module.exports = [
     },
   },
   {
-    files: ['**/constants.ts', '**/eslint.config.js', '**/enums.ts'],
+    files: ['**/constants.ts', '**/*.config.*s', '**/enums.ts'],
     // Override or add rules here
     rules: {
       'no-magic-numbers': 'off',
     },
   },
-];
+);
