@@ -2,11 +2,8 @@ import { expect } from 'expect';
 import { isBodyInit, isResourceConstructor, isSuppressedError } from '../common/types.ts';
 import { Resource } from '../Resource.ts';
 import type { Context } from 'hono';
-import { type endTime, setMetric, type startTime } from 'hono/timing';
-import { parseTotalDuration } from '../common/utils.ts';
-import { literalToLowerCase } from '../common/utils.ts';
-import { literalToUpperCase } from '../common/utils.ts';
-import { toFormData } from '../common/utils.ts';
+import { setMetric } from 'hono/timing';
+import { parseTotalDuration, literalToLowerCase, literalToUpperCase, toFormData } from '../common/utils.ts';
 
 // Setup dummy Resource for testing isResourceConstructor
 class DummyResource extends Resource {}
@@ -44,9 +41,9 @@ Deno.test('isBodyInit: invalid BodyInit values', () => {
 
 if (typeof SuppressedError === 'undefined') {
   class SuppressedError extends Error implements globalThis.SuppressedError {
-    public error: any;
-    public suppressed: any;
-    constructor(error: any, suppressed: any, message?: string | undefined) {
+    public error: unknown;
+    public suppressed: unknown;
+    constructor(error: unknown, suppressed: unknown, message?: string | undefined) {
       super(message || 'Suppressed Error');
       this.error = error;
       this.suppressed = suppressed;

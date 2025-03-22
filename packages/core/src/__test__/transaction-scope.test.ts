@@ -5,7 +5,7 @@ Deno.test('TransactionScope: complete calls commit', async () => {
   let commitCalled = false;
   let rollbackCalled = false;
 
-  try {
+  {
     await using scope = new TransactionScope({
       commit: () => { commitCalled = true; },
       rollback: () => { rollbackCalled = true; },
@@ -13,7 +13,7 @@ Deno.test('TransactionScope: complete calls commit', async () => {
   
     // Mark the transaction as complete.
     scope.complete();
-  } catch {}
+  }
 
   expect(commitCalled).toBe(true);
   expect(rollbackCalled).toBe(false);
@@ -25,7 +25,7 @@ Deno.test('TransactionScope: not complete calls rollback and throws RollbackErro
   let thrownError = null;
 
   try {
-    await using scope = new TransactionScope({
+    await using _scope = new TransactionScope({
       commit: () => { commitCalled = true; },
       rollback: () => { rollbackCalled = true; },
     });

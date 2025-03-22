@@ -1,8 +1,6 @@
 import { ContentTypes, Result, HttpStatusCodes, FromRoute, FromBody, Accept, FromQuery, Middleware } from '@resourceful-hono/core';
 import { z } from 'zod';
 import BaseResource from './BaseResource.ts';
-import type { TransactionScope } from '../../packages/core/src/TransactionScope.ts';
-import type { NotFoundError } from '../../packages/core/src/common/errors.ts';
 
 const GETQuery = z.object({ page: z.coerce.number() });
 const GETParam = z.object({ name: z.string(), id: z.string().uuid() });

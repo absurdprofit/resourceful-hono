@@ -175,7 +175,7 @@ Deno.test('OctetStream handler works', async () => {
   expect(decoded).toBe(response.body);
 });
 
-Deno.test('Stream encoder throws if given non-iterable', async () => {
+Deno.test('Stream encoder throws if given non-iterable', () => {
   const handler = defaultRegistry.get('*', ContentTypes.OctetStream);
   expect(handler).toBeDefined();
 
