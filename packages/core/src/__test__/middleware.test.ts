@@ -2,7 +2,7 @@ import { endTime, setMetric, startTime } from 'hono/timing';
 import { Application } from '../Application.ts';
 import { Logger } from '../middleware/Logger.ts';
 import { Resource } from '../Resource.ts';
-import { ConsoleLogService, LogService } from '../LogService/index.ts';
+import { ConsoleLogService, LogService } from '../services/LogService/index.ts';
 import { Headers, HttpStatusCodes } from '../common/enums.ts';
 import { expect } from 'expect';
 import { TransactionScope } from '../index.ts';

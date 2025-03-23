@@ -1,5 +1,5 @@
 import { assertSpyCall, spy } from 'mock';
-import { ConsoleLogService } from '../LogService/index.ts';
+import { ConsoleLogService } from '../services/LogService/index.ts';
 import { Headers, HttpStatusCodes } from '../common/enums.ts';
 import type { Context } from 'hono';
 
