@@ -1,18 +1,19 @@
-import { expect } from "expect";
-import { HttpError } from "../HttpError.ts";
-import { GenericHttpError, NotFoundError } from "../common/errors.ts";
+import { expect } from 'expect';
+import { HttpError } from '../HttpError.ts';
+import { GenericHttpError, NotFoundError } from '../common/errors.ts';
+import { HttpStatusCodes } from '../common/enums.ts';
 
 Deno.test('HttpError instance returns false for non-object', () => {
-  expect(HttpError[Symbol.hasInstance](0)).toBe(false);
+  expect(HttpError[Symbol.hasInstance](Number())).toBe(false);
 });
 
 Deno.test('HttpError instanceof casts generic error to HttpError', () => {
   class CustomHttpError extends HttpError {
     public static readonly brand = Symbol();
-    public override readonly status = 430;
+    public override readonly status = HttpStatusCodes.BadRequest;
     public override readonly type: string = `http://localhost/HTTP/Status/${this.status}`;
 
-    get brand() {
+    public get brand() {
       return CustomHttpError.brand;
     }
   }

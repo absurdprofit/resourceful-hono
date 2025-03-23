@@ -3,6 +3,9 @@ import { ConsoleLogService } from '../LogService/index.ts';
 import { Headers, HttpStatusCodes } from '../common/enums.ts';
 import type { Context } from 'hono';
 
+const FIRST_CALL_INDEX = 0;
+const SECOND_CALL_INDEX = 1;
+
 // 🟢 Debug Log Test
 Deno.test('ConsoleLogService should log debug messages', () => {
   const debug = spy(console, 'debug');
@@ -13,8 +16,8 @@ Deno.test('ConsoleLogService should log debug messages', () => {
   logger.debug(message);
   logger.debug(message, { payload });
 
-  assertSpyCall(debug, 0, { args: [message, ''] });
-  assertSpyCall(debug, 1, { args: [message, payload] });
+  assertSpyCall(debug, FIRST_CALL_INDEX, { args: [message, ''] });
+  assertSpyCall(debug, SECOND_CALL_INDEX, { args: [message, payload] });
 });
 
 // 🔵 Info Log Test
@@ -27,8 +30,8 @@ Deno.test('ConsoleLogService should log info messages', () => {
   logger.info(message);
   logger.info(message, { payload });
 
-  assertSpyCall(info, 0, { args: [message, ''] });
-  assertSpyCall(info, 1, { args: [message, payload] });
+  assertSpyCall(info, FIRST_CALL_INDEX, { args: [message, ''] });
+  assertSpyCall(info, SECOND_CALL_INDEX, { args: [message, payload] });
 });
 
 // 🟠 Warning Log Test
@@ -42,8 +45,8 @@ Deno.test('ConsoleLogService should log warnings', () => {
   logger.warn(message, error);
   logger.warn(message, error, { payload });
 
-  assertSpyCall(warn, 0, { args: [message, error, ''] });
-  assertSpyCall(warn, 1, { args: [message, error, payload] });
+  assertSpyCall(warn, FIRST_CALL_INDEX, { args: [message, error, ''] });
+  assertSpyCall(warn, SECOND_CALL_INDEX, { args: [message, error, payload] });
 });
 
 // 🔴 Error Log Test
@@ -56,8 +59,8 @@ Deno.test('ConsoleLogService should log errors', () => {
   logger.error(error);
   logger.error(error, { payload });
 
-  assertSpyCall(errorLog, 0, { args: [error, ''] });
-  assertSpyCall(errorLog, 1, { args: [error, payload] });
+  assertSpyCall(errorLog, FIRST_CALL_INDEX, { args: [error, ''] });
+  assertSpyCall(errorLog, SECOND_CALL_INDEX, { args: [error, payload] });
 });
 
 // 📄 Access Log Test
@@ -76,7 +79,7 @@ Deno.test('ConsoleLogService should log access logs correctly', () => {
       status: HttpStatusCodes.PermanentRedirect,
       headers: new globalThis.Headers({
         [Headers.Date]: date,
-        [Headers.Location]: '/redirect'
+        [Headers.Location]: '/redirect',
       }),
     },
     get: (key: string) => (key === 'metric' ? { headers: ['total;dur=12.5'] } : null),
@@ -92,5 +95,5 @@ Deno.test('ConsoleLogService should log access logs correctly', () => {
     'color: lightblue',
     'color: white',
   ];
-  assertSpyCall(log, 0, { args });
+  assertSpyCall(log, FIRST_CALL_INDEX, { args });
 });

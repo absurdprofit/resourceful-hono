@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
-import { Application } from "../Application.ts";
-import { LogService } from "../LogService/LogService.ts";
+import { Application } from '../Application.ts';
+import { LogService } from '../LogService/LogService.ts';
 
 export const Logger: MiddlewareHandler = async (context, next) => {
   await next();

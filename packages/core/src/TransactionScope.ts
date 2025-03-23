@@ -22,9 +22,9 @@ export class TransactionScope {
 
   public complete = (): void => {
     this.#complete = true;
-  }
+  };
 
-  async [Symbol.asyncDispose]() {
+  public async [Symbol.asyncDispose]() {
     if (this.#complete) {
       await this.#commit();
     } else {

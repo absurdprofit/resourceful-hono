@@ -1,36 +1,23 @@
-import { expect } from "expect";
-import { ContentTypes, Headers, HttpStatusCodes } from "../common/enums.ts";
-import { Result, Resource, Redirect } from "../Resource.ts";
-import { Hono } from "hono";
-import { Accept, FromBody, FromQuery, FromRoute, Inject, Middleware, Route } from "../common/decorators.ts";
-import { z } from "zod";
-import { Application } from "../Application.ts";
-import { ServerSentEvent } from "../ServerSentEvent.ts";
-import { PromiseWrapper } from "../common/promise-wrapper.ts";
+import { expect } from 'expect';
+import { ContentTypes, Headers, HttpStatusCodes } from '../common/enums.ts';
+import { Result, Resource, Redirect } from '../Resource.ts';
+import { Hono } from 'hono';
+import { Accept, FromBody, FromQuery, FromRoute, Inject, Middleware, Route } from '../common/decorators.ts';
+import { z } from 'zod';
+import { Application } from '../Application.ts';
+import { ServerSentEvent } from '../ServerSentEvent.ts';
+import { PromiseWrapper } from '../common/promise-wrapper.ts';
 
 class DummyService {
-  value = true;
-  disposed = false;
+  public value = true;
+  public disposed = false;
 
-  [Symbol.dispose]() {
+  public [Symbol.dispose]() {
     this.disposed = true;
   }
 }
 
-class AsyncDummyService {
-  value = true;
-  disposed = false;
-
-  [Symbol.asyncDispose]() {
-    return new Promise<void>(resolve => {
-      this.disposed = true;
-      resolve();
-    });
-  }
-}
-
 const app = Application.instance;
-app.registerService(DummyService, new DummyService());
 const promiseWrapper = new PromiseWrapper<void>();
 app.addEventListener('ready', (e) => e.waitUntil(promiseWrapper.promise));
 const origin = 'http://localhost:8080';
@@ -42,6 +29,29 @@ function cleanupResources() {
   });
 }
 
+Deno.test('Resource service injection throws if service doesn\'t exist', () => {
+  // hack to remove resources
+  cleanupResources();
+
+  expect(() => {
+    class TestResource extends Resource {
+      @Inject()
+      declare public readonly service: DummyService;
+  
+      public GET() {
+        return Result(HttpStatusCodes.Ok, {
+          responseTime: performance.now(),
+        });
+      }
+    }
+  
+    const _resource = new TestResource();
+    const _service = _resource.service;
+  }).toThrow(
+    'Service DummyService not found.'
+  );
+});
+
 Deno.test('Resource service injection works', () => {
   // hack to remove resources
   cleanupResources();
@@ -52,36 +62,14 @@ Deno.test('Resource service injection works', () => {
 
     public GET() {
       return Result(HttpStatusCodes.Ok, {
-        responseTime: performance.now()
+        responseTime: performance.now(),
       });
     }
   }
 
+  app.registerService(DummyService, new DummyService());
   const _resource = new TestResource();
   expect(_resource.service).toBeInstanceOf(DummyService);
-});
-
-Deno.test('Resource service injection throws if service doesn\'t exist', () => {
-  // hack to remove resources
-  cleanupResources();
-
-  expect(() => {
-    class TestResource extends Resource {
-      @Inject()
-      declare public readonly service: AsyncDummyService;
-  
-      public GET() {
-        return Result(HttpStatusCodes.Ok, {
-          responseTime: performance.now()
-        });
-      }
-    }
-  
-    const _resource = new TestResource();
-    const _service = _resource.service;
-  }).toThrow(
-    'Service AsyncDummyService not found.'
-  );
 });
 
 Deno.test('@Inject throws if service type cannot be inferred', () => {
@@ -95,7 +83,7 @@ Deno.test('@Inject throws if service type cannot be inferred', () => {
   
       public GET() {
         return Result(HttpStatusCodes.Ok, {
-          responseTime: performance.now()
+          responseTime: performance.now(),
         });
       }
     }
@@ -114,14 +102,14 @@ Deno.test('Resource waits on Application ready state before processing requests'
   class TestResource extends Resource {
     public GET() {
       return Result(HttpStatusCodes.Ok, {
-        responseTime: performance.now()
+        responseTime: performance.now(),
       });
     }
   }
   
   const _resource = new TestResource();
   const url = new URL('test', origin);
-  let readyTime = 0;
+  let readyTime = Number();
 
   queueMicrotask(async () => {
     const response = await Resource.hono.request(url);
@@ -133,7 +121,7 @@ Deno.test('Resource waits on Application ready state before processing requests'
   readyTime = performance.now();
 });
 
-Deno.test("Resources can't extend non-virtual resources", () => {
+Deno.test('Resources can\'t extend non-virtual resources', () => {
   class BaseResource extends Resource {
     public GET() {
       return Result(HttpStatusCodes.Ok);
@@ -200,7 +188,7 @@ Deno.test('Resource cannot Accept unregistered content type', () => {
   expect(() => {
     const _resource = new TestResource();
   }).toThrow(
-    "A handler hasn't been registered for application/cbor"
+    'A handler hasn\'t been registered for application/cbor'
   );
 });
 
@@ -241,7 +229,7 @@ Deno.test('Parameter decorator throws on composition', () => {
   cleanupResources();
   
   expect(() => {
-    class TestResource extends Resource {
+    class _TestResource extends Resource {
       public GET(
         @FromRoute('id', z.string()) @FromQuery('id', z.string()) id: string
       ) {
@@ -251,7 +239,7 @@ Deno.test('Parameter decorator throws on composition', () => {
   }).toThrow('Parameter decorators cannot be composed');
 
   expect(() => {
-    class TestResource extends Resource {
+    class _TestResource extends Resource {
       public GET(
         @FromQuery('id', z.string()) @FromRoute('id', z.string())  id: string
       ) {
@@ -261,7 +249,7 @@ Deno.test('Parameter decorator throws on composition', () => {
   }).toThrow('Parameter decorators cannot be composed');
   
   expect(() => {
-    class TestResource extends Resource {
+    class _TestResource extends Resource {
       public POST(
         @FromBody('id', z.string()) @FromRoute('id', z.string())  id: string
       ) {
@@ -274,7 +262,7 @@ Deno.test('Parameter decorator throws on composition', () => {
 Deno.test('Route decorator disallows path params and wildcards', () => {
   expect(() => {
     @Route('user/:id')
-    class TestResource extends Resource {
+    class _TestResource extends Resource {
       public GET() {
         return Result(HttpStatusCodes.Ok);
       }
@@ -285,7 +273,7 @@ Deno.test('Route decorator disallows path params and wildcards', () => {
 
   expect(() => {
     @Route('user2/*')
-    class SecondTestResource extends Resource {
+    class _SecondTestResource extends Resource {
       public GET() {
         return Result(HttpStatusCodes.Ok);
       }
@@ -494,7 +482,7 @@ Deno.test('Resource parses using FromBody decorator', async () => {
   const url = new URL('test', origin);
   const body = JSON.stringify({
     id,
-    id2
+    id2,
   });
   const response = await Resource.hono.request(
     url,
@@ -502,8 +490,8 @@ Deno.test('Resource parses using FromBody decorator', async () => {
       body,
       method: 'post',
       headers: {
-        [Headers.ContentType]: ContentTypes.Json
-      }
+        [Headers.ContentType]: ContentTypes.Json,
+      },
     }
   );
   const json = await response.json();
@@ -521,7 +509,7 @@ Deno.test('Resource intersects non-object types using FromBody decorator', async
   class TestResource extends Resource {
     public POST(
       @FromBody(z.string()) e: string,
-      @FromBody(z.literal('type')) e2: string,
+      @FromBody(z.literal('type')) e2: string
     ) {
       return Result(HttpStatusCodes.Ok, { e, e2 });
     }

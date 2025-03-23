@@ -1,13 +1,14 @@
-import { endTime, setMetric, startTime } from "hono/timing";
-import { Application } from "../Application.ts";
-import { Logger } from "../middleware/Logger.ts";
-import { Resource } from "../Resource.ts";
-import { ConsoleLogService, LogService } from "../LogService/index.ts";
-import { Headers, HttpStatusCodes } from "../common/enums.ts";
-import { expect } from "expect";
-import { TransactionScope } from "../index.ts";
-import { DependencyFailedError, InternalServerError, NotFoundError } from "../common/errors.ts";
-import { generateHex } from "../common/utils.ts";
+import { endTime, setMetric, startTime } from 'hono/timing';
+import { Application } from '../Application.ts';
+import { Logger } from '../middleware/Logger.ts';
+import { Resource } from '../Resource.ts';
+import { ConsoleLogService, LogService } from '../LogService/index.ts';
+import { Headers, HttpStatusCodes } from '../common/enums.ts';
+import { expect } from 'expect';
+import { TransactionScope } from '../index.ts';
+import { DependencyFailedError, InternalServerError, NotFoundError } from '../common/errors.ts';
+import { generateHex } from '../common/utils.ts';
+import { SPAN_ID_LENGTH, TRACE_ID_LENGTH } from '../common/constants.ts';
 
 const app = Application.instance;
 app.registerMiddlewares([Logger]);
@@ -15,8 +16,9 @@ app.registerService(LogService, new ConsoleLogService());
 
 class TestResource extends Resource {
   public async GET() {
+    const timeout = 10;
     startTime(this.context, 'test');
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => setTimeout(resolve, timeout));
     endTime(this.context, 'test');
 
     setMetric(this.context, 'test2');
@@ -42,12 +44,12 @@ class TestResource extends Resource {
   }
 
   public DELETE() {
-    return void 0;
+    return void Number();
   }
 }
 
 app.registerResources([
-  TestResource
+  TestResource,
 ]);
 
 Deno.test('ErrorHandler throws user error in TransactionScope', async () => {
@@ -83,19 +85,21 @@ Deno.test('NotFoundHandler adds 404 response', async () => {
 });
 
 Deno.test('TraceContext adds request traceparent to response traceparent', async () => {
-  const traceId = generateHex(16);
+  const traceId = generateHex(TRACE_ID_LENGTH);
   const version = '00';
   const flags = '01';
-  const traceparent = `${version}-${traceId}-${generateHex(8)}-${flags}`;
+  const spanId = generateHex(SPAN_ID_LENGTH);
+  const traceparent = `${version}-${traceId}-${spanId}-${flags}`;
   const headers = {
-    [Headers.Traceparent]: traceparent
+    [Headers.Traceparent]: traceparent,
   };
   const method = 'DELETE';
 
   const response = await Resource.hono.request('test', { method, headers });
-  const [resVersion, resTraceId, _spanId, resFlags] = response.headers.get(Headers.Traceparent)?.split('-') ?? [];
+  const [resVersion, resTraceId, resSpanId, resFlags] = response.headers.get(Headers.Traceparent)?.split('-') ?? [];
   
   expect(resVersion).toBe(version);
   expect(resTraceId).toBe(traceId);
+  expect(resSpanId).not.toBe(spanId);
   expect(resFlags).toBe(flags);
 });

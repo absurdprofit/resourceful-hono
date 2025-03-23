@@ -1,0 +1,99 @@
+name: Dry run publish to jsr
+
+on:
+  pull_request:
+    branches:
+      - main
+      - next
+      - beta
+
+jobs:
+  publish_dry_run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.2.1
+
+      - name: Cache Deno deps
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/deno
+            ./node_modules
+          key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.json') }}
+
+      - name: Get tag name and commit hash
+        id: git-info
+        run: |
+          if [[ "${{github.event.pull_request.base.ref}}" == "main" ]]; then
+            echo "TAG_NAME=latest" >> $GITHUB_ENV
+          else
+            echo "TAG_NAME=${{github.event.pull_request.base.ref}}" >> $GITHUB_ENV
+          fi
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          LAST_COMMIT_HASH=${{github.event.pull_request.base.sha}}
+          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
+          echo "LAST_COMMIT_HASH=${LAST_COMMIT_HASH}" >> $GITHUB_ENV
+
+      - name: Conditional Version Update
+        id: version
+        if: startsWith(env.TAG_NAME, 'next') || startsWith(env.TAG_NAME, 'beta')
+        run: |
+          TAG_NAME=${{ env.TAG_NAME }}
+          COMMIT_HASH=${{ env.COMMIT_HASH }}
+          LAST_COMMIT_HASH=${{ env.LAST_COMMIT_HASH }}
+          ALL_PACKAGES_JSON=$(deno task list)
+          CHANGED_PACKAGES_JSON=$(deno task list --since ${LAST_COMMIT_HASH})
+          CHANGED_PACKAGES_COUNT=$(echo $CHANGED_PACKAGES_JSON | jq '. | length')
+          ROOT_DENO_JSON="deno.json"
+
+          if [[ $CHANGED_PACKAGES_COUNT -eq 0 ]]; then
+            echo "No packages changed. Exiting..."
+            echo "versioned=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo $CHANGED_PACKAGES_JSON | jq -r '.[].path' | while read -r package; do
+            CURRENT_VERSION=$(jq -r '.version' $package/deno.json)
+            NEW_VERSION="${CURRENT_VERSION}-${TAG_NAME}.sha-${COMMIT_HASH}"
+            jq ".version = \"${NEW_VERSION}\"" $package/deno.json > $package/deno.json.tmp && mv $package/deno.json.tmp $package/deno.json
+          done
+
+          # update root deno.json workspace field
+          CHANGED_PACKAGE_PATHS=$(echo "$CHANGED_PACKAGES_JSON" | jq -r '.[].path')
+          RELATIVE_PATHS=$(echo "$CHANGED_PACKAGE_PATHS" | sed "s|$(pwd)/||g" | jq -R -s 'split("\n") | map(select(length > 0))')
+          jq ".workspace = $RELATIVE_PATHS" $ROOT_DENO_JSON > $ROOT_DENO_JSON.tmp && mv $ROOT_DENO_JSON.tmp $ROOT_DENO_JSON
+
+          echo "versioned=true" >> "$GITHUB_OUTPUT"
+
+      - name: Assume unchanged for all deno.json files
+        run: |
+          git ls-files -m | grep 'deno.json' | xargs -I {} git update-index --assume-unchanged {}
+
+      - name: Lint project
+        if: ${{ steps.version.outputs.versioned == 'true' }}
+        run: deno task lint
+      
+      - name: Test packages
+        if: ${{ steps.version.outputs.versioned == 'true' }}
+        run: |
+          for pkg in $(jq -r '.workspace[]' deno.json); do
+            echo "🔍 Testing $pkg"
+            deno test $pkg --allow-net
+          done
+
+      - name: Publish packages
+        if: ${{ steps.version.outputs.versioned == 'true' }}
+        run: |
+          deno publish --dry-run --allow-dirty
