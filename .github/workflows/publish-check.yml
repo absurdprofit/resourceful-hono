@@ -23,7 +23,15 @@ jobs:
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
+          deno-version: v2.2.1
+
+      - name: Cache Deno deps
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/deno
+            ./node_modules
+          key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.json') }}
 
       - name: Get tag name and commit hash
         id: git-info
@@ -72,6 +80,14 @@ jobs:
       - name: Assume unchanged for all deno.json files
         run: |
           git ls-files -m | grep 'deno.json' | xargs -I {} git update-index --assume-unchanged {}
+      
+      - name: Test packages
+        if: ${{ steps.version.outputs.versioned == 'true' }}
+        run: |
+          for pkg in $(jq -r '.workspace[]' deno.json); do
+            echo "🔍 Testing $pkg"
+            deno test $pkg --allow-net
+          done
 
       - name: Publish packages
         if: ${{ steps.version.outputs.versioned == 'true' }}

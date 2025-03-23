@@ -22,8 +22,8 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
   readonly #services = new ServiceMap();
   readonly #readyPromise;
   readonly #finishedPromise;
-  readonly ready: Promise<void>;
-  readonly finished: Promise<void>;
+  public readonly ready: Promise<void>;
+  public readonly finished: Promise<void>;
   #state: ApplicationState = 'idle';
 
   private constructor(brand: symbol) {
