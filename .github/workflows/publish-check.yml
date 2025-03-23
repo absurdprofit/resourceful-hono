@@ -34,7 +34,7 @@ jobs:
             echo "TAG_NAME=${GITHUB_REF##*/}" >> $GITHUB_ENV
           fi
           COMMIT_HASH=$(git rev-parse --short HEAD)
-          LAST_COMMIT_HASH=$(git rev-parse --short HEAD~1)
+          LAST_COMMIT_HASH=${{github.event.pull_request.base.sha}}
           echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
           echo "LAST_COMMIT_HASH=${LAST_COMMIT_HASH}" >> $GITHUB_ENV
 
