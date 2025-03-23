@@ -52,7 +52,7 @@ class TestResource extends Resource {
     @FromRoute(z.object({ id: z.string() })) _object: { id: string },
     @FromRoute(z.object({ id2: z.string() })) _object2: { id2: string }
   ) {
-    return void 0;
+    return void Number();
   }
 }
 
@@ -143,7 +143,7 @@ Deno.test('ResourceClient follows redirects', async () => {
 
 Deno.test('ResourceClient correctly constructs path params', async () => {
   const fromRoute = {
-    id: 10,
+    id: Number(),
     name: 'surd',
   };
   const fromBody = 'hello';

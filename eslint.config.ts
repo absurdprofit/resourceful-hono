@@ -1,10 +1,14 @@
 import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import stylisticJs from '@stylistic/eslint-plugin-js';
 
 export default tseslint.config(
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    plugins: {
+      '@stylistic/js': stylisticJs,
+    },
     files: ['**/*.ts'],
     languageOptions: {
       globals: globals.browser,

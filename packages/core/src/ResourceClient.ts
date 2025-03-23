@@ -57,7 +57,7 @@ interface ResourceClientConstructor {
 export const ResourceClient: ResourceClientConstructor = class <R extends typeof Resource> {
   private static readonly contentTypeRegistry = ContentTypeRegistry.default;
   private readonly contentTypeRegistry = new ContentTypeRegistry();
-  readonly methods;
+  public readonly methods;
   readonly #parameterMetadata;
   readonly #routeSchema;
   readonly #acceptMetadata;
@@ -128,7 +128,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
     };
   }
 
-  get [Symbol.toStringTag](): string {
+  public get [Symbol.toStringTag](): string {
     return `${this.#resource.name}Client`;
   }
 
@@ -139,9 +139,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
       body,
       headers,
     } = await this.#serialiseParameters(method, parameters);
-    const signal = parameters.at(-1) instanceof AbortSignal
-      ? parameters.at(-1) as AbortSignal
-      : undefined;
+    const signal = parameters.findLast(parameter => parameter instanceof AbortSignal);
 
     const url = new URL(pathname, this.#origin);
     url.search = search;

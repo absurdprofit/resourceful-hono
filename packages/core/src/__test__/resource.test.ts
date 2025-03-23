@@ -9,10 +9,10 @@ import { ServerSentEvent } from '../ServerSentEvent.ts';
 import { PromiseWrapper } from '../common/promise-wrapper.ts';
 
 class DummyService {
-  value = true;
-  disposed = false;
+  public value = true;
+  public disposed = false;
 
-  [Symbol.dispose]() {
+  public [Symbol.dispose]() {
     this.disposed = true;
   }
 }
@@ -109,7 +109,7 @@ Deno.test('Resource waits on Application ready state before processing requests'
   
   const _resource = new TestResource();
   const url = new URL('test', origin);
-  let readyTime = 0;
+  let readyTime = Number();
 
   queueMicrotask(async () => {
     const response = await Resource.hono.request(url);

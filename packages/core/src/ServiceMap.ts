@@ -17,7 +17,7 @@ export class ServiceMap extends Map<Constructor<Service>, Service> {
     return value as T;
   }
 
-  async [Symbol.asyncDispose]() {
+  public async [Symbol.asyncDispose]() {
     await Promise.all(
       this.values()
         .map(service => {

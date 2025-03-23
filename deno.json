@@ -3,7 +3,7 @@
   "tasks": {
     "list": "deno run --allow-all tasks/list.ts",
     "test": "deno test --trace-leaks --coverage --parallel --allow-net",
-    "lint": "deno lint --fix && deno run -A npm:eslint --config eslint.config.ts . --fix"
+    "lint": "deno run -A npm:eslint --config eslint.config.ts . --fix"
   },
   "nodeModulesDir": "auto",
   "publish": {
@@ -24,6 +24,7 @@
   },
   "imports": {
     "@eslint/js": "npm:@eslint/js@^9.23.0",
+    "@stylistic/eslint-plugin-js": "npm:@stylistic/eslint-plugin-js@^4.2.0",
     "@typescript-eslint/eslint-plugin": "npm:@typescript-eslint/eslint-plugin@^8.27.0",
     "globals": "npm:globals@^16.0.0",
     "jiti": "npm:jiti@^2.4.2",

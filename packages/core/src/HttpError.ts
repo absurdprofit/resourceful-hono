@@ -15,7 +15,7 @@ export abstract class HttpError extends Error {
     this.detail = message ?? '';
   }
   
-  static override [Symbol.hasInstance](obj: unknown): obj is HttpError {
+  public static override [Symbol.hasInstance](obj: unknown): obj is HttpError {
     if (typeof obj !== 'object' || obj === null) return false;
     if (this === HttpError) {
       return Object.prototype.isPrototypeOf.call(this.prototype, obj);

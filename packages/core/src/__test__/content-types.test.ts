@@ -102,6 +102,7 @@ Deno.test('ServerSentEvent handler works', async () => {
   headers.set(Headers.ContentType, ContentTypes.ServerSentEvent);
   headers.set(Headers.CacheControl, 'no-cache');
   headers.set(Headers.Connection, 'keep-alive');
+  const id = 1;
   // decode response
   {
     const data = function* () {
@@ -110,7 +111,7 @@ Deno.test('ServerSentEvent handler works', async () => {
         {
           comment: 'comment',
           data: 'some data',
-          id: 1,
+          id,
         }
       );
     };
@@ -138,7 +139,7 @@ Deno.test('ServerSentEvent handler works', async () => {
         {
           comment: 'comment',
           data: { some: 'data' },
-          id: 1,
+          id,
         }
       );
     };

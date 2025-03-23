@@ -5,6 +5,7 @@ import { ContentTypes, Headers } from './common/enums.ts';
 import { GenericHttpError } from './common/errors.ts';
 import { createReadableFromIterable, toFormData } from './common/utils.ts';
 import { EventSource } from 'eventsource';
+import { FIRST_INDEX, LAST_INDEX, SINGLE_ELEMENT_LENGTH } from './common/constants.ts';
 
 export interface ContentTypeHandler {
   encode: (data: unknown, contentType?: string) => BodyInit | null | Promise<BodyInit | null>;
@@ -36,7 +37,10 @@ export class ContentTypeRegistry {
     return this.#router.match(
       method,
       contentType.replaceAll(':', ';').toLowerCase()
-    ).at(0)?.at(-1)?.at(0) as ContentTypeHandler | undefined;
+    )
+      .at(FIRST_INDEX)
+      ?.at(LAST_INDEX)
+      ?.at(FIRST_INDEX) as ContentTypeHandler | undefined;
   }
 
   public static get default() {
@@ -65,7 +69,7 @@ export class ContentTypeRegistry {
           .then(formData => 
             formData.keys().reduce((object, key) => {
               const values = formData.getAll(key);
-              if (values.length === 1)
+              if (values.length === SINGLE_ELEMENT_LENGTH)
                 object[key] = values[0];
               else
                 object[key] = values;

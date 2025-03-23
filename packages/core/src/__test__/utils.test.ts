@@ -20,20 +20,20 @@ Deno.test('isResourceConstructor: invalid resource constructor', () => {
   expect(isResourceConstructor(NotAResource)).toBe(false);
   // Non-function values
   expect(isResourceConstructor({})).toBe(false);
-  expect(isResourceConstructor(123)).toBe(false);
+  expect(isResourceConstructor(Number())).toBe(false);
 });
 
 Deno.test('isBodyInit: valid BodyInit values', () => {
   expect(isBodyInit('a string')).toBe(true);
   expect(isBodyInit(new Blob(['data']))).toBe(true);
-  expect(isBodyInit(new ArrayBuffer(10))).toBe(true);
+  expect(isBodyInit(new ArrayBuffer(Number()))).toBe(true);
   expect(isBodyInit(new FormData())).toBe(true);
   expect(isBodyInit(new URLSearchParams())).toBe(true);
   expect(isBodyInit(new ReadableStream())).toBe(true);
 });
 
 Deno.test('isBodyInit: invalid BodyInit values', () => {
-  expect(isBodyInit(42)).toBe(false);
+  expect(isBodyInit(Number())).toBe(false);
   expect(isBodyInit({})).toBe(false);
   expect(isBodyInit(null)).toBe(false);
   expect(isBodyInit(undefined)).toBe(false);
@@ -64,8 +64,9 @@ Deno.test('parseTotalDuration: valid timing metric', () => {
   const context = new Map() as unknown as Context;
   const headers: string[] = [];
   const timers = new Map<string, unknown>();
+  const total = 1;
   context.set('metric', { headers, timers });
-  setMetric(context, 'total', 1, 'description');
+  setMetric(context, 'total', total, 'description');
   
   const value = parseTotalDuration(context.get('metric')?.headers ?? []);
 

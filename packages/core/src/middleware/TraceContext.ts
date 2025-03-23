@@ -1,27 +1,19 @@
 import type { MiddlewareHandler } from 'hono';
 import { Headers } from '../common/enums.ts';
 import { generateHex } from '../common/utils.ts';
+import { SPAN_ID_LENGTH, TRACE_ID_LENGTH } from '../common/constants.ts';
 
 export const TraceContext: MiddlewareHandler = async (context, next) => {
   const incomingTraceparent = context.req.header(Headers.Traceparent);
-  let traceId: string | undefined;
-  let flags = '01';
+  const [
+    version = '00',
+    traceId = generateHex(TRACE_ID_LENGTH),
+    _,
+    flags = '01',
+  ] = incomingTraceparent?.split('-') || '';
 
-  if (incomingTraceparent) {
-    const parts = incomingTraceparent.split('-');
-    if (parts.length === 4) {
-      traceId = parts[1];
-      flags = parts[3];
-    }
-  }
-
-  if (!traceId) {
-    traceId = generateHex(16);
-  }
-
-  const spanId = generateHex(8);
-
-  const traceparent = `00-${traceId}-${spanId}-${flags}`;
+  const spanId = generateHex(SPAN_ID_LENGTH);
+  const traceparent = `${version}-${traceId}-${spanId}-${flags}`;
 
   context.set(Headers.Traceparent, {
     traceId,

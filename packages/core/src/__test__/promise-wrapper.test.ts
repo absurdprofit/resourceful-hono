@@ -6,11 +6,12 @@ Deno.test('PromiseWrapper initializes with pending state', () => {
   expect(wrapper.state).toBe('pending');
 });
 
-Deno.test('resolve() transitions state to resolved and fulfills the promise', async () => {
+Deno.test('resolve() transitions state to resolved and fulfils the promise', async () => {
   const wrapper = new PromiseWrapper<number>();
-  wrapper.resolve(42);
+  const value = 42;
+  wrapper.resolve(value);
   expect(wrapper.state).toBe('resolved');
-  await expect(wrapper.promise).resolves.toBe(42);
+  await expect(wrapper.promise).resolves.toBe(value);
 });
 
 Deno.test('reject() transitions state to rejected and rejects the promise', async () => {

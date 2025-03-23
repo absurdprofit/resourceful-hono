@@ -19,21 +19,23 @@ export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = 
   readonly redirected: true;
 }
 export function Redirect<S extends HttpStatusCodes | number, D extends URL | string | typeof Resource>(status: S, destination: D): TypedRedirectResponse<S, D> {
-  if (status < 300 || status > 399)
+  // 300 - 399
+  if (status >= HttpStatusCodes.MultipleChoices && status < HttpStatusCodes.BadRequest) {
+    if (typeof destination === 'function' && 'hono' in destination)
+      destination = destination.pathname as D;
+  
+    return new Response(
+      undefined,
+      {
+        status,
+        headers: {
+          [Headers.Location]: destination.toString(),
+        },
+      }
+    ) as TypedRedirectResponse<S, D>;
+  } else {
     throw new RangeError(`Invalid redirect status code: ${status}`);
-
-  if (typeof destination === 'function' && 'hono' in destination)
-    destination = destination.pathname as D;
-
-  return new Response(
-    undefined,
-    {
-      status,
-      headers: {
-        [Headers.Location]: destination.toString(),
-      },
-    }
-  ) as TypedRedirectResponse<S, D>;
+  }
 }
 
 export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, ___ = unknown> extends Response {
@@ -103,7 +105,7 @@ export abstract class Resource implements IResource {
    */
   public static readonly hono: Hono = Resource.honoBuilder();
   private readonly hono = Resource.honoBuilder(this);
-  readonly methods: RequestMethod[] = Object.values(RequestMethod).filter((method => method in this));
+  public readonly methods: RequestMethod[] = Object.values(RequestMethod).filter((method => method in this));
   readonly #parameterMetadata = this.#collectParameterMetadata();
   readonly #bodySchema = this.#collectParameterSchema('body');
   readonly #querySchema = this.#collectParameterSchema('query');
@@ -236,23 +238,24 @@ export abstract class Resource implements IResource {
     return Result(HttpStatusCodes.NoContent);
   };
 
-  public clone(context: Context): this {
+  public clone(context: Context): this & IResource {
     const instance = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
     instance.context = context;
     return instance;
   }
 
-  private readonly handleRequest: Handler = async (context) => {
+  public readonly handleRequest: Handler = async (context) => {
     const method = context.req.method as RequestMethod;
-    const methodHandler = (this as IResource)[method]?.bind(this.clone(context));
+    const clone = this.clone(context);
+    const methodHandler = clone[method]?.bind(clone);
     const { parameters, issues } = await this.#collectParameters(context.req);
 
     if (issues.length)
       throw new BadRequestError('There were issues in your request.', { issues });
 
+    Application.instance.dispatchEvent(new RequestEvent(context));
     if (Application.instance.state === 'idle')
       await Application.instance.ready;
-    Application.instance.dispatchEvent(new RequestEvent(context));
     const response = await methodHandler?.(...parameters, context.req.raw.signal);
     return response ?? Result(HttpStatusCodes.NoContent);
   };

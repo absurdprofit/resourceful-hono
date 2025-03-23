@@ -5,19 +5,19 @@ import { PromiseWrapper } from '../common/promise-wrapper.ts';
 const promiseWrapper = new PromiseWrapper<void>();
 Application.instance.addEventListener('ready', (e) => e.waitUntil(promiseWrapper.promise));
 class DummyService {
-  value = true;
-  disposed = false;
+  public value = true;
+  public disposed = false;
 
-  [Symbol.dispose]() {
+  public [Symbol.dispose]() {
     this.disposed = true;
   }
 }
 
 class AsyncDummyService {
-  value = true;
-  disposed = false;
+  public value = true;
+  public disposed = false;
 
-  [Symbol.asyncDispose]() {
+  public [Symbol.asyncDispose]() {
     return new Promise<void>(resolve => {
       this.disposed = true;
       resolve();
@@ -33,7 +33,7 @@ Deno.test('Application instance getter returns the same reference', () => {
 
 Deno.test('creating new Application instance throws an Error', () => {
   expect(() => {
-    /* @ts-expect-error */
+    /* @ts-expect-error constructor is private */
     return new Application(crypto.randomUUID());
   }).toThrow(TypeError);
 });

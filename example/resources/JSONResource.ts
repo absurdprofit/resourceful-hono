@@ -34,11 +34,11 @@ export default class JSONResource extends BaseResource {
 
   @Accept([ContentTypes.PlainText])
   public POST(@FromBody(z.string()) numberString: string) {
-    return Result(200, numberString);
+    return Result(HttpStatusCodes.Ok, numberString);
   }
 
   @Accept([ContentTypes.MultipartFormData])
   public DELETE(@FromBody(PUTBody) body1: z.infer<typeof PUTBody>, @FromBody(GETQuery) body2: z.infer<typeof GETQuery>) {
-    return Result(201, { body1, body2 });
+    return Result(HttpStatusCodes.Created, { body1, body2 });
   }
 }

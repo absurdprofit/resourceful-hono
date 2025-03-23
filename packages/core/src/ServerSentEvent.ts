@@ -5,9 +5,9 @@ export interface ServerSentEventInit {
 }
 
 export class ServerSentEvent extends Event {
-  readonly data?: unknown;
-  readonly comment?: string;
-  readonly id?: number;
+  public readonly data?: unknown;
+  public readonly comment?: string;
+  public readonly id?: number;
 
   constructor(type: string, eventInitDict?: ServerSentEventInit) {
     super(type, { bubbles: false, cancelable: false, composed: false });
@@ -16,7 +16,7 @@ export class ServerSentEvent extends Event {
     this.comment = eventInitDict?.comment;
   }
 
-  override toString(): string {
+  public override toString(): string {
     let event = '';
     if (this.id)
       event += `id: ${this.id}\n`;
