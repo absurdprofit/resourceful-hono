@@ -23,10 +23,10 @@ jsonClient.put({ name: 'name', email: 'example@email.com', displayName: 'display
 jsonClient.post('1').catch(console.error);
 jsonClient.delete({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, { page }).catch(console.error);
 jsonClient.get({ name: 'nathan', id: '9491d710-3185-4e06-bea0-6a2f275345e0' }, { page }).then(console.log).catch(console.error);
-// const sseClient = SSEResource.createClient(origin);
-// sseClient.get().then(eventSource => {
-//   eventSource.addEventListener('hello', console.log);
-// }).catch(console.error);
+const sseClient = SSEResource.createClient(origin);
+sseClient.get().then(eventSource => {
+  eventSource.addEventListener('hello', console.log);
+}).catch(console.error);
 
 app.registerResources([BaseResource, SSEResource, JSONResource, UserResource, RedirectResource]);
 

@@ -18,7 +18,7 @@ type Redirect<M, S, D> = D extends typeof Resource
       ? ReturnType<ResourceClientMethod<M, InstanceType<D>[RequestMethod.Get]>>
       : never
   : Promise<unknown>;
-type Result<C, T> = T extends ContentTypes.ServerSentEvent
+type Result<S, C, T> = T extends ContentTypes.ServerSentEvent
     ? Promise<EventSource>
     : C extends ServerSentEventGenerator
       ? Promise<EventSource>
@@ -31,8 +31,8 @@ type ResourceClientMethod<HttpMethod, ResourceMethod> =
     ? (...parameters: [...A, signal?: AbortSignal]) =>
       R extends TypedRedirectResponse<infer S, infer D> | Promise<TypedRedirectResponse<infer S, infer D>>
         ? Redirect<HttpMethod, S, D>
-        : R extends TypedResultResponse<infer C, infer T> | Promise<TypedResultResponse<infer C, infer T>>
-          ? Result<C, T>
+        : R extends TypedResultResponse<infer S, infer C, infer T> | Promise<TypedResultResponse<infer S, infer C, infer T>>
+          ? Result<S, C, T>
           : Promise<R>
     : never;
 
