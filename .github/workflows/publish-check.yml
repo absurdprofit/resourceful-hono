@@ -80,6 +80,10 @@ jobs:
       - name: Assume unchanged for all deno.json files
         run: |
           git ls-files -m | grep 'deno.json' | xargs -I {} git update-index --assume-unchanged {}
+
+      - name: Lint project
+        if: ${{ steps.version.outputs.versioned == 'true' }}
+        run: deno task lint
       
       - name: Test packages
         if: ${{ steps.version.outputs.versioned == 'true' }}
