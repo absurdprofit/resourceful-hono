@@ -83,6 +83,19 @@ jobs:
         run: |
           git ls-files -m | grep 'deno.json' | xargs -I {} git update-index --assume-unchanged {}
 
+      - name: Update README
+        run: |
+          COMMIT_HASH=${{ env.COMMIT_HASH }}
+          REPOSITORY="${{ github.repository }}"
+          for pkg in $(jq -r '.workspace[]' deno.json); do
+            file="$pkg/README.md"
+            if [[ -f "$file" ]]; then
+              url="https://github.com/$REPOSITORY/tree/$COMMIT_HASH/$pkg"
+              sed -i "s|\[View on GitHub\](\.)|\[View on GitHub\]($url)|g" "$file"
+              cat "$file" | echo
+            fi
+          done
+
       - name: Publish packages
         if: ${{ steps.version.outputs.versioned == 'true' }}
         run: |
