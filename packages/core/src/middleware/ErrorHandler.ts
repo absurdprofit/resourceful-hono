@@ -2,13 +2,17 @@ import type { ErrorHandler as HonoErrorHandler } from 'hono';
 import { InternalServerError } from '../common/errors.ts';
 import { ContentTypes, Headers } from '../common/enums.ts';
 import { isSuppressedError } from '../common/types.ts';
-import { Application } from '../index.ts';
+import { Application, RollbackError } from '../index.ts';
 import { HttpError } from '../HttpError.ts';
 import { Resource } from '../Resource.ts';
 
 export const ErrorHandler: HonoErrorHandler = async (error, context) => {
-  if (isSuppressedError(error))
-    error = error.error; // error.error contains user error, error.suppressed contains rollback error
+  while (isSuppressedError(error)) {
+    error = error.error instanceof RollbackError
+      ? error.suppressed
+      : error.error;
+  }
+
   if (!HttpError[Symbol.hasInstance](error)) {
     error = new InternalServerError('There was an error.', { cause: error });
   }
