@@ -273,6 +273,7 @@ export abstract class Resource implements IResource {
           const handler = this.contentTypeRegistry.get(method, contentType);
           if (handler)
             return handler.decode(request.raw);
+          request.raw.body?.cancel();
           throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
         }
         return {};

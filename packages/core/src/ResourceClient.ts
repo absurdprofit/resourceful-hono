@@ -1,5 +1,5 @@
 import { mergePath } from 'hono/utils/url';
-import { ACCEPT_METADATA_KEY, PARAMETER_METADATA_KEY } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, LAST_INDEX, PARAMETER_METADATA_KEY } from './common/constants.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from './common/types.ts';
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from './Resource.ts';
@@ -139,7 +139,9 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
       body,
       headers,
     } = await this.#serialiseParameters(method, parameters);
-    const signal = parameters.findLast(parameter => parameter instanceof AbortSignal);
+    const signal = parameters.at(LAST_INDEX) instanceof AbortSignal
+      ? parameters.at(LAST_INDEX) as AbortSignal
+      : undefined;
 
     const url = new URL(pathname, this.#origin);
     url.search = search;
