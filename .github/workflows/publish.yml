@@ -92,7 +92,6 @@ jobs:
             if [[ -f "$file" ]]; then
               url="https://github.com/$REPOSITORY/tree/$COMMIT_HASH/$pkg"
               sed -i "s|\[View on GitHub\](\.)|\[View on GitHub\]($url)|g" "$file"
-              cat "$file" | echo
             fi
           done
 
