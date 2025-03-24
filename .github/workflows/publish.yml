@@ -100,4 +100,4 @@ jobs:
         if: ${{ steps.version.outputs.versioned == 'true' }}
         run: |
           TAG_NAME=${{ env.TAG_NAME }}
-          deno publish
+          deno publish --allow-dirty
