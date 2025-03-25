@@ -170,26 +170,6 @@ export abstract class Resource implements IResource {
    * ```
    */
   public readonly methods: RequestMethod[] = Object.values(RequestMethod).filter((method => method in this));
-  /**
-   * Returns the route declared or inferred on the resource class.
-   *
-   * If the class has explicit `@Route` decorator, that value is returned.
-   * Otherwise, it defaults to the lowercase class name with `'resource'` stripped out.
-   *
-   * @returns {string} The route for the resource.
-   *
-   * @example
-   * ```ts
-   * \@Route('users')
-   * class UserResource extends Resource {}
-   *
-   * console.log(UserResource.route); // "/users"
-   *
-   * class FallbackResource extends Resource {}
-   * console.log(FallbackResource.route); // "fallback"
-   * ```
-   */
-  public readonly route = (this.constructor as typeof Resource).route;
   readonly #parameterMetadata = this.#collectParameterMetadata();
   readonly #bodySchema = this.#collectParameterSchema('body');
   readonly #querySchema = this.#collectParameterSchema('query');
@@ -402,6 +382,29 @@ export abstract class Resource implements IResource {
    */
   public static get pathname(): string {
     return mergePath(this.parent?.pathname ?? '', this.route);
+  }
+
+  /**
+   * Returns the route declared or inferred on the resource class.
+   *
+   * If the class has explicit `@Route` decorator, that value is returned.
+   * Otherwise, it defaults to the lowercase class name with `'resource'` stripped out.
+   *
+   * @returns {string} The route for the resource.
+   *
+   * @example
+   * ```ts
+   * \@Route('users')
+   * class UserResource extends Resource {}
+   *
+   * console.log(UserResource.route); // "/users"
+   *
+   * class FallbackResource extends Resource {}
+   * console.log(FallbackResource.route); // "fallback"
+   * ```
+   */
+  public get route(): string {
+    return (this.constructor as typeof Resource).route;
   }
 
   /**
