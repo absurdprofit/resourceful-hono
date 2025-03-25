@@ -8,6 +8,7 @@ export * from './Resource.ts';
 export * from './ResourceClient.ts';
 export * from './ServerSentEvent.ts';
 export * from './TransactionScope.ts';
+export * from './HttpError.ts';
 export * from './common/errors.ts';
 export * from './services/LogService/index.ts';
 export * from './common/template-tags.ts';
