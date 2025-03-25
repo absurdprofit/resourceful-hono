@@ -18,6 +18,27 @@ export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = 
   readonly status: S;
   readonly redirected: true;
 }
+/**
+ * Creates a typed HTTP redirect response with a `Location` header.
+ *
+ * Only supports status codes in the 3xx range (300–399). Throws for invalid codes.
+ * Accepts destinations as a `string`, `URL`, or a `Resource` class with a `pathname`.
+ *
+ * @param {HttpStatusCodes | number} status - HTTP status code (must be in the 3xx range).
+ * @param {URL | string | typeof Resource} destination - Destination URL or resource class.
+ * @returns {TypedRedirectResponse<S, D>} A typed redirect `Response` with a `Location` header.
+ *
+ * @throws {RangeError}
+ *
+ * @example
+ * ```ts
+ * return Redirect(302, '/login'); // string path
+ *
+ * return Redirect(301, new URL('https://example.com')); // URL object
+ *
+ * return Redirect(307, UserResource); // redirect to resource's route
+ * ```
+ */
 export function Redirect<S extends HttpStatusCodes | number, D extends URL | string | typeof Resource>(status: S, destination: D): TypedRedirectResponse<S, D> {
   // 300 - 399
   if (status >= HttpStatusCodes.MultipleChoices && status < HttpStatusCodes.BadRequest) {
@@ -41,6 +62,33 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
 export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, ___ = unknown> extends Response {
   readonly status: S;
 }
+/**
+ * Creates a typed HTTP response with optional encoding based on content type.
+ *
+ * Automatically handles common `Content-Type` inference and encoding:
+ * - If `content` is a `BodyInit`, it is used as-is.
+ * - If `content` is a function (e.g. stream iterator), the content type defaults to `application/octet-stream`.
+ * - If `content` is a serializable object or primitive, it defaults to `application/json`.
+ * - If `contentType` is explicitly provided, it overrides defaults.
+ * - Automatically sets headers like `Date` and `Content-Type`.
+ * - Applies SSE-specific headers for `text/event-stream`.
+ *
+ * @param {HttpStatusCodes | number} status - HTTP status code (e.g. 200, 404).
+ * @param {BodyInit | (() => Iterator<unknown, unknown, unknown>) | (() => AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined} content - Optional esponse content (can be `BodyInit`, function, object, etc.).
+ * @param {ContentTypes | string | undefined} [contentType] - Optional MIME type as string (e.g. `'application/json'`).
+ * @returns {Promise<TypedResultResponse<S, C, T>>} A typed `Response` with applied headers and encoded body.
+ *
+ * @example
+ * ```ts
+ * return Result(200, { message: 'OK' }); // Defaults to application/json
+ *
+ * return Result(204); // No content
+ *
+ * return Result(200, function* () { yield 1; }); // Octet-stream, auto-inferred
+ *
+ * return Result(200, '<h1>Hello</h1>', 'text/html'); // Custom content-type
+ * ```
+ */
 export async function Result<
   S extends HttpStatusCodes | number,
   C extends BodyInit | (() => Iterator<unknown, unknown, unknown>) | (() => AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
@@ -105,7 +153,43 @@ export abstract class Resource implements IResource {
    */
   public static readonly hono: Hono = Resource.honoBuilder();
   private readonly hono = Resource.honoBuilder(this);
+  /**
+   * List of HTTP methods implemented by this resource instance.
+   *
+   * @readonly
+   *
+   * @example
+   * ```ts
+   * class PostResource extends Resource {
+   *   public GET() {}
+   *   public POST() {}
+   * }
+   *
+   * const res = new PostResource();
+   * console.log(res.methods); // ['GET', 'POST']
+   * ```
+   */
   public readonly methods: RequestMethod[] = Object.values(RequestMethod).filter((method => method in this));
+  /**
+   * Returns the route declared or inferred on the resource class.
+   *
+   * If the class has explicit `@Route` decorator, that value is returned.
+   * Otherwise, it defaults to the lowercase class name with `'resource'` stripped out.
+   *
+   * @returns {string} The route for the resource.
+   *
+   * @example
+   * ```ts
+   * \@Route('users')
+   * class UserResource extends Resource {}
+   *
+   * console.log(UserResource.route); // "/users"
+   *
+   * class FallbackResource extends Resource {}
+   * console.log(FallbackResource.route); // "fallback"
+   * ```
+   */
+  public readonly route = (this.constructor as typeof Resource).route;
   readonly #parameterMetadata = this.#collectParameterMetadata();
   readonly #bodySchema = this.#collectParameterSchema('body');
   readonly #querySchema = this.#collectParameterSchema('query');
@@ -129,7 +213,7 @@ export abstract class Resource implements IResource {
   }
 
   #registerRoutes() {
-    const { hono, handleRequest } = this;
+    const { hono } = this;
     const methods = this.methods.filter(method => RequestMethod.Head !== method);
     const parentInstance = Object.getPrototypeOf(Object.getPrototypeOf(this));
     if (methods.some(method => Object.hasOwn(parentInstance, method)))
@@ -149,7 +233,7 @@ export abstract class Resource implements IResource {
       this.#middlewareMetadata.get(method)?.forEach(middleware => 
         hono[literalToLowerCase(method)](route, middleware)
       );
-      hono[literalToLowerCase(method)](route, handleRequest);
+      hono[literalToLowerCase(method)](route, this.#handleRequest);
     }
     hono.options('*', this.#OPTIONS);
     hono.all('*', this.#methodNotAllowed);
@@ -191,6 +275,29 @@ export abstract class Resource implements IResource {
     return Object.getPrototypeOf(this.constructor);
   }
 
+  /**
+   * Creates a client instance for the given `Resource` subclass.
+   *
+   * This is a static method intended to be called directly from a `Resource` class.
+   * It optionally accepts an `origin`, which defaults to `window.location.origin` in browser environments.
+   *
+   * If running in environments without `globalThis.location.origin`, the `origin` argument is required.
+   *
+   * @param {string} [origin] - Optional base URL to use for the client. Required in non-browser environments.
+   * @returns {ResourceClientInstance<this>} A typed ResourceClient.
+   *
+   * @example
+   * ```ts
+   * class UserResource extends Resource {
+   *   public GET() {
+   *     return Result(200, [{ name: 'Nathan Johnson' }]);
+   *   }
+   * }
+   *
+   * const client = UserResource.createClient();
+   * const result = await client.GET(); // Fully typed result
+   * ```
+   */
   public static createClient<T extends typeof Resource>(
     this: T,
     ...[origin]: typeof globalThis extends { location: { origin: string } } ? [origin?: string] : [origin: string]
@@ -198,6 +305,29 @@ export abstract class Resource implements IResource {
     return new ResourceClient(this, origin);
   }
 
+  /**
+   * Exposes a simplified interface for registering and retrieving content type handlers.
+   *
+   * @returns {SimpleContentTypeRegistry} A reference to the global content type registry.
+   *
+   * @example
+   * ```ts
+   * // Register a custom content type
+   * Resource.contentTypes.use('application/vnd.custom+json', {
+   *   encode: (data) => JSON.stringify(data),
+   *   decode: async (req) => await req.json()
+   * });
+   *
+   * // Later use in Accept decorator
+   * class UserResource extends Resource {
+   *   \@Accept(['application/vnd.custom+json'])
+   *   public POST() {
+   *     // handle POST
+   *   }
+   * }
+   * ```
+   * ```
+   */
   public static get contentTypes(): SimpleContentTypeRegistry {
     return {
       use: (pattern: string | string[], handler: ContentTypeHandler) => {
@@ -209,26 +339,110 @@ export abstract class Resource implements IResource {
     };
   }
 
+  /**
+   * List of HTTP methods implemented by this resource instance.
+   *
+   * @readonly
+   *
+   * @example
+   * ```ts
+   * class PostResource extends Resource {
+   *   public GET() {}
+   *   public POST() {}
+   * }
+   *
+   * const res = new PostResource();
+   * console.log(res.methods); // ['GET', 'POST']
+   * ```
+   */
   public static get methods(): RequestMethod[] {
     return Object.values(RequestMethod).filter((method => method in this.prototype));
   }
 
+  /**
+   * Returns the route declared or inferred on the resource class.
+   *
+   * If the class has explicit `@Route` decorator, that value is returned.
+   * Otherwise, it defaults to the lowercase class name with `'resource'` stripped out.
+   *
+   * @returns {string} The route for the resource.
+   *
+   * @example
+   * ```ts
+   * \@Route('users')
+   * class UserResource extends Resource {}
+   *
+   * console.log(UserResource.route); // "/users"
+   *
+   * class FallbackResource extends Resource {}
+   * console.log(FallbackResource.route); // "fallback"
+   * ```
+   */
   public static get route(): string {
     return Object.getOwnPropertyDescriptor(this, ROUTE_METADATA_KEY)?.value ?? this.name.toLowerCase().replace('resource', '');
   }
 
+  /**
+   * Resolves the full pathname for the resource, including any nested parent path.
+   *
+   * If the resource is sub-classed from a void resource, the base resource's `pathname` is prepended to this resource's `route`.
+   *
+   * @returns {string} The full merged pathname.
+   *
+   * @example
+   * ```ts
+   * \@Route('/api/v1')
+   * class BaseResource extends Resource {}
+   *
+   * \@Route('posts')
+   * class PostResource extends BaseResource {}
+   *
+   * console.log(PostResource.pathname); // "/api/v1/posts"
+   * ```
+   */
   public static get pathname(): string {
     return mergePath(this.parent?.pathname ?? '', this.route);
   }
 
-  public get route(): string {
-    return (this.constructor as typeof Resource).route;
-  }
-
+  /**
+   * Returns the `Request` object associated with the resource instance.
+   *
+   * Useful when direct access to headers, body, or other low-level request properties is needed.
+   *
+   * @returns {Request} A native `Request` instance.
+   *
+   * @example
+   * ```ts
+   * class UserResource extends Resource {
+   *   public GET() {
+   *     const request = this.request; // same as this.context.raw.req
+   *     const userAgent = request.headers.get('user-agent');
+   *     return Result(200, { userAgent });
+   *   }
+   * }
+   * ```
+   */
   public get request(): Request {
     return this.context.req.raw;
   }
 
+  /**
+   * Returns the `Response` object associated with the resource instance.
+   *
+   * Useful for setting headers, status codes, or streaming custom responses.
+   *
+   * @returns {Response} A native `Response` instance.
+   *
+   * @example
+   * ```ts
+   * class HealthResource extends Resource {
+   *   public GET() {
+   *     this.response.headers.set('X-Health-Check', 'true');
+   *     return Result(200, { ok: true });
+   *   }
+   * }
+   * ```
+   */
   public get response(): Response {
     return this.context.res;
   }
@@ -238,15 +452,15 @@ export abstract class Resource implements IResource {
     return Result(HttpStatusCodes.NoContent);
   };
 
-  public clone(context: Context): this & IResource {
+  #clone(context: Context): this & IResource {
     const instance = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
     instance.context = context;
     return instance;
   }
 
-  public readonly handleRequest: Handler = async (context) => {
+  readonly #handleRequest: Handler = async (context) => {
     const method = context.req.method as RequestMethod;
-    const clone = this.clone(context);
+    const clone = this.#clone(context);
     const methodHandler = clone[method]?.bind(clone);
     const { parameters, issues } = await this.#collectParameters(context.req);
 
