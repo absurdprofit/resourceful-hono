@@ -1,9 +1,35 @@
+/**
+ * Initialization options for a `ServerSentEvent`.
+ *
+ * @property data - The payload of the event. Will be JSON serialized if not a string.
+ * @property comment - Optional comment line (`: comment`) sent before the event.
+ * @property id - Optional event ID for `Last-Event-ID` tracking.
+ */
 export interface ServerSentEventInit {
   data?: unknown;
   comment?: string;
   id?: number;
 }
 
+/**
+ * Represents a single Server-Sent Event (SSE) formatted for transmission to a client.
+ *
+ * Extends the native `Event` class and provides a `toString()` method
+ * that formats the event according to the SSE spec (RFC 8599).
+ *
+ * @extends {Event}
+ *
+ * @example
+ * ```ts
+ * const event = new ServerSentEvent('message', {
+ *   data: { user: 'nate' },
+ *   id: 42,
+ *   comment: 'heartbeat'
+ * });
+ *
+ * return Result(200, function* () { yield event; });
+ * ```
+ */
 export class ServerSentEvent extends Event {
   public readonly data?: unknown;
   public readonly comment?: string;
