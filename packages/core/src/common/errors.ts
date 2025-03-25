@@ -1,6 +1,29 @@
 import { HttpError } from '../HttpError.ts';
 import { HttpStatusCodes } from './enums.ts';
 
+/**
+ * A flexible `HttpError` implementation that allows dynamic creation of error instances at runtime.
+ *
+ * Useful when rehydrating or proxying problem detail objects from other services,
+ * or for constructing custom `HttpError`s without creating a new subclass.
+ *
+ * Accepts all properties defined in `HttpError`, and supports adding arbitrary extra fields.
+ *
+ * @extends {HttpError}
+ *
+ * @example
+ * ```ts
+ * throw new GenericHttpError({
+ *   status: 409,
+ *   type: 'https://example.com/probs/conflict',
+ *   title: 'Conflict',
+ *   detail: 'User already exists.',
+ *   instance: '/users/123',
+ *   traceparent: '00-abc123...',
+ *   retryAfter: '30s' // extra field
+ * });
+ * ```
+ */
 export class GenericHttpError extends HttpError {
   public override readonly status: number;
   public override type: string;
