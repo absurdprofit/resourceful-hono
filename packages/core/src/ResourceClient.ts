@@ -57,6 +57,14 @@ interface ResourceClientConstructor {
 export const ResourceClient: ResourceClientConstructor = class <R extends typeof Resource> {
   private static readonly contentTypeRegistry = ContentTypeRegistry.default;
   private readonly contentTypeRegistry = new ContentTypeRegistry();
+  public static readonly contentTypes: SimpleContentTypeRegistry = {
+    use: (pattern: string | string[], handler: ContentTypeHandler) => {
+      return this.contentTypeRegistry.use('*', pattern, handler);
+    },
+    get: (contentType: string) => {
+      return this.contentTypeRegistry.get('*', contentType);
+    },
+  };
   public readonly methods;
   readonly #parameterMetadata;
   readonly #routeSchema;
@@ -115,17 +123,6 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
         {} as { [K in ResourceMethod | Lowercase<ResourceMethod>]: PropertyDescriptor }
       )
     );
-  }
-
-  public static get contentTypes() {
-    return {
-      use: (pattern: string | string[], handler: ContentTypeHandler) => {
-        return this.contentTypeRegistry.use('*', pattern, handler);
-      },
-      get: (contentType: string) => {
-        return this.contentTypeRegistry.get('*', contentType);
-      },
-    };
   }
 
   public get [Symbol.toStringTag](): string {
