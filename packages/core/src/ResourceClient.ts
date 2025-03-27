@@ -70,7 +70,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
   readonly #routeSchema;
   readonly #acceptMetadata;
   readonly #resource;
-  readonly #origin;
+  public readonly origin;
   public static fetch = globalThis.fetch;
   public fetch = globalThis.fetch;
 
@@ -88,7 +88,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
     this.#parameterMetadata = this.#collectParameterMetadata();
     this.#routeSchema = this.#collectParameterSchema<z.AnyZodObject>('route');
     this.#acceptMetadata = this.#collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
-    this.#origin = origin;
+    this.origin = origin;
 
     this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
       contentTypes ??= [ContentTypes.Json];
@@ -140,7 +140,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
       ? parameters.at(LAST_INDEX) as AbortSignal
       : undefined;
 
-    const url = new URL(pathname, this.#origin);
+    const url = new URL(pathname, this.origin);
     url.search = search;
 
     const response = await this.fetch(url, { signal, method, body, headers });

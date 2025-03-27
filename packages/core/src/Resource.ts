@@ -447,6 +447,10 @@ export abstract class Resource implements IResource {
     return this.context.res;
   }
 
+  public get origin() {
+    return new URL(this.request.url).origin;
+  }
+
   readonly #OPTIONS: Handler = (context) => {
     context.res.headers.set(Headers.Allow, this.methods.join(', '));
     return Result(HttpStatusCodes.NoContent);
