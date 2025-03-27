@@ -57,12 +57,20 @@ interface ResourceClientConstructor {
 export const ResourceClient: ResourceClientConstructor = class <R extends typeof Resource> {
   private static readonly contentTypeRegistry = ContentTypeRegistry.default;
   private readonly contentTypeRegistry = new ContentTypeRegistry();
+  public static readonly contentTypes: SimpleContentTypeRegistry = {
+    use: (pattern: string | string[], handler: ContentTypeHandler) => {
+      return this.contentTypeRegistry.use('*', pattern, handler);
+    },
+    get: (contentType: string) => {
+      return this.contentTypeRegistry.get('*', contentType);
+    },
+  };
   public readonly methods;
   readonly #parameterMetadata;
   readonly #routeSchema;
   readonly #acceptMetadata;
   readonly #resource;
-  readonly #origin;
+  public readonly origin: string;
   public static fetch = globalThis.fetch;
   public fetch = globalThis.fetch;
 
@@ -80,7 +88,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
     this.#parameterMetadata = this.#collectParameterMetadata();
     this.#routeSchema = this.#collectParameterSchema<z.AnyZodObject>('route');
     this.#acceptMetadata = this.#collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
-    this.#origin = origin;
+    this.origin = origin;
 
     this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
       contentTypes ??= [ContentTypes.Json];
@@ -117,17 +125,6 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
     );
   }
 
-  public static get contentTypes() {
-    return {
-      use: (pattern: string | string[], handler: ContentTypeHandler) => {
-        return this.contentTypeRegistry.use('*', pattern, handler);
-      },
-      get: (contentType: string) => {
-        return this.contentTypeRegistry.get('*', contentType);
-      },
-    };
-  }
-
   public get [Symbol.toStringTag](): string {
     return `${this.#resource.name}Client`;
   }
@@ -143,7 +140,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
       ? parameters.at(LAST_INDEX) as AbortSignal
       : undefined;
 
-    const url = new URL(pathname, this.#origin);
+    const url = new URL(pathname, this.origin);
     url.search = search;
 
     const response = await this.fetch(url, { signal, method, body, headers });

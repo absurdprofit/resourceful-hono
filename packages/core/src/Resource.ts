@@ -149,6 +149,37 @@ export abstract class Resource implements IResource {
   private static readonly contentTypeRegistry = ContentTypeRegistry.default;
   private readonly contentTypeRegistry = new ContentTypeRegistry();
   /**
+   * Exposes a simplified interface for registering and retrieving content type handlers.
+   *
+   * @returns {SimpleContentTypeRegistry} A reference to the global content type registry.
+   *
+   * @example
+   * ```ts
+   * // Register a custom content type
+   * Resource.contentTypes.use('application/vnd.custom+json', {
+   *   encode: (data) => JSON.stringify(data),
+   *   decode: async (req) => await req.json()
+   * });
+   *
+   * // Later use in Accept decorator
+   * class UserResource extends Resource {
+   *   \@Accept(['application/vnd.custom+json'])
+   *   public POST() {
+   *     // handle POST
+   *   }
+   * }
+   * ```
+   * ```
+   */
+  public static readonly contentTypes: SimpleContentTypeRegistry = {
+    use: (pattern: string | string[], handler: ContentTypeHandler) => {
+      return this.contentTypeRegistry.use('*', pattern, handler);
+    },
+    get: (contentType: string) => {
+      return this.contentTypeRegistry.get('*', contentType);
+    },
+  };
+  /**
    * The root hono instance.
    */
   public static readonly hono: Hono = Resource.honoBuilder();
@@ -286,40 +317,6 @@ export abstract class Resource implements IResource {
   }
 
   /**
-   * Exposes a simplified interface for registering and retrieving content type handlers.
-   *
-   * @returns {SimpleContentTypeRegistry} A reference to the global content type registry.
-   *
-   * @example
-   * ```ts
-   * // Register a custom content type
-   * Resource.contentTypes.use('application/vnd.custom+json', {
-   *   encode: (data) => JSON.stringify(data),
-   *   decode: async (req) => await req.json()
-   * });
-   *
-   * // Later use in Accept decorator
-   * class UserResource extends Resource {
-   *   \@Accept(['application/vnd.custom+json'])
-   *   public POST() {
-   *     // handle POST
-   *   }
-   * }
-   * ```
-   * ```
-   */
-  public static get contentTypes(): SimpleContentTypeRegistry {
-    return {
-      use: (pattern: string | string[], handler: ContentTypeHandler) => {
-        return this.contentTypeRegistry.use('*', pattern, handler);
-      },
-      get: (contentType: string) => {
-        return this.contentTypeRegistry.get('*', contentType);
-      },
-    };
-  }
-
-  /**
    * List of HTTP methods implemented by this resource instance.
    *
    * @readonly
@@ -448,6 +445,10 @@ export abstract class Resource implements IResource {
    */
   public get response(): Response {
     return this.context.res;
+  }
+
+  public get origin(): string {
+    return new URL(this.request.url).origin;
   }
 
   readonly #OPTIONS: Handler = (context) => {

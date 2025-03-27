@@ -27,21 +27,6 @@ import type { HttpStatusCodes } from './common/enums.ts';
  * }
  * 
  * ```
- * 
- * HttpError has `instanceof` behavior to support polymorphic type checks across subclasses.
- *
- * This enables checks like `err instanceof BadRequestError` to pass even if the
- * prototype chain was altered during serialization or transport.
- *
- * Additionally, it restores the prototype chain if the error was partially deserialized
- * or created from another context (e.g., across a boundary).
- *
- * @example
- * ```ts
- * if (err instanceof NotFoundError) {
- *   // works even if `err` came from a different context
- * }
- * ```
  */
 export abstract class HttpError extends Error {
   public abstract readonly status: HttpStatusCodes | number;
@@ -58,6 +43,25 @@ export abstract class HttpError extends Error {
     this.detail = message ?? '';
   }
 
+  /**
+   * Custom `instanceof` behavior to support polymorphic type checks across subclasses.
+   *
+   * This enables checks like `err instanceof BadRequestError` to pass even if the
+   * prototype chain was altered during serialization or transport.
+   *
+   * Additionally, it restores the prototype chain if the error was partially deserialized
+   * or created from another context (e.g., across a boundary).
+   *
+   * @param {unknown} obj - The object to check.
+   * @returns {boolean} True if `obj` is an instance of `HttpError` or a subclass.
+   *
+   * @example
+   * ```ts
+   * if (err instanceof NotFoundError) {
+   *   // works even if `err` came from a different context
+   * }
+   * ```
+   */
   public static override [Symbol.hasInstance](obj: unknown): obj is HttpError {
     if (typeof obj !== 'object' || obj === null) return false;
     if (this === HttpError) {
