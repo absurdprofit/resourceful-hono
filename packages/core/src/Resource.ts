@@ -447,7 +447,7 @@ export abstract class Resource implements IResource {
     return this.context.res;
   }
 
-  public get origin() {
+  public get origin(): string {
     return new URL(this.request.url).origin;
   }
 

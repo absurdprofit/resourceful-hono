@@ -70,7 +70,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
   readonly #routeSchema;
   readonly #acceptMetadata;
   readonly #resource;
-  public readonly origin;
+  public readonly origin: string;
   public static fetch = globalThis.fetch;
   public fetch = globalThis.fetch;
 
