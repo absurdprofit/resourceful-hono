@@ -51,6 +51,7 @@ export type ResourceClientInstance<R extends typeof Resource> = {
 
 interface ResourceClientConstructor {
   contentTypes: SimpleContentTypeRegistry;
+  fetch: typeof globalThis.fetch;
   new <R extends typeof Resource>(resource: R, origin?: string): ResourceClientInstance<R>;
 }
 
@@ -71,13 +72,14 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
   readonly #acceptMetadata;
   readonly #resource;
   public readonly origin: string;
-  public static fetch = globalThis.fetch;
-  public fetch = globalThis.fetch;
+  public static fetch = globalThis.fetch?.bind(globalThis);
+  public fetch;
 
   constructor(
     resource: R,
     origin?: string
   ) {
+    this.fetch = ResourceClient.fetch;
     if (globalThis.location instanceof Location)
       origin ??= globalThis.location.origin;
     else if (typeof origin !== 'string')
