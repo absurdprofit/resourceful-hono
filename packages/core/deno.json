@@ -12,6 +12,6 @@
     "eventsource": "npm:eventsource@3.0.2",
     "expect": "jsr:@std/expect",
     "mock": "jsr:@std/testing/mock",
-    "@std/text": "jsr:@std/text"
+    "@std/text": "jsr:@std/text@1.0.12"
   }
 }
