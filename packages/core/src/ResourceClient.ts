@@ -1,7 +1,7 @@
 import { mergePath } from 'hono/utils/url';
 import { ACCEPT_METADATA_KEY, LAST_INDEX, PARAMETER_METADATA_KEY } from './common/constants.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from './common/types.ts';
+import type { Constructor, ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from './common/types.ts';
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from './Resource.ts';
 import { z } from 'zod';
 import { UnsupportedMediaTypeError } from './common/errors.ts';
@@ -36,26 +36,28 @@ type ResourceClientMethod<HttpMethod, ResourceMethod> =
           : Promise<R>
     : never;
 
-export type ResourceClientInstance<R extends typeof Resource> = {
+export type ResourceClientInstance<R extends Resource> = {
   readonly methods: RequestMethod[];
   fetch: typeof globalThis.fetch;
 } & {
   [
-    K in ResourceMethod | Lowercase<ResourceMethod> as Uppercase<K> extends keyof InstanceType<R>
+    K in ResourceMethod | Lowercase<ResourceMethod> as Uppercase<K> extends keyof R
       ? K
       : never
-  ]: Uppercase<K> extends keyof InstanceType<R>
-      ? ResourceClientMethod<Uppercase<K>, InstanceType<R>[Uppercase<K>]>
+  ]: Uppercase<K> extends keyof R
+      ? ResourceClientMethod<Uppercase<K>, R[Uppercase<K>]>
       : never;
 }
+
+type ResourceConstructor<T extends Resource> = ((...args: unknown[]) => T) & typeof Resource;
 
 interface ResourceClientConstructor {
   contentTypes: SimpleContentTypeRegistry;
   fetch: typeof globalThis.fetch;
-  new <R extends typeof Resource>(resource: R, origin?: string): ResourceClientInstance<R>;
+  new <R extends Resource>(resource: ResourceConstructor<R>, origin?: string): ResourceClientInstance<R>;
 }
 
-export const ResourceClient: ResourceClientConstructor = class <R extends typeof Resource> {
+export const ResourceClient: ResourceClientConstructor = class <R extends Resource> {
   private static readonly contentTypeRegistry = ContentTypeRegistry.default;
   private readonly contentTypeRegistry = new ContentTypeRegistry();
   public static readonly contentTypes: SimpleContentTypeRegistry = {
@@ -76,7 +78,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
   public fetch: ResourceClientConstructor['fetch'];
 
   constructor(
-    resource: R,
+    resource: ResourceConstructor<R>,
     origin?: string
   ) {
     this.fetch = ResourceClient.fetch;

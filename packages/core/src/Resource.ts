@@ -310,8 +310,8 @@ export abstract class Resource implements IResource {
    * const result = await client.GET(); // Fully typed result
    * ```
    */
-  public static createClient<T extends typeof Resource>(
-    this: T,
+  public static createClient<T extends Resource>(
+    this: new (...args: unknown[]) => T,
     ...[origin]: typeof globalThis extends { location: { origin: string } } ? [origin?: string] : [origin: string]
   ): ResourceClientInstance<T> {
     return new ResourceClient(this, origin);
