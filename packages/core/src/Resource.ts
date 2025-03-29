@@ -13,6 +13,7 @@ import { ResourceClient } from './ResourceClient.ts';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
 import type { ResourceClientInstance } from './index.ts';
 import { RequestEvent } from './common/events.ts';
+import { toKebabCase } from '@std/text';
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
   readonly status: S;
@@ -356,7 +357,7 @@ export abstract class Resource implements IResource {
    * ```
    */
   public static get route(): string {
-    return Object.getOwnPropertyDescriptor(this, ROUTE_METADATA_KEY)?.value ?? this.name.toLowerCase().replace('resource', '');
+    return Object.getOwnPropertyDescriptor(this, ROUTE_METADATA_KEY)?.value ?? toKebabCase(this.name).replace(/-resource$/, '');
   }
 
   /**
