@@ -73,7 +73,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends typeof
   readonly #resource;
   public readonly origin: string;
   public static fetch = globalThis.fetch?.bind(globalThis);
-  public fetch;
+  public fetch: ResourceClientConstructor['fetch'];
 
   constructor(
     resource: R,
