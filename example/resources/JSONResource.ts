@@ -1,6 +1,7 @@
-import { ContentTypes, Result, HttpStatusCodes, FromRoute, FromBody, Accept, FromQuery, Middleware } from '@resourceful-hono/core';
+import { ContentTypes, Result, HttpStatusCodes, FromRoute, FromBody, Accept, FromQuery, Middleware, RequestMethod, IResource, Resource } from '@resourceful-hono/core';
 import { z } from 'zod';
 import BaseResource from './BaseResource.ts';
+import { ResourceClient } from '../../packages/core/src/ResourceClient.ts';
 
 const GETQuery = z.object({ page: z.coerce.number() });
 const GETParam = z.object({ name: z.string(), id: z.string().uuid() });
@@ -40,5 +41,29 @@ export default class JSONResource extends BaseResource {
   @Accept([ContentTypes.MultipartFormData])
   public DELETE(@FromBody(PUTBody) body1: z.infer<typeof PUTBody>, @FromBody(GETQuery) body2: z.infer<typeof GETQuery>) {
     return Result(HttpStatusCodes.Created, { body1, body2 });
+  }
+
+  
+}
+
+class JSONResourceClient extends ResourceClient<JSONResource> {
+  constructor(origin?: string) {
+    super(JSONResource, origin);
+  }
+}
+
+type IsVoidResource<T extends Resource> = keyof T & `${RequestMethod}` extends never ? true : false;
+// type IsVoid = IsVoidResource<JSONResource>;
+// type IsVoid2 = IsVoidResource<BaseResource>;
+
+class BaseClass {
+  public createClient(): unknown {
+    return 0;
+  }
+}
+
+class Classist extends BaseClass {
+  public override createClient() {
+    return 0;
   }
 }
