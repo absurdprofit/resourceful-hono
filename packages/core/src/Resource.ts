@@ -210,7 +210,7 @@ export abstract class Resource implements IResource {
   readonly #middlewareMetadata = this.#collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
 
   constructor() {
-    [...this.#acceptMetadata.entries()].forEach(([method, contentTypes]) => {
+    this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
       contentTypes ??= [ContentTypes.Json];
       contentTypes.forEach((contentType) => {
         const handler = Resource.contentTypes.get(contentType);
