@@ -94,7 +94,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
     this.#acceptMetadata = this.#collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
     this.origin = origin;
 
-    [...this.#acceptMetadata.entries()].forEach(([method, contentTypes]) => {
+    this.#acceptMetadata.entries().forEach(([method, contentTypes]) => {
       contentTypes ??= [ContentTypes.Json];
       contentTypes.forEach((contentType) => {
         const handler = ResourceClient.contentTypes.get(contentType);
