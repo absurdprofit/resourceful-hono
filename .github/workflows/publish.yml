@@ -43,8 +43,8 @@ jobs:
           else
             echo "TAG_NAME=${GITHUB_REF##*/}" >> $GITHUB_ENV
           fi
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          LAST_COMMIT_HASH=$(git rev-parse --short HEAD~1)
+          COMMIT_HASH=$(git rev-parse HEAD)
+          LAST_COMMIT_HASH=$(git rev-parse HEAD~1)
           echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
           echo "LAST_COMMIT_HASH=${LAST_COMMIT_HASH}" >> $GITHUB_ENV
 

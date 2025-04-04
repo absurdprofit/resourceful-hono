@@ -41,7 +41,7 @@ jobs:
           else
             echo "TAG_NAME=${{github.event.pull_request.base.ref}}" >> $GITHUB_ENV
           fi
-          COMMIT_HASH=$(git rev-parse --short HEAD)
+          COMMIT_HASH=$(git rev-parse HEAD)
           LAST_COMMIT_HASH=${{github.event.pull_request.base.sha}}
           echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
           echo "LAST_COMMIT_HASH=${LAST_COMMIT_HASH}" >> $GITHUB_ENV
