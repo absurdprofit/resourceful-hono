@@ -308,13 +308,14 @@ export abstract class Resource implements IResource {
    *
    * const client = UserResource.createClient();
    * const result = await client.GET(); // Fully typed result
+   * const result = await client.get(); // lowercase alias
    * ```
    */
-  public static createClient<T extends (new () => Resource) & typeof Resource>(
-    this: T,
+  public static createClient<R extends Resource, RC extends ResourceClientInstance<R>>(
+    this: new () => R,
     ...[origin]: typeof globalThis extends { location: { origin: string } } ? [origin?: string] : [origin: string]
-  ): ResourceClientInstance<InstanceType<T>> {
-    return new ResourceClient(this, origin) as ResourceClientInstance<InstanceType<T>>;
+  ): RC {
+    return new ResourceClient(this, origin) as RC;
   }
 
   /**
@@ -334,7 +335,9 @@ export abstract class Resource implements IResource {
    * ```
    */
   public static get methods(): RequestMethod[] {
-    return Object.values(RequestMethod).filter((method => method in this.prototype));
+    return Object
+      .values(RequestMethod)
+      .filter((method => method in this.prototype));
   }
 
   /**
