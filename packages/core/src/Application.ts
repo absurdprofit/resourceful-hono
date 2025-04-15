@@ -3,7 +3,7 @@ import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from './ServiceMap.ts';
 import { type Constructor, isResourceConstructor } from './common/types.ts';
 import { ErrorHandler, NotFoundHandler, TraceContext } from './middleware/index.ts';
-import { type RequestEvent, FinishEvent, ReadyEvent } from './common/events.ts';
+import { type RequestEvent, FinishEvent, ReadyEvent, type ResponseEvent } from './common/events.ts';
 import { PromiseWrapper } from './common/promise-wrapper.ts';
 import { TypedEventTarget } from './TypedEventTarget.ts';
 
@@ -12,6 +12,7 @@ export interface ApplicationEventMap {
   'finished': FinishEvent;
   'error': ErrorEvent;
   'request': RequestEvent;
+  'response': ResponseEvent;
 }
 
 export type ApplicationState = 'idle' | 'running' | 'finished';
@@ -98,7 +99,23 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
   }
 
   public finish = (): void => {
-    this.#services[Symbol.asyncDispose]()
+    new Promise<void>((resolve) => {
+      // await active request responses
+      if (Resource.activeRequests) {
+        const onResponse = (e: ResponseEvent) => {
+          if (!e.context.var.activeRequests) {
+            resolve();
+            this.removeEventListener('response', onResponse);
+          }
+        };
+        this.addEventListener('response', onResponse);
+      }
+      resolve();
+    })
+      .then(() => {
+        // cleanup services
+        return this.#services[Symbol.asyncDispose]();
+      })
       .then(() => {
         this.#finishedPromise.resolve();
         this.dispatchEvent(new FinishEvent());

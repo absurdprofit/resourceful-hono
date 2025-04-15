@@ -12,7 +12,7 @@ import { Application } from './Application.ts';
 import { ResourceClient } from './ResourceClient.ts';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
 import type { ResourceClientInstance } from './index.ts';
-import { RequestEvent } from './common/events.ts';
+import { RequestEvent, ResponseEvent } from './common/events.ts';
 import { toKebabCase } from '@std/text';
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
@@ -208,6 +208,7 @@ export abstract class Resource implements IResource {
   readonly #routeSchema = this.#collectParameterSchema<z.AnyZodObject>('route');
   readonly #acceptMetadata = this.#collectMethodMetadata<ContentTypes[] | undefined>(ACCEPT_METADATA_KEY);
   readonly #middlewareMetadata = this.#collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
+  static #activeRequests = Number();
 
   constructor() {
     [...this.#acceptMetadata.entries()].forEach(([method, contentTypes]) => {
@@ -385,6 +386,10 @@ export abstract class Resource implements IResource {
     return mergePath(this.parent?.pathname ?? '', this.route);
   }
 
+  public static get activeRequests() {
+    return this.#activeRequests;
+  }
+
   /**
    * Returns the route declared or inferred on the resource class.
    *
@@ -467,19 +472,25 @@ export abstract class Resource implements IResource {
   }
 
   readonly #handleRequest: Handler = async (context) => {
-    const method = context.req.method as RequestMethod;
-    const clone = this.#clone(context);
-    const methodHandler = clone[method]?.bind(clone);
-    const { parameters, issues } = await this.#collectParameters(context.req);
+    try {
+      Resource.#activeRequests++;
+      const method = context.req.method as RequestMethod;
+      const clone = this.#clone(context);
+      const methodHandler = clone[method]?.bind(clone);
+      const { parameters, issues } = await this.#collectParameters(context.req);
 
-    if (issues.length)
-      throw new BadRequestError('There were issues in your request.', { issues });
+      if (issues.length)
+        throw new BadRequestError('There were issues in your request.', { issues });
 
-    Application.instance.dispatchEvent(new RequestEvent(context));
-    if (Application.instance.state === 'idle')
-      await Application.instance.ready;
-    const response = await methodHandler?.(...parameters, context.req.raw.signal);
-    return response ?? Result(HttpStatusCodes.NoContent);
+      Application.instance.dispatchEvent(new RequestEvent(context));
+      if (Application.instance.state === 'idle')
+        await Application.instance.ready;
+      const response = await methodHandler?.(...parameters, context.req.raw.signal);
+      return response ?? Result(HttpStatusCodes.NoContent);
+    } finally {
+      context.set('activeRequests', Math.max(--Resource.#activeRequests, Number()));
+      Application.instance.dispatchEvent(new ResponseEvent(context));
+    }
   };
 
   #parseParameters(type: ParameterMetadata['type'], request: HonoRequest) {
