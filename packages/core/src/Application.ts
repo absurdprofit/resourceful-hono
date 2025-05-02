@@ -1,4 +1,4 @@
-import type { Hono, MiddlewareHandler } from 'hono';
+import type { ExecutionContext, Hono, MiddlewareHandler } from 'hono';
 import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from './ServiceMap.ts';
 import { type Constructor, isResourceConstructor } from './common/types.ts';
@@ -90,9 +90,10 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     return this.#state;
   }
 
-  public get fetch(): Hono['fetch'] {
-    return this.#hono.fetch;
-  }
+  public fetch = async (request: Request, Env?: unknown, executionCtx?: ExecutionContext) => {
+    await this.ready;
+    return this.#hono.fetch(request, Env, executionCtx);
+  };
 
   get #hono(): Hono {
     return Resource.hono;

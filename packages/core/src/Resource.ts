@@ -483,8 +483,6 @@ export abstract class Resource implements IResource {
         throw new BadRequestError('There were issues in your request.', { issues });
 
       Application.instance.dispatchEvent(new RequestEvent(context));
-      if (Application.instance.state === 'idle')
-        await Application.instance.ready;
       const response = await methodHandler?.(...parameters, context.req.raw.signal);
       return response ?? Result(HttpStatusCodes.NoContent);
     } finally {
