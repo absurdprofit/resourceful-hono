@@ -1,6 +1,7 @@
 import type { Context, Next } from 'hono';
 import { Application } from '../Application.ts';
 import type { Constructor } from '../common/types.ts';
+import type { MiddlewareHandler } from 'hono/types';
 
 type ReadonlyRequest = Pick<
   Request,
@@ -40,7 +41,7 @@ export interface AsyncContextService<T = AsyncContextVariable> {
 
 export const AsyncContextProvider = (
   asyncContextService: Constructor<AsyncContextService>
-) => {
+): MiddlewareHandler => {
   return (c: Context, next: Next) => {
     const context = Application.instance.getService(asyncContextService);
     

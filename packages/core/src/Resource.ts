@@ -386,7 +386,7 @@ export abstract class Resource implements IResource {
     return mergePath(this.parent?.pathname ?? '', this.route);
   }
 
-  public static get activeRequests() {
+  public static get activeRequests(): number {
     return this.#activeRequests;
   }
 
@@ -486,7 +486,7 @@ export abstract class Resource implements IResource {
       const response = await methodHandler?.(...parameters, context.req.raw.signal);
       return response ?? Result(HttpStatusCodes.NoContent);
     } finally {
-      context.set('activeRequests', Math.max(--Resource.#activeRequests, Number()));
+      context.set('activeRequests', --Resource.#activeRequests);
       Application.instance.dispatchEvent(new ResponseEvent(context));
     }
   };

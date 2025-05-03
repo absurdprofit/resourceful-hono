@@ -90,7 +90,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     return this.#state;
   }
 
-  public fetch = async (request: Request, Env?: unknown, executionCtx?: ExecutionContext) => {
+  public fetch = async (request: Request, Env?: unknown, executionCtx?: ExecutionContext): Promise<Response> => {
     await this.ready;
     return this.#hono.fetch(request, Env, executionCtx);
   };
