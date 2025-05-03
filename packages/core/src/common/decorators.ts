@@ -5,7 +5,7 @@ import type { NonAbstractResourceLikeConstructor, Resource, ResourceLikeConstruc
 import type { Constructor, ParameterMetadata, PrimitiveType, ResourceMethod } from './types.ts';
 import { Application } from '../Application.ts';
 import type { Service } from '../ServiceMap.ts';
-import type { MiddlewareHandler } from 'hono';
+import type { Env, MiddlewareHandler } from 'hono';
 
 /**
  * Defines the accepted content types for a method handler.
@@ -346,7 +346,11 @@ export function Inject(type?: Constructor<Service>): PropertyDecorator {
  * }
  * ```
  */
-export function Middleware(middleware: MiddlewareHandler):  <T extends NonAbstractResourceLikeConstructor | Resource>(target: T, propertyKey?: ResourceMethod) => void {
+export function Middleware<E extends Env>(middleware: MiddlewareHandler<E>):
+  <T extends NonAbstractResourceLikeConstructor | Resource>(
+    target: T,
+    propertyKey?: ResourceMethod
+  ) => void {
   return function <T extends NonAbstractResourceLikeConstructor | Resource>(target: T, propertyKey?: ResourceMethod): void {
     if (propertyKey) {
       const middlewares: MiddlewareHandler[] = Reflect.getMetadata(MIDDLEWARE_METADATA_KEY, target, propertyKey) ?? [];

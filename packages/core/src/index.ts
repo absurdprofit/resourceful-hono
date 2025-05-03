@@ -14,6 +14,7 @@ export * from './services/LogService/index.ts';
 export * from './common/template-tags.ts';
 export type { ContentTypeHandler } from './ContentTypeRegistry.ts';
 export {
+  AsyncLogger,
   Logger,
   AsyncContextProvider,
   type AsyncContextService,

@@ -3,12 +3,7 @@ import { Headers, HttpStatusCodes } from '../../common/enums.ts';
 import { type LogData, LogService } from './LogService.ts';
 import type { TimingVariables } from 'hono/timing';
 import { parseTotalDuration } from '../../common/utils.ts';
-
-enum StatusColour {
-  REDIRECT = 'rgb(255, 255, 0)',
-  ERROR = 'red',
-  SUCCESS = 'rgb(0, 255, 25)'
-}
+import { StatusColour } from './common/enums.ts';
 
 export class ConsoleLogService extends LogService {
   public debug(message: string, data: LogData = {}): void {
