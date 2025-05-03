@@ -43,3 +43,19 @@ export class RequestEvent extends Event {
     
   }
 }
+
+
+export class ResponseEvent extends Event {
+  public readonly context: Pick<Context, 'var' | 'env' | 'get' | 'set'>;
+  constructor(context: Context) {
+    super('response');
+
+    this.context = {
+      var: context.var,
+      env: context.env,
+      get: context.get.bind(context),
+      set: context.set.bind(context),
+    };
+    
+  }
+}

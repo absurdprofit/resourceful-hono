@@ -48,6 +48,7 @@ export enum HttpStatusCodes {
   MethodNotAllowed = 405,
   Conflict = 409,
   UnsupportedMediaType = 415,
+  UnprocessableContentError = 422,
   DependencyFailed = 424,
   InternalServerError = 500,
   NotImplemented = 501

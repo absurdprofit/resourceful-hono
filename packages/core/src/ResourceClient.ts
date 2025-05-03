@@ -49,7 +49,7 @@ export type ResourceClientInstance<R extends Resource> = {
       : never;
 }
 
-type ResourceConstructor<T extends Resource> = (new () => T) & typeof Resource;
+type ResourceConstructor<T extends Resource> = (abstract new () => T);
 
 interface ResourceClientConstructor {
   contentTypes: SimpleContentTypeRegistry;
@@ -78,7 +78,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
   public fetch: ResourceClientConstructor['fetch'];
 
   constructor(
-    resource: ResourceConstructor<R>,
+    resource: ResourceConstructor<R> & typeof Resource,
     origin?: string
   ) {
     this.fetch = ResourceClient.fetch;

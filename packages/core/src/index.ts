@@ -13,4 +13,10 @@ export * from './common/errors.ts';
 export * from './services/LogService/index.ts';
 export * from './common/template-tags.ts';
 export type { ContentTypeHandler } from './ContentTypeRegistry.ts';
-export { Logger } from './middleware/index.ts';
+export {
+  AsyncLogger,
+  Logger,
+  AsyncContextProvider,
+  type AsyncContextService,
+  type AsyncContextVariable
+} from './middleware/index.ts';

@@ -105,3 +105,8 @@ export class UnsupportedMediaTypeError extends HttpError {
   public override readonly status = HttpStatusCodes.UnsupportedMediaType;
   public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
+
+export class UnprocessableContentError extends HttpError {
+  public override readonly status = HttpStatusCodes.UnprocessableContentError;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+}
