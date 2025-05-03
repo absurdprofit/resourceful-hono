@@ -1,9 +1,10 @@
-import { Application, Logger, ConsoleLogService, LogService } from '@resourceful-hono/core';
+import { AsyncContextProvider, Application, Logger, ConsoleLogService, LogService } from '@resourceful-hono/core';
 import BaseResource from './resources/BaseResource.ts';
 import SSEResource from './resources/SSEResource.ts';
 import JSONResource from './resources/JSONResource.ts';
 import UserResource from './resources/UserResource.ts';
 import RedirectResource from './resources/RedirectResource.ts';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 class MyService {
   public [Symbol.dispose]() {
@@ -11,9 +12,10 @@ class MyService {
   }
 }
 const app = Application.instance;
-app.registerMiddlewares([Logger]);
+app.registerMiddlewares([AsyncContextProvider(AsyncLocalStorage), Logger]);
 app.registerService(MyService, new MyService())
-  .registerService(LogService, new ConsoleLogService());
+  .registerService(LogService, new ConsoleLogService())
+  .registerService(AsyncLocalStorage, new AsyncLocalStorage());
 
 const origin = 'http://localhost:8000';
 const jsonClient = JSONResource.createClient(origin);
