@@ -3,7 +3,7 @@ import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from './ServiceMap.ts';
 import { type Constructor, isResourceConstructor } from './common/types.ts';
 import { ErrorHandler, NotFoundHandler, TraceContext } from './middleware/index.ts';
-import { type RequestEvent, FinishEvent, ReadyEvent, type ResponseEvent } from './common/events.ts';
+import { FinishEvent, ReadyEvent, RequestEvent, type ResponseEvent } from './common/events.ts';
 import { PromiseWrapper } from './common/promise-wrapper.ts';
 import { TypedEventTarget } from './TypedEventTarget.ts';
 
@@ -43,9 +43,9 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     this.#finishedPromise = new PromiseWrapper<void>();
     this.ready = this.#readyPromise.promise;
     this.finished = this.#finishedPromise.promise;
-    this.ready.then(() => this.#state = 'running');
-    this.finished.then(() => this.#state = 'finished');
     queueMicrotask(() => {
+      this.ready.then(() => this.#state = 'running');
+      this.finished.then(() => this.#state = 'finished');
       const readyEvent = new ReadyEvent(() => {
         this.#readyPromise.resolve();
       });
@@ -91,6 +91,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
   }
 
   public fetch = async (request: Request, Env?: unknown, executionCtx?: ExecutionContext): Promise<Response> => {
+    this.dispatchEvent(new RequestEvent(Env));
     await this.ready;
     return this.#hono.fetch(request, Env, executionCtx);
   };
