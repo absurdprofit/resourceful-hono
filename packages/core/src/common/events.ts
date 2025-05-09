@@ -1,5 +1,6 @@
-import type { Context } from 'hono';
+import type { Context, Env, Input } from 'hono';
 import { PromiseAllDynamic } from './utils.ts';
+import { DefaultContextVariables } from './types.ts';
 
 export class ReadyEvent extends Event {
   readonly #promises: Promise<unknown>[] = [];
@@ -29,33 +30,25 @@ export class FinishEvent extends Event {
   }  
 }
 
-export class RequestEvent extends Event {
-  public readonly context: Pick<Context, 'var' | 'env' | 'get' | 'set'>;
-  constructor(context: Context) {
+export class RequestEvent<E extends Env['Bindings'] = object> extends Event {
+  public readonly env: E;
+  constructor(env: unknown = {}) {
     super('request');
 
-    this.context = {
-      var: context.var,
-      env: context.env,
-      get: context.get.bind(context),
-      set: context.set.bind(context),
-    };
-    
+    this.env = env as E;
   }
 }
 
 
-export class ResponseEvent extends Event {
-  public readonly context: Pick<Context, 'var' | 'env' | 'get' | 'set'>;
+export class ResponseEvent<
+  E extends Env = { Variables: DefaultContextVariables },
+  P extends string = '',
+  I extends Input = object
+> extends Event {
+  public readonly context: Context<E, P, I>;
   constructor(context: Context) {
     super('response');
 
-    this.context = {
-      var: context.var,
-      env: context.env,
-      get: context.get.bind(context),
-      set: context.set.bind(context),
-    };
-    
+    this.context = context;
   }
 }
