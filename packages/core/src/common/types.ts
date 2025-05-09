@@ -43,3 +43,7 @@ export type SimpleContentTypeRegistry = {
   use: (pattern: string | string[], handler: ContentTypeHandler) => void;
   get: (contentType: string) => ContentTypeHandler | undefined;
 };
+
+export interface DefaultContextVariables {
+  activeRequests: number;
+}

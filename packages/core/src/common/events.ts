@@ -1,5 +1,6 @@
 import type { Context, Env, Input } from 'hono';
 import { PromiseAllDynamic } from './utils.ts';
+import { DefaultContextVariables } from './types.ts';
 
 export class ReadyEvent extends Event {
   readonly #promises: Promise<unknown>[] = [];
@@ -40,7 +41,7 @@ export class RequestEvent<E extends Env['Bindings'] = object> extends Event {
 
 
 export class ResponseEvent<
-  E extends Env = object,
+  E extends Env = { Variables: DefaultContextVariables },
   P extends string = '',
   I extends Input = object
 > extends Event {
