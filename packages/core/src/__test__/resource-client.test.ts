@@ -1,6 +1,6 @@
 import { expect } from 'expect';
 import { Application } from '../Application.ts';
-import { HttpStatusCodes } from '../common/enums.ts';
+import { Headers, HttpStatusCodes } from '../common/enums.ts';
 import { Redirect, Resource, Result } from '../Resource.ts';
 import { Accept, FromBody, FromQuery, FromRoute } from '../common/decorators.ts';
 import { z } from 'zod';
@@ -56,6 +56,15 @@ class TestResource extends Resource {
   }
 }
 
+class TraceContextResource extends Resource {
+  public GET() {
+    return Result(
+      HttpStatusCodes.Ok,
+      this.context.var.traceparent
+    );
+  }
+}
+
 class UnsupportedContentResource extends Resource {
   public GET() {
     return Result(
@@ -83,11 +92,13 @@ Resource.contentTypes.use('image/svg+xml', {
 const origin = 'http://localhost:8000';
 const test = TestResource.createClient(origin);
 const unsupportedContent = UnsupportedContentResource.createClient(origin);
+const traceContext = TraceContextResource.createClient(origin);
 
 Application.instance.registerResources([
   RedirectResource,
   TestResource,
   UnsupportedContentResource,
+  TraceContextResource,
 ]);
 
 Deno.serve(Application.instance.fetch);
@@ -196,4 +207,17 @@ Deno.test('ResourceClient returns undefined for void results', async () => {
   const result = await test.delete({ id: 'absurd' }, { id2: 'profit' });
 
   expect(result).toBe(undefined);
+});
+
+Deno.test('ResourceClient adds trace context to fetch', async () => {
+  let traceparent = null;
+  traceContext.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    traceparent = new globalThis
+      .Headers(init?.headers)
+      .get(Headers.Traceparent);
+    return fetch(input, init);
+  };
+  const result = await traceContext.get();
+
+  expect(traceparent).toBe(`00-${result.traceId}-${result.parentId}-01`);
 });

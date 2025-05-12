@@ -1,13 +1,14 @@
 import { mergePath } from 'hono/utils/url';
-import { ACCEPT_METADATA_KEY, LAST_INDEX, PARAMETER_METADATA_KEY } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, LAST_INDEX, PARAMETER_METADATA_KEY, SPAN_ID_LENGTH, TRACE_ID_LENGTH } from './common/constants.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import type { Constructor, ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from './common/types.ts';
+import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from './common/types.ts';
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from './Resource.ts';
 import { z } from 'zod';
 import { UnsupportedMediaTypeError } from './common/errors.ts';
 import type { EventSource } from 'eventsource';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
 import { HttpError } from './HttpError.ts';
+import { generateHex } from './common/utils.ts';
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -147,10 +148,14 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
     const url = new URL(pathname, this.origin);
     url.search = search;
 
+    headers.set(Headers.Traceparent, this.#createTraceContext());
     const response = await this.fetch(url, { signal, method, body, headers });
     const responseContentType = response.headers.get(Headers.ContentType);
     
-    if (!responseContentType?.length || response.status === HttpStatusCodes.NoContent) return;
+    if (
+      !responseContentType?.length
+      || response.status === HttpStatusCodes.NoContent
+    ) return;
     const handler = ResourceClient.contentTypes.get(responseContentType);
     if (handler?.decode) {
       const result = await handler.decode(response);
@@ -160,6 +165,14 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
     }
     response.body?.cancel();
     throw new UnsupportedMediaTypeError(`Could not find a decoder for ${this.#resource.name}.${method}`);
+  }
+
+  #createTraceContext() {
+    const version = '00';
+    const traceId = generateHex(TRACE_ID_LENGTH);
+    const spanId = generateHex(SPAN_ID_LENGTH);
+    const flags = '01';
+    return `${version}-${traceId}-${spanId}-${flags}`;
   }
 
   #collectMethodMetadata<T>(key: symbol) {

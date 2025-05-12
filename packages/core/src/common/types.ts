@@ -46,4 +46,9 @@ export type SimpleContentTypeRegistry = {
 
 export interface DefaultContextVariables {
   activeRequests: number;
+  traceparent: {
+    spanId: string;
+    traceId: string;
+    parentId: string;
+  }
 }
