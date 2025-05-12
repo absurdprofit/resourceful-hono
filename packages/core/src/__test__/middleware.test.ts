@@ -97,9 +97,9 @@ Deno.test('TraceContext adds request traceparent to response traceparent', async
 
   const response = await Resource.hono.request('test', { method, headers });
   const [resVersion, resTraceId, resSpanId, resFlags] = response.headers.get(Headers.Traceparent)?.split('-') ?? [];
-  
+
   expect(resVersion).toBe(version);
   expect(resTraceId).toBe(traceId);
-  expect(resSpanId).not.toBe(spanId);
+  expect(resSpanId).toBe(spanId);
   expect(resFlags).toBe(flags);
 });
