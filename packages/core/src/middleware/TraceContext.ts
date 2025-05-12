@@ -8,15 +8,16 @@ export const TraceContext: MiddlewareHandler = async (context, next) => {
   const [
     version = '00',
     traceId = generateHex(TRACE_ID_LENGTH),
-    _,
+    parentId,
     flags = '01',
-  ] = incomingTraceparent?.split('-') || '';
+  ] = incomingTraceparent?.split('-') ?? '';
 
   const spanId = generateHex(SPAN_ID_LENGTH);
-  const traceparent = `${version}-${traceId}-${spanId}-${flags}`;
+  const traceparent = `${version}-${traceId}-${parentId || spanId}-${flags}`;
 
   context.set(Headers.Traceparent, {
     traceId,
+    parentId,
     spanId,
   });
   context.res.headers.set(Headers.Traceparent, traceparent);

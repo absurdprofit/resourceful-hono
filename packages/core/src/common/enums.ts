@@ -6,6 +6,7 @@ export enum Headers {
   Traceparent = 'traceparent',
   Location = 'location',
   ContentType = 'content-type',
+  ContentLength = 'content-length',
   UserAgent = 'user-agent',
   Date = 'date',
   ServerTiming = 'server-timing',
