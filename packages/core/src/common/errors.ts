@@ -1,32 +1,29 @@
-import { HttpStatusCodes } from "./enums.ts";
+import { HttpError } from '../HttpError.ts';
+import { HttpStatusCodes } from './enums.ts';
 
-export abstract class HttpError extends Error {
-  public abstract readonly status: HttpStatusCodes;
-  public abstract readonly type: string;
-  public readonly title: string;
-  public readonly detail: string;
-
-  constructor(message?: string, options?: ErrorOptions) {
-    super(message, options);
-
-    this.title = this.name = this.constructor.name;
-    this.detail = message ?? "";
-  }
-  
-  static override [Symbol.hasInstance](obj: unknown): boolean {
-    if (typeof obj !== 'object' || obj === null) return false;
-    if (this === HttpError) {
-        return Object.prototype.isPrototypeOf.call(this.prototype, obj);
-    } else if (obj instanceof HttpError && obj.name === this.name) {
-        // implicit cast to derived HttpError instance, e.g. BadRequestError, NotFoundError etc.
-        if (Object.getPrototypeOf(obj) !== this.prototype)
-            Object.setPrototypeOf(obj, this.prototype);
-        return true;
-    }
-    return false;
-  }
-}
-
+/**
+ * A flexible `HttpError` implementation that allows dynamic creation of error instances at runtime.
+ *
+ * Useful when rehydrating or proxying problem detail objects from other services,
+ * or for constructing custom `HttpError`s without creating a new subclass.
+ *
+ * Accepts all properties defined in `HttpError`, and supports adding arbitrary extra fields.
+ *
+ * @extends {HttpError}
+ *
+ * @example
+ * ```ts
+ * throw new GenericHttpError({
+ *   status: 409,
+ *   type: 'https://example.com/probs/conflict',
+ *   title: 'Conflict',
+ *   detail: 'User already exists.',
+ *   instance: '/users/123',
+ *   traceparent: '00-abc123...',
+ *   retryAfter: '30s' // extra field
+ * });
+ * ```
+ */
 export class GenericHttpError extends HttpError {
   public override readonly status: number;
   public override type: string;
@@ -65,9 +62,12 @@ export class BadRequestError extends HttpError {
   public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
   public readonly issues: object[];
 
-  constructor(message?: string, options?: BadRequestErrorOptions) {
+  constructor(
+    message?: string,
+    options: BadRequestErrorOptions = { issues: [] }
+  ) {
     super(message, options);
-    this.issues = options?.issues ?? [];
+    this.issues = options.issues;
   }
 }
 
@@ -103,5 +103,10 @@ export class ForbiddenError extends HttpError {
 
 export class UnsupportedMediaTypeError extends HttpError {
   public override readonly status = HttpStatusCodes.UnsupportedMediaType;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+}
+
+export class UnprocessableContentError extends HttpError {
+  public override readonly status = HttpStatusCodes.UnprocessableContentError;
   public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }

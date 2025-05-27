@@ -1,53 +1,60 @@
-import type { Hono, MiddlewareHandler, ErrorHandler as HonoErrorHandler } from 'jsr:@hono/hono@4.6.14';
+import type { ExecutionContext, Hono, MiddlewareHandler } from 'hono';
 import { Resource } from './Resource.ts';
-import { type Service, ServiceMap } from "./ServiceMap.ts";
-import { type Constructor, isResourceConstructor } from "./common/types.ts";
-import { ErrorHandler, NotFoundHandler } from "./middleware/index.ts";
-import { FinishEvent, ReadyEvent } from "./common/events.ts";
-import { PromiseWrapper } from "./common/promise-wrapper.ts";
-import { TypedEventTarget } from "./TypedEventTarget.ts";
+import { type Service, ServiceMap } from './ServiceMap.ts';
+import { type Constructor, isResourceConstructor } from './common/types.ts';
+import { ErrorHandler, NotFoundHandler, TraceContext } from './middleware/index.ts';
+import { FinishEvent, ReadyEvent, RequestEvent, type ResponseEvent } from './common/events.ts';
+import { PromiseWrapper } from './common/promise-wrapper.ts';
+import { TypedEventTarget } from './TypedEventTarget.ts';
 
 export interface ApplicationEventMap {
-  "ready": ReadyEvent;
-  "finished": FinishEvent;
-  "error": ErrorEvent;
+  'ready': ReadyEvent;
+  'finished': FinishEvent;
+  'error': ErrorEvent;
+  'request': RequestEvent;
+  'response': ResponseEvent;
 }
 
 export type ApplicationState = 'idle' | 'running' | 'finished';
 
 export class Application extends TypedEventTarget<ApplicationEventMap> {
   static #instance: Application;
-  static readonly #instanceId = crypto.randomUUID();
+  static readonly #brand = Symbol();
   readonly #services = new ServiceMap();
   readonly #readyPromise;
   readonly #finishedPromise;
-  readonly ready: Promise<void>;
-  readonly finished: Promise<void>;
+  public readonly ready: Promise<void>;
+  public readonly finished: Promise<void>;
   #state: ApplicationState = 'idle';
 
-  private constructor(instanceId: string) {
+  private constructor(brand: symbol) {
     super();
 
-    if (instanceId !== Application.#instanceId)
+    if (brand !== Application.#brand)
       throw new TypeError('Illegal constructor');
 
-    this.#hono.notFound(NotFoundHandler);
-    this.registerErrorHandler(ErrorHandler);
+    this.#hono.onError(ErrorHandler);
+    this.registerMiddlewares([
+      TraceContext,
+      NotFoundHandler,
+    ]);
 
     this.#readyPromise = new PromiseWrapper<void>();
     this.#finishedPromise = new PromiseWrapper<void>();
     this.ready = this.#readyPromise.promise;
     this.finished = this.#finishedPromise.promise;
     queueMicrotask(() => {
-      const readyEvent = new ReadyEvent(this.#readyPromise.resolve);
-      this.dispatchEvent(readyEvent);
       this.ready.then(() => this.#state = 'running');
       this.finished.then(() => this.#state = 'finished');
+      const readyEvent = new ReadyEvent(() => {
+        this.#readyPromise.resolve();
+      });
+      this.dispatchEvent(readyEvent);
     });
   }
 
   public static get instance(): Application {
-    Application.#instance ??= new Application(Application.#instanceId);
+    Application.#instance ??= new Application(Application.#brand);
     return Application.#instance;
   }
 
@@ -61,7 +68,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
         if (isResourceConstructor(MaybeResourceConstructor))
           return new MaybeResourceConstructor();
         else
-          throw new Error(`Expected Resource but received:\n${String(MaybeResourceConstructor)}`);
+          throw new TypeError(`Expected Resource but received:\n${String(MaybeResourceConstructor)}`);
       });
   }
 
@@ -75,10 +82,6 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     return { registerService: this.registerService.bind(this) };
   }
 
-  public registerErrorHandler(errorHandler: HonoErrorHandler) {
-    this.#hono.onError(errorHandler);
-  }
-
   public getService<T extends Service>(key: Constructor<T>): T {
     return this.#services.get(key);
   }
@@ -87,19 +90,37 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     return this.#state;
   }
 
-  public get fetch(): Hono['fetch'] {
-    return this.#hono.fetch;
-  }
+  public fetch = async (request: Request, Env?: unknown, executionCtx?: ExecutionContext): Promise<Response> => {
+    this.dispatchEvent(new RequestEvent(Env));
+    await this.ready;
+    return this.#hono.fetch(request, Env, executionCtx);
+  };
 
   get #hono(): Hono {
     return Resource.hono;
   }
 
   public finish = (): void => {
-    this.#services[Symbol.asyncDispose]()
+    new Promise<void>((resolve) => {
+      // await active request responses
+      if (Resource.activeRequests) {
+        const onResponse = (e: ResponseEvent) => {
+          if (!e.context.var.activeRequests) {
+            resolve();
+            this.removeEventListener('response', onResponse);
+          }
+        };
+        this.addEventListener('response', onResponse);
+      }
+      resolve();
+    })
+      .then(() => {
+        // cleanup services
+        return this.#services[Symbol.asyncDispose]();
+      })
       .then(() => {
         this.#finishedPromise.resolve();
         this.dispatchEvent(new FinishEvent());
       });
-  }
+  };
 }

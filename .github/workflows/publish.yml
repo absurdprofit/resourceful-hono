@@ -27,6 +27,14 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Cache Deno deps
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/deno
+            ./node_modules
+          key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.json') }}
+
       - name: Get tag name and commit hash
         id: git-info
         run: |
@@ -35,8 +43,8 @@ jobs:
           else
             echo "TAG_NAME=${GITHUB_REF##*/}" >> $GITHUB_ENV
           fi
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          LAST_COMMIT_HASH=$(git rev-parse --short HEAD~1)
+          COMMIT_HASH=$(git rev-parse HEAD)
+          LAST_COMMIT_HASH=$(git rev-parse HEAD~1)
           echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
           echo "LAST_COMMIT_HASH=${LAST_COMMIT_HASH}" >> $GITHUB_ENV
 
@@ -60,7 +68,7 @@ jobs:
 
           echo $CHANGED_PACKAGES_JSON | jq -r '.[].path' | while read -r package; do
             CURRENT_VERSION=$(jq -r '.version' $package/deno.json)
-            NEW_VERSION="${CURRENT_VERSION}-${TAG_NAME}.sha-${COMMIT_HASH}"
+            NEW_VERSION="${CURRENT_VERSION}-${TAG_NAME}.sha-${COMMIT_HASH:0:10}"
             jq ".version = \"${NEW_VERSION}\"" $package/deno.json > $package/deno.json.tmp && mv $package/deno.json.tmp $package/deno.json
           done
 
@@ -75,8 +83,20 @@ jobs:
         run: |
           git ls-files -m | grep 'deno.json' | xargs -I {} git update-index --assume-unchanged {}
 
+      - name: Update README
+        run: |
+          COMMIT_HASH=${{ env.COMMIT_HASH }}
+          REPOSITORY="${{ github.repository }}"
+          for pkg in $(jq -r '.workspace[]' deno.json); do
+            file="$pkg/README.md"
+            if [[ -f "$file" ]]; then
+              url="https://github.com/$REPOSITORY/tree/$COMMIT_HASH/$pkg"
+              sed -i "s|\[View on GitHub\](\.)|\[View on GitHub\]($url)|g" "$file"
+            fi
+          done
+
       - name: Publish packages
         if: ${{ steps.version.outputs.versioned == 'true' }}
         run: |
           TAG_NAME=${{ env.TAG_NAME }}
-          deno publish
+          deno publish --allow-dirty

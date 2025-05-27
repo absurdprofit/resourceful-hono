@@ -1,4 +1,4 @@
-import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
+import { HEX_RADIX, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
@@ -18,7 +18,7 @@ export function createReadableFromIterable<T, TReturn, TNext>(iterable: Iterable
       } else {
         controller.enqueue(value);
       }
-    }
+    },
   });
 }
 
@@ -42,4 +42,40 @@ export function parseTotalDuration(input: string[]): string | null {
     }
   }
   return null;
+}
+
+export function toFormData(input: unknown): FormData {
+  if (input instanceof FormData) {
+    return input;
+  }
+  
+  if (typeof input !== 'object' || input === null) {
+    throw new TypeError('Input must be an object or FormData');
+  }
+
+  const formData = new FormData();
+
+  for (const [key, value] of Object.entries(input)) {
+    if (value instanceof File || value instanceof Blob) {
+      formData.append(key, value);
+    } else if (Array.isArray(value)) {
+      value.forEach((item) => {
+        formData.append(key, item);
+      });
+    } else {
+      formData.append(key, String(value));
+    }
+  }
+
+  return formData;
+}
+
+// Helper to generate a random hex string
+export function generateHex(bytesCount: number): string {
+  const PAD_MAX_COUNT = 2;
+  const array = new Uint8Array(bytesCount);
+  crypto.getRandomValues(array);
+  return Array.from(array)
+    .map((b) => b.toString(HEX_RADIX).padStart(PAD_MAX_COUNT, '0'))
+    .join('');
 }

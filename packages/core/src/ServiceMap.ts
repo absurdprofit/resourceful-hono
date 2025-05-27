@@ -17,15 +17,15 @@ export class ServiceMap extends Map<Constructor<Service>, Service> {
     return value as T;
   }
 
-  async [Symbol.asyncDispose]() {
+  public async [Symbol.asyncDispose]() {
     await Promise.all(
       this.values()
-      .map(service => {
-        if (Symbol.dispose in service)
-          return service[Symbol.dispose]();
-        if (Symbol.asyncDispose in service)
-          return service[Symbol.asyncDispose]();
-      })
+        .map(service => {
+          if (Symbol.dispose in service)
+            return service[Symbol.dispose]();
+          if (Symbol.asyncDispose in service)
+            return service[Symbol.asyncDispose]();
+        })
     );
 
     this.clear();

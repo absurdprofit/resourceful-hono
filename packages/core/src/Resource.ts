@@ -1,66 +1,130 @@
-import type { HonoRequest, Handler, Context, MiddlewareHandler } from 'jsr:@hono/hono@4.6.14';
-import { mergePath } from 'jsr:@hono/hono@4.6.14/utils/url';
-import { Hono } from 'jsr:@hono/hono@4.6.14';
-import { z } from 'npm:zod@3.24.1';
+import type { HonoRequest, Handler, Context, MiddlewareHandler } from 'hono';
+import { mergePath } from 'hono/utils/url';
+import { Hono } from 'hono';
+import { z } from 'zod';
 import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
-import type { OwnProperties, ParameterMetadata, ResourceMethodReturn } from './common/types.ts';
-import { isBodyInit } from "./common/types.ts";
+import type { DefaultContextVariables, ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
+import { isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { createReadableFromIterable, literalToLowerCase } from "./common/utils.ts";
-import { Application } from "./Application.ts";
-import { ResourceClient, type IResourceClient } from "./ResourceClient.ts";
+import { literalToLowerCase } from './common/utils.ts';
+import { Application } from './Application.ts';
+import { ResourceClient } from './ResourceClient.ts';
+import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
+import type { ResourceClientInstance } from './index.ts';
+import { ResponseEvent } from './common/events.ts';
+import { toKebabCase } from '@std/text';
 
 export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = unknown> extends Response {
   readonly status: S;
   readonly redirected: true;
 }
+/**
+ * Creates a typed HTTP redirect response with a `Location` header.
+ *
+ * Only supports status codes in the 3xx range (300–399). Throws for invalid codes.
+ * Accepts destinations as a `string`, `URL`, or a `Resource` class with a `pathname`.
+ *
+ * @param {HttpStatusCodes | number} status - HTTP status code (must be in the 3xx range).
+ * @param {URL | string | typeof Resource} destination - Destination URL or resource class.
+ * @returns {TypedRedirectResponse<S, D>} A typed redirect `Response` with a `Location` header.
+ *
+ * @throws {RangeError}
+ *
+ * @example
+ * ```ts
+ * return Redirect(302, '/login'); // string path
+ *
+ * return Redirect(301, new URL('https://example.com')); // URL object
+ *
+ * return Redirect(307, UserResource); // redirect to resource's route
+ * ```
+ */
 export function Redirect<S extends HttpStatusCodes | number, D extends URL | string | typeof Resource>(status: S, destination: D): TypedRedirectResponse<S, D> {
-  if (status < 300 || status > 399)
+  // 300 - 399
+  if (status >= HttpStatusCodes.MultipleChoices && status < HttpStatusCodes.BadRequest) {
+    if (typeof destination === 'function' && 'hono' in destination)
+      destination = destination.pathname as D;
+  
+    return new Response(
+      undefined,
+      {
+        status,
+        headers: {
+          [Headers.Location]: destination.toString(),
+        },
+      }
+    ) as TypedRedirectResponse<S, D>;
+  } else {
     throw new RangeError(`Invalid redirect status code: ${status}`);
-
-  if (typeof destination === 'function' && 'hono' in destination)
-    destination = destination.pathname as D;
-
-  return new Response(
-    undefined,
-    {
-      status,
-      headers: {
-        [Headers.Location]: destination.toString(),
-      },
-    },
-  ) as TypedRedirectResponse<S, D>;
+  }
 }
 
-export interface TypedResultResponse<_ = unknown, ___ = unknown> extends Response {}
-export function Result<
+export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, ___ = unknown> extends Response {
+  readonly status: S;
+}
+/**
+ * Creates a typed HTTP response with optional encoding based on content type.
+ *
+ * Automatically handles common `Content-Type` inference and encoding:
+ * - If `content` is a `BodyInit`, it is used as-is.
+ * - If `content` is a function (e.g. stream iterator), the content type defaults to `application/octet-stream`.
+ * - If `content` is a serializable object or primitive, it defaults to `application/json`.
+ * - If `contentType` is explicitly provided, it overrides defaults.
+ * - Automatically sets headers like `Date` and `Content-Type`.
+ * - Applies SSE-specific headers for `text/event-stream`.
+ *
+ * @param {HttpStatusCodes | number} status - HTTP status code (e.g. 200, 404).
+ * @param {BodyInit | (() => Iterator<unknown, unknown, unknown>) | (() => AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined} content - Optional esponse content (can be `BodyInit`, function, object, etc.).
+ * @param {ContentTypes | string | undefined} [contentType] - Optional MIME type as string (e.g. `'application/json'`).
+ * @returns {Promise<TypedResultResponse<S, C, T>>} A typed `Response` with applied headers and encoded body.
+ *
+ * @example
+ * ```ts
+ * return Result(200, { message: 'OK' }); // Defaults to application/json
+ *
+ * return Result(204); // No content
+ *
+ * return Result(200, function* () { yield 1; }); // Octet-stream, auto-inferred
+ *
+ * return Result(200, '<h1>Hello</h1>', 'text/html'); // Custom content-type
+ * ```
+ */
+export async function Result<
   S extends HttpStatusCodes | number,
-  C extends BodyInit | (() => Iterator<unknown, unknown, unknown> | AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
+  C extends BodyInit | (() => Iterator<unknown, unknown, unknown>) | (() => AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
   T extends ContentTypes | string | undefined = undefined
 >(
   status: S,
   content?: C,
   contentType?: T
-): TypedResultResponse<C, T> {
-  if ((isBodyInit(content) && contentType !== ContentTypes.Json) || content === undefined || typeof content === "function") {
-    const headers = new globalThis.Headers();
-    let body;
-    if (contentType) headers.set(Headers.ContentType, contentType);
-    if (typeof content === "function") {
-      body = createReadableFromIterable(content());
-      if (contentType?.startsWith(ContentTypes.ServerSentEvent)) {
-        body = body.pipeThrough(new TextEncoderStream());
-        headers.set(Headers.CacheControl, 'no-cache');
-        headers.set(Headers.Connection, 'keep-alive');
-      }
-    } else {
-      body = content;
-    }
-    return new Response(body, { status, headers });
+): Promise<TypedResultResponse<S, C, T>> {
+  const headers = new globalThis.Headers();
+  let body;
+  if (isBodyInit(content)) {
+    body = content;
   } else {
-    return Response.json(content);
+    if (!contentType) {
+      if (typeof content === 'function')
+        contentType = ContentTypes.OctetStream as T;
+      else if (typeof content !== 'undefined')
+        contentType = ContentTypes.Json as T;
+    }
+
+    const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
+    if (encode)
+      body = await encode(content, contentType);
+    if (
+      contentType?.startsWith(ContentTypes.ServerSentEvent)
+      && body instanceof ReadableStream
+    ) {
+      headers.set(Headers.CacheControl, 'no-cache');
+      headers.set(Headers.Connection, 'keep-alive');
+    }
   }
+  if (contentType) headers.set(Headers.ContentType, contentType);
+  headers.set(Headers.Date, new Date().toUTCString());
+  return new Response(body, { status, headers }) as TypedResultResponse<S, C, T>;
 }
 export interface IResource {
   readonly route: string;
@@ -82,23 +146,87 @@ export type NonAbstractResourceLikeConstructor = new (...args: ResourceConstruct
 export type AbstractResourceLikeConstructor = abstract new (...args: ResourceConstructorArgs) => Resource;
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
 export abstract class Resource implements IResource {
-  declare public readonly context: Context;
+  public context: Context<{ Variables: DefaultContextVariables }> = null!;
+  private static readonly contentTypeRegistry = ContentTypeRegistry.default;
+  private readonly contentTypeRegistry = new ContentTypeRegistry();
+  /**
+   * Exposes a simplified interface for registering and retrieving content type handlers.
+   *
+   * @returns {SimpleContentTypeRegistry} A reference to the global content type registry.
+   *
+   * @example
+   * ```ts
+   * // Register a custom content type
+   * Resource.contentTypes.use('application/vnd.custom+json', {
+   *   encode: (data) => JSON.stringify(data),
+   *   decode: async (req) => await req.json()
+   * });
+   *
+   * // Later use in Accept decorator
+   * class UserResource extends Resource {
+   *   \@Accept(['application/vnd.custom+json'])
+   *   public POST() {
+   *     // handle POST
+   *   }
+   * }
+   * ```
+   * ```
+   */
+  public static readonly contentTypes: SimpleContentTypeRegistry = {
+    use: (pattern: string | string[], handler: ContentTypeHandler) => {
+      return this.contentTypeRegistry.use('*', pattern, handler);
+    },
+    get: (contentType: string) => {
+      return this.contentTypeRegistry.get('*', contentType);
+    },
+  };
   /**
    * The root hono instance.
    */
   public static readonly hono: Hono = Resource.honoBuilder();
   private readonly hono = Resource.honoBuilder(this);
-  readonly methods: RequestMethod[] = Object.values(RequestMethod).filter((method => method in this));
-  readonly #parameterMetadata = this.collectParameterMetadata();
-  readonly #bodySchema = this.collectParameterSchema('body');
-  readonly #querySchema = this.collectParameterSchema('query');
-  readonly #routeSchema = this.collectParameterSchema<z.AnyZodObject>('route');
-  readonly #acceptMetadata = this.collectMethodMetadata<ContentTypes[]>(ACCEPT_METADATA_KEY);
-  readonly #middlewareMetadata = this.collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
-  readonly HEAD = (this as IResource)['GET'];
+  /**
+   * List of HTTP methods implemented by this resource instance.
+   *
+   * @readonly
+   *
+   * @example
+   * ```ts
+   * class PostResource extends Resource {
+   *   public GET() {}
+   *   public POST() {}
+   * }
+   *
+   * const res = new PostResource();
+   * console.log(res.methods); // ['GET', 'POST']
+   * ```
+   */
+  public readonly methods: RequestMethod[] = Object.values(RequestMethod).filter((method => method in this));
+  readonly #parameterMetadata = this.#collectParameterMetadata();
+  readonly #bodySchema = this.#collectParameterSchema('body');
+  readonly #querySchema = this.#collectParameterSchema('query');
+  readonly #routeSchema = this.#collectParameterSchema<z.AnyZodObject>('route');
+  readonly #acceptMetadata = this.#collectMethodMetadata<ContentTypes[] | undefined>(ACCEPT_METADATA_KEY);
+  readonly #middlewareMetadata = this.#collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
+  static #activeRequests = Number();
 
   constructor() {
-    const { hono, handleRequest } = this;
+    [...this.#acceptMetadata.entries()].forEach(([method, contentTypes]) => {
+      contentTypes ??= [ContentTypes.Json];
+      contentTypes.forEach((contentType) => {
+        const handler = Resource.contentTypes.get(contentType);
+        if (handler)
+          this.contentTypeRegistry.use(method, contentType, handler);
+        else
+          throw new ReferenceError(`A handler hasn't been registered for ${contentType}`);
+      });
+    });
+
+    this.#registerRoutes();
+  }
+
+  #registerRoutes() {
+    const { hono } = this;
     const methods = this.methods.filter(method => RequestMethod.Head !== method);
     const parentInstance = Object.getPrototypeOf(Object.getPrototypeOf(this));
     if (methods.some(method => Object.hasOwn(parentInstance, method)))
@@ -118,7 +246,7 @@ export abstract class Resource implements IResource {
       this.#middlewareMetadata.get(method)?.forEach(middleware => 
         hono[literalToLowerCase(method)](route, middleware)
       );
-      hono[literalToLowerCase(method)](route, handleRequest);
+      hono[literalToLowerCase(method)](route, this.#handleRequest);
     }
     hono.options('*', this.#OPTIONS);
     hono.all('*', this.#methodNotAllowed);
@@ -160,71 +288,209 @@ export abstract class Resource implements IResource {
     return Object.getPrototypeOf(this.constructor);
   }
 
-  public static createClient<T extends typeof Resource>(
-    this: T,
+  /**
+   * Creates a client instance for the given `Resource` subclass.
+   *
+   * This is a static method intended to be called directly from a `Resource` class.
+   * It optionally accepts an `origin`, which defaults to `window.location.origin` in browser environments.
+   *
+   * If running in environments without `globalThis.location.origin`, the `origin` argument is required.
+   *
+   * @param {string} [origin] - Optional base URL to use for the client. Required in non-browser environments.
+   * @returns {ResourceClientInstance<this>} A typed ResourceClient.
+   *
+   * @example
+   * ```ts
+   * class UserResource extends Resource {
+   *   public GET() {
+   *     return Result(200, [{ name: 'Nathan Johnson' }]);
+   *   }
+   * }
+   *
+   * const client = UserResource.createClient();
+   * const result = await client.GET(); // Fully typed result
+   * const result = await client.get(); // lowercase alias
+   * ```
+   */
+  public static createClient<R extends Resource, RC extends ResourceClientInstance<R>>(
+    this: new () => R,
     ...[origin]: typeof globalThis extends { location: { origin: string } } ? [origin?: string] : [origin: string]
-  ): IResourceClient<T> {
-    if (globalThis.location instanceof Location)
-      origin ??= globalThis.location.origin;
-    else if (typeof origin !== 'string')
-      throw new TypeError('origin is required.');
-
-    return new ResourceClient(this, origin) as unknown as IResourceClient<T>;
+  ): RC {
+    return new ResourceClient(this, origin) as RC;
   }
 
+  /**
+   * List of HTTP methods implemented by this resource instance.
+   *
+   * @readonly
+   *
+   * @example
+   * ```ts
+   * class PostResource extends Resource {
+   *   public GET() {}
+   *   public POST() {}
+   * }
+   *
+   * const res = new PostResource();
+   * console.log(res.methods); // ['GET', 'POST']
+   * ```
+   */
   public static get methods(): RequestMethod[] {
-    return Object.values(RequestMethod).filter((method => method in this.prototype));
+    return Object
+      .values(RequestMethod)
+      .filter((method => method in this.prototype));
   }
 
+  /**
+   * Returns the route declared or inferred on the resource class.
+   *
+   * If the class has explicit `@Route` decorator, that value is returned.
+   * Otherwise, it defaults to the lowercase class name with `'resource'` stripped out.
+   *
+   * @returns {string} The route for the resource.
+   *
+   * @example
+   * ```ts
+   * \@Route('users')
+   * class UserResource extends Resource {}
+   *
+   * console.log(UserResource.route); // "/users"
+   *
+   * class FallbackResource extends Resource {}
+   * console.log(FallbackResource.route); // "fallback"
+   * ```
+   */
   public static get route(): string {
-    return Object.getOwnPropertyDescriptor(this, ROUTE_METADATA_KEY)?.value ?? this.name.toLowerCase().replace('resource', '');
+    return Object.getOwnPropertyDescriptor(this, ROUTE_METADATA_KEY)?.value ?? toKebabCase(this.name).replace(/-resource$/, '');
   }
 
+  /**
+   * Resolves the full pathname for the resource, including any nested parent path.
+   *
+   * If the resource is sub-classed from a void resource, the base resource's `pathname` is prepended to this resource's `route`.
+   *
+   * @returns {string} The full merged pathname.
+   *
+   * @example
+   * ```ts
+   * \@Route('/api/v1')
+   * class BaseResource extends Resource {}
+   *
+   * \@Route('posts')
+   * class PostResource extends BaseResource {}
+   *
+   * console.log(PostResource.pathname); // "/api/v1/posts"
+   * ```
+   */
   public static get pathname(): string {
     return mergePath(this.parent?.pathname ?? '', this.route);
   }
 
+  public static get activeRequests(): number {
+    return this.#activeRequests;
+  }
+
+  /**
+   * Returns the route declared or inferred on the resource class.
+   *
+   * If the class has explicit `@Route` decorator, that value is returned.
+   * Otherwise, it defaults to the lowercase class name with `'resource'` stripped out.
+   *
+   * @returns {string} The route for the resource.
+   *
+   * @example
+   * ```ts
+   * \@Route('users')
+   * class UserResource extends Resource {}
+   *
+   * console.log(UserResource.route); // "/users"
+   *
+   * class FallbackResource extends Resource {}
+   * console.log(FallbackResource.route); // "fallback"
+   * ```
+   */
   public get route(): string {
     return (this.constructor as typeof Resource).route;
   }
 
+  /**
+   * Returns the `Request` object associated with the resource instance.
+   *
+   * Useful when direct access to headers, body, or other low-level request properties is needed.
+   *
+   * @returns {Request} A native `Request` instance.
+   *
+   * @example
+   * ```ts
+   * class UserResource extends Resource {
+   *   public GET() {
+   *     const request = this.request; // same as this.context.raw.req
+   *     const userAgent = request.headers.get('user-agent');
+   *     return Result(200, { userAgent });
+   *   }
+   * }
+   * ```
+   */
   public get request(): Request {
     return this.context.req.raw;
   }
 
+  /**
+   * Returns the `Response` object associated with the resource instance.
+   *
+   * Useful for setting headers, status codes, or streaming custom responses.
+   *
+   * @returns {Response} A native `Response` instance.
+   *
+   * @example
+   * ```ts
+   * class HealthResource extends Resource {
+   *   public GET() {
+   *     this.response.headers.set('X-Health-Check', 'true');
+   *     return Result(200, { ok: true });
+   *   }
+   * }
+   * ```
+   */
   public get response(): Response {
     return this.context.res;
+  }
+
+  public get origin(): string {
+    return new URL(this.request.url).origin;
   }
 
   readonly #OPTIONS: Handler = (context) => {
     context.res.headers.set(Headers.Allow, this.methods.join(', '));
     return Result(HttpStatusCodes.NoContent);
-  }
-
-  public clone(context: Context): this {
-    const descriptors: OwnProperties<this> = Object.getOwnPropertyDescriptors(this);
-    descriptors.context = {
-      get: () => context,
-    };
-    return Object.create(Object.getPrototypeOf(this), descriptors);
-  }
-
-  private readonly handleRequest: Handler = async (context) => {
-    const method = context.req.method.toUpperCase() as RequestMethod;
-    const methodHandler = (this as IResource)[method]?.bind(this.clone(context));
-    context.res.headers.set(Headers.TraceId, crypto.randomUUID()); // set trace header
-    const { parameters, issues } = await this.collectParameters(context.req);
-
-    if (issues.length)
-      throw new BadRequestError('There were issues in your request.', { issues });
-
-    if (Application.instance.state === 'idle')
-      await Application.instance.ready;
-    const response = await methodHandler?.(...parameters, context.req.raw.signal);
-    return response ?? Result(HttpStatusCodes.NoContent);
   };
 
-  private async parseParameters(type: ParameterMetadata['type'], request: HonoRequest) {
+  #clone(context: Context): this & IResource {
+    const instance = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    instance.context = context;
+    return instance;
+  }
+
+  readonly #handleRequest: Handler = async (context) => {
+    try {
+      Resource.#activeRequests++;
+      const method = context.req.method as RequestMethod;
+      const clone = this.#clone(context);
+      const methodHandler = clone[method]?.bind(clone);
+      const { parameters, issues } = await this.#collectParameters(context.req);
+
+      if (issues.length)
+        throw new BadRequestError('There were issues in your request.', { issues });
+
+      const response = await methodHandler?.(...parameters, context.req.raw.signal);
+      return response ?? Result(HttpStatusCodes.NoContent);
+    } finally {
+      context.set('activeRequests', --Resource.#activeRequests);
+      Application.instance.dispatchEvent(new ResponseEvent(context));
+    }
+  };
+
+  #parseParameters(type: ParameterMetadata['type'], request: HonoRequest) {
     const method = request.method as RequestMethod;
     switch (type) {
       case 'route':
@@ -232,18 +498,13 @@ export abstract class Resource implements IResource {
       case 'query':
         return request.query();
       case 'body': {
-        const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
-        if (![RequestMethod.Get, RequestMethod.Head].includes(method) && contentType) {
-          const acceptedContentTypes: ContentTypes[] = this.#acceptMetadata.get(method) ?? [ContentTypes.Json];
-          switch(acceptedContentTypes.find(accepted => contentType.startsWith(accepted))) {
-            case ContentTypes.FormUrlEncoded:
-            case ContentTypes.MultipartFormData:
-              return await request.parseBody();
-            case ContentTypes.Json:
-              return await request.json();
-            default:
-              throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
-          }    
+        if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
+          const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
+          const handler = this.contentTypeRegistry.get(method, contentType);
+          if (handler)
+            return handler.decode(request.raw);
+          request.raw.body?.cancel();
+          throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
         }
         return {};
       }
@@ -252,7 +513,7 @@ export abstract class Resource implements IResource {
     }
   }
 
-  private collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
+  #collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
     return this.methods.reduce((metadata, method) => {
       const schema = this.#parameterMetadata.get(method)?.filter(metadata => metadata.type === type).reduce((schema: z.ZodType | undefined, metadata) => {
         // avoid mutating metadata
@@ -272,19 +533,19 @@ export abstract class Resource implements IResource {
     }, new Map<RequestMethod, T | undefined>());
   }
 
-  private collectMethodMetadata<T>(key: symbol) {
+  #collectMethodMetadata<T>(key: symbol) {
     return this.methods.reduce((metadata, method) => {
       return metadata.set(method, Reflect.getMetadata(key, this, method));
     }, new Map<RequestMethod, T>());
   }
 
-  private collectParameterMetadata() {
+  #collectParameterMetadata() {
     return this.methods.reduce((metadata, method) => {
       return metadata.set(method, Reflect.getMetadata(PARAMETER_METADATA_KEY, this, method) ?? []);
     }, new Map<RequestMethod, ParameterMetadata[]>());
   }
 
-  private async collectParameters(request: HonoRequest) {
+  async #collectParameters(request: HonoRequest) {
     const method = request.method as RequestMethod;
     const parameterMetadata = this.#parameterMetadata.get(method) ?? [];
     const issues: z.ZodIssue[] = [];
@@ -302,9 +563,9 @@ export abstract class Resource implements IResource {
           Object.entries(schemas).map(async ([type, schema]) => {
             if (!schema) return [type, { [DEFAULT_PARAMETER_KEY]: undefined }];
             const result = await schema.safeParseAsync(
-              await this.parseParameters(type as ParameterMetadata['type'], request)
+              await this.#parseParameters(type as ParameterMetadata['type'], request)
             );
-            const parsedData = {...(result['data'] ?? {})};
+            const parsedData = { ...(result['data'] ?? {}) };
             parsedData[DEFAULT_PARAMETER_KEY] = result['data'];
             if (!result.success)
               issues.push(...result.error.issues);
@@ -317,7 +578,15 @@ export abstract class Resource implements IResource {
         )
       );
   
-      parameters = parameterMetadata.map(({ type, key }) => {
+      parameters = parameterMetadata.map(({ type, key, keys }) => {
+        if (!key && keys) {
+          // create object with only the expected key-value pairs
+          const object = data[type][DEFAULT_PARAMETER_KEY];
+          return keys.reduce((parameter, key) => {
+            parameter[key] = object?.[key];
+            return parameter;
+          }, {} as Record<string, unknown>);
+        }
         return data[type][key ?? DEFAULT_PARAMETER_KEY];
       });
     }

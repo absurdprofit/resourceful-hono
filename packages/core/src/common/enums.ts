@@ -1,22 +1,25 @@
 export enum Headers {
-  Allow = 'Allow',
-  Authorization = 'Authorization',
-  CacheControl = 'Cache-Control',
-  Connection = 'Connection',
-  TraceId = 'X-Trace-ID',
-  Location = 'Location',
-  ContentType = 'Content-Type',
-  ForwardedFor = 'X-Forwarded-For',
-  UserAgent = 'User-Agent',
-  Date = 'Date',
+  Allow = 'allow',
+  Authorization = 'authorization',
+  CacheControl = 'cache-control',
+  Connection = 'connection',
+  Traceparent = 'traceparent',
+  Location = 'location',
+  ContentType = 'content-type',
+  ContentLength = 'content-length',
+  UserAgent = 'user-agent',
+  Date = 'date',
+  ServerTiming = 'server-timing',
 }
 
 export enum ContentTypes {
   ProblemDetails = 'application/problem+json',
   Json = 'application/json',
+  OctetStream = 'application/octet-stream',
   MultipartFormData = 'multipart/form-data',
   FormUrlEncoded = 'application/x-www-form-urlencoded',
-  ServerSentEvent = 'text/event-stream'
+  ServerSentEvent = 'text/event-stream',
+  PlainText = 'text/plain'
 }
 
 export enum RequestMethod {
@@ -46,6 +49,7 @@ export enum HttpStatusCodes {
   MethodNotAllowed = 405,
   Conflict = 409,
   UnsupportedMediaType = 415,
+  UnprocessableContentError = 422,
   DependencyFailed = 424,
   InternalServerError = 500,
   NotImplemented = 501

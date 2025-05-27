@@ -3,6 +3,8 @@ import { globToRegExp, isGlob, join } from 'jsr:@std/path@1.0.8';
 import { exists, expandGlob } from 'jsr:@std/fs@1.0.8';
 import DenoJSON from '../deno.json' with { type: 'json' };
 
+const JSON_INDENT = 2;
+
 async function exec(command: string, args: string[]) {
   const { stdout } = await new Deno.Command(command, { args }).output();
   return new TextDecoder().decode(stdout);
@@ -12,11 +14,18 @@ async function summaryFromPackage(path: string) {
   const denoJSONPath = join(path, 'deno.json');
   if (await exists(denoJSONPath)) {
     const denoJSON = JSON.parse(await Deno.readTextFile(denoJSONPath));
-    return {
-      name: denoJSON.name,
-      version: denoJSON.version,
-      path
-    };
+    const exclude = [
+      ...DenoJSON.publish.exclude,
+      ...(denoJSON?.exclude ?? []),
+      ...(denoJSON?.publish?.exclude ?? []),
+    ].map(pattern => join(Deno.cwd(), pattern));
+    if (!exclude.some(pattern => globToRegExp(pattern).test(path))) {
+      return {
+        name: denoJSON.name,
+        version: denoJSON.version,
+        path,
+      };
+    }
   }
   return null;
 }
@@ -60,7 +69,7 @@ async function getChangedPackages(sinceHash: string) {
         }
       }
     } else if (changedFilePaths.some(path => path.startsWith(pattern))) {
-      list.push(await summaryFromPackage(pattern));
+      list.push(await summaryFromPackage(join(Deno.cwd(), pattern)));
     }
   }
 
@@ -80,12 +89,11 @@ async function main() {
   const packages = args.since ? await getChangedPackages(args.since) : await getAllPackages();
   Deno.stdout.write(
     new TextEncoder().encode(
-      JSON.stringify(packages, null, 2)
+      JSON.stringify(packages, null, JSON_INDENT)
     )
   );
 }
 
 if (import.meta.main) {
   await main();
-
 }

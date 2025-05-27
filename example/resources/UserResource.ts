@@ -1,8 +1,8 @@
-import { Result } from "@resourceful-hono/core";
-import BaseResource from "./BaseResource.ts";
+import { Result, HttpStatusCodes } from '@resourceful-hono/core';
+import BaseResource from './BaseResource.ts';
 
 export default class UserResource extends BaseResource {
-  GET() {
-    return Result(200, { username: 'absurdprofit' });
+  public GET() {
+    return Result(HttpStatusCodes.Ok, { username: 'absurdprofit' });
   }
 }
