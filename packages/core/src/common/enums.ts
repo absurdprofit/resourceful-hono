@@ -52,5 +52,6 @@ export enum HttpStatusCodes {
   UnprocessableContentError = 422,
   DependencyFailed = 424,
   InternalServerError = 500,
-  NotImplemented = 501
+  NotImplemented = 501,
+  ServiceUnavailable = 503
 }
