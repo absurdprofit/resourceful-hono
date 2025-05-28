@@ -12,7 +12,7 @@ interface Log {
 
 interface Ref {
   current: {
-    get context(): AsyncContextVariable<{ logs?: Log[] } & TimingVariables>;
+    get context(): AsyncContextVariable<{ logs?: Log[] } & TimingVariables> | null;
   };
 }
 
@@ -25,44 +25,56 @@ export class AsyncConsoleLogService extends AsyncLogService {
   }
 
   private get logs(): Log[] {
-    let store = this.ref.current.context.get('logs');
+    let store = this.ref.current.context?.get('logs');
     if (!store) {
       store = [];
-      this.ref.current.context.set('logs', store);
+      this.ref.current.context?.set('logs', store);
     }
     return store;
   }
 
   public debug(message: string, data: AsyncLogData = {}): void {
     const { payload = '' } = data;
-    this.logs.push({
+    const log: Log = {
       type: 'debug',
       data: [message, payload],
-    });
+    };
+    if (this.ref.current)
+      return this.logImmediate(log);
+    this.logs.push(log);
   }
 
   public info(message: string, data: AsyncLogData = {}): void {
     const { payload = '' } = data;
-    this.logs.push({
+    const log: Log = {
       type: 'info',
       data: [message, payload],
-    });
+    };
+    if (this.ref.current)
+      return this.logImmediate(log);
+    this.logs.push(log);
   }
 
   public warn(message: string, error?: Error | null, data: AsyncLogData = {}): void {
     const { payload = '' } = data;
-    this.logs.push({
+    const log: Log = {
       type: 'warn',
       data: [message, error, payload],
-    });
+    };
+    if (this.ref.current)
+      return this.logImmediate(log);
+    this.logs.push(log);
   }
 
   public error(error: Error, data: AsyncLogData = {}): void {
     const { payload = '' } = data;
-    this.logs.push({
+    const log: Log = {
       type: 'error',
       data: [error, payload],
-    });
+    };
+    if (this.ref.current)
+      return this.logImmediate(log);
+    this.logs.push();
   }
 
   private createAccessLog(context: AsyncContextVariable<TimingVariables>) {
@@ -82,8 +94,14 @@ export class AsyncConsoleLogService extends AsyncLogService {
     return [log, `color: ${statusColour}`, 'color: white', 'color: rgb(244, 188, 0)', 'color: lightblue', 'color: white'];
   }
 
+  public logImmediate(log: Log) {
+    console[log.type](...log.data);
+  }
+
   public flush() {
     const { context } = this.ref.current;
+    if (!context)
+      throw new ReferenceError('AsyncContext is unavailable. Is the AsyncContextProvider middleware registered?');
     const logs = this.logs;
     if (logs) {
       console.group(...this.createAccessLog(context));
