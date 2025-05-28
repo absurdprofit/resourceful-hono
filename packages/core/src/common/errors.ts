@@ -76,6 +76,11 @@ export class InternalServerError extends HttpError {
   public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
 }
 
+export class ServiceUnavailableError extends HttpError {
+  public override readonly status = HttpStatusCodes.ServiceUnavailable;
+  public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
+}
+
 export class UnauthorizedError extends HttpError {
   public override readonly status = HttpStatusCodes.Unauthorized;
   public override readonly type: string = `https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/${this.status}`;
