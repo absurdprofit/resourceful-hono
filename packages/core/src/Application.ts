@@ -1,4 +1,5 @@
-import { ExecutionContext, Hono, MiddlewareHandler } from 'hono';
+import type { ExecutionContext, MiddlewareHandler } from 'hono';
+import { Hono } from 'hono';
 import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from './ServiceMap.ts';
 import { type Constructor, isResourceConstructor } from './common/types.ts';
@@ -6,7 +7,7 @@ import { ErrorHandler, NotFoundHandler, TraceContext } from './middleware/index.
 import { FinishEvent, ReadyEvent, RequestEvent, type ResponseEvent } from './common/events.ts';
 import { PromiseWrapper } from './common/promise-wrapper.ts';
 import { TypedEventTarget } from './TypedEventTarget.ts';
-import { honoBuilder } from "./common/utils.ts";
+import { honoBuilder } from './common/utils.ts';
 
 export interface ApplicationEventMap {
   'ready': ReadyEvent;
@@ -71,7 +72,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     resources
       .forEach((MaybeResourceConstructor: unknown) => {
         if (isResourceConstructor(MaybeResourceConstructor))
-          return new MaybeResourceConstructor(this, new Hono({ strict: true }));
+          return new MaybeResourceConstructor(this, honoBuilder);
         else
           throw new TypeError(`Expected Resource but received:\n${String(MaybeResourceConstructor)}`);
       });

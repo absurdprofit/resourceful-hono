@@ -50,7 +50,9 @@ export type ResourceClientInstance<R extends Resource> = {
       : never;
 }
 
-type ResourceConstructor<T extends Resource> = (abstract new (...args: any[]) => T);
+type ResourceConstructor<T extends Resource> = 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (abstract new (...args: any[]) => T);
 
 interface ResourceClientConstructor {
   contentTypes: SimpleContentTypeRegistry;

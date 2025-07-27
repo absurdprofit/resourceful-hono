@@ -1,6 +1,6 @@
-import { Hono } from "hono";
+import { Hono } from 'hono';
 import { HEX_RADIX, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
-import { Resource } from "../Resource.ts";
+import { Resource } from '../Resource.ts';
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
@@ -100,5 +100,6 @@ export function honoBuilder(instance?: Resource) {
   for (const basePath of basePaths.toReversed()) {
     baseApp = baseApp.basePath(basePath);
   }
+  console.log({ parent, basePaths });
   return baseApp.basePath(instance?.route ?? '');
 }

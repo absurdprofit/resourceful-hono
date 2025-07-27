@@ -6,7 +6,7 @@ import type { DefaultContextVariables, ParameterMetadata, ResourceMethodReturn, 
 import { isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { literalToLowerCase } from './common/utils.ts';
+import { type honoBuilder, literalToLowerCase } from './common/utils.ts';
 import type { Application } from './Application.ts';
 import { ResourceClient } from './ResourceClient.ts';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
@@ -42,7 +42,7 @@ export interface TypedRedirectResponse<S extends HttpStatusCodes | number, __ = 
 export function Redirect<S extends HttpStatusCodes | number, D extends URL | string | typeof Resource>(status: S, destination: D): TypedRedirectResponse<S, D> {
   // 300 - 399
   if (status >= HttpStatusCodes.MultipleChoices && status < HttpStatusCodes.BadRequest) {
-    if (typeof destination === 'function' && 'hono' in destination)
+    if (typeof destination === 'function')
       destination = destination.pathname as D;
   
     return new Response(
@@ -140,7 +140,7 @@ export interface IResource {
   PUT?(...args: unknown[]): ResourceMethodReturn;
   TRACE?(...args: unknown[]): ResourceMethodReturn;
 }
-type ResourceConstructorArgs = [Application, Hono];
+type ResourceConstructorArgs = [Application, typeof honoBuilder];
 export type NonAbstractResourceLikeConstructor = new (...args: ResourceConstructorArgs) => Resource;
 export type AbstractResourceLikeConstructor = abstract new (...args: ResourceConstructorArgs) => Resource;
 export type ResourceLikeConstructor = NonAbstractResourceLikeConstructor | AbstractResourceLikeConstructor;
@@ -207,9 +207,9 @@ export abstract class Resource implements IResource {
   readonly #middlewareMetadata = this.#collectMethodMetadata<MiddlewareHandler[]>(MIDDLEWARE_METADATA_KEY);
   static #activeRequests = Number();
 
-  constructor(application: Application, hono: Hono) {
+  constructor(application: Application, Hono: typeof honoBuilder) {
     this.application = application;
-    this.#hono = hono;
+    this.#hono = Hono(this);
     [...this.#acceptMetadata.entries()].forEach(([method, contentTypes]) => {
       contentTypes ??= [ContentTypes.Json];
       contentTypes.forEach((contentType) => {

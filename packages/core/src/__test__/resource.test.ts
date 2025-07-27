@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { Application } from '../Application.ts';
 import { ServerSentEvent } from '../ServerSentEvent.ts';
 import { PromiseWrapper } from '../common/promise-wrapper.ts';
+import { honoBuilder } from '../common/utils.ts';
 
 class DummyService {
   public value = true;
@@ -45,7 +46,7 @@ Deno.test('Resource service injection throws if service doesn\'t exist', () => {
       }
     }
   
-    const _resource = new TestResource(app, new Hono({ strict: true }));
+    const _resource = new TestResource(app, honoBuilder);
     const _service = _resource.service;
   }).toThrow(
     'Service DummyService not found.'
@@ -68,7 +69,7 @@ Deno.test('Resource service injection works', () => {
   }
 
   app.registerService(DummyService, new DummyService());
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   expect(_resource.service).toBeInstanceOf(DummyService);
 });
 
@@ -88,7 +89,7 @@ Deno.test('@Inject throws if service type cannot be inferred', () => {
       }
     }
   
-    const _resource = new TestResource(app, new Hono({ strict: true }));
+    const _resource = new TestResource(app, honoBuilder);
     const _service = _resource.service;
   }).toThrow(
     'Could not determine type for property service'
@@ -107,7 +108,7 @@ Deno.test('Resource waits on Application ready state before processing requests'
     }
   }
   
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const url = new URL('test', origin);
   let readyTime = Number();
 
@@ -135,7 +136,7 @@ Deno.test('Resources can\'t extend non-virtual resources', () => {
   }
 
   expect(() => {
-    const _resource = new TestResource(app, new Hono({ strict: true }));
+    const _resource = new TestResource(app, honoBuilder);
   }).toThrow(
     'TestResource cannot extend BaseResource. Resources must extend abstract/virtual resources.'
   );
@@ -165,7 +166,7 @@ Deno.test('Resource has context, request and response injected', async () => {
       return Result(HttpStatusCodes.Ok);
     }
   }
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const url = new URL('test', origin);
   await app.hono.request(url);
 
@@ -186,7 +187,7 @@ Deno.test('Resource cannot Accept unregistered content type', () => {
   }
 
   expect(() => {
-    const _resource = new TestResource(app, new Hono({ strict: true }));
+    const _resource = new TestResource(app, honoBuilder);
   }).toThrow(
     'A handler hasn\'t been registered for application/cbor'
   );
@@ -200,7 +201,7 @@ Deno.test('Resource returns only allowed methods in OPTIONS request', async () =
     public GET() {}
     public POST() {}
   }
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const url = new URL('test', origin);
   const response = await app.hono.request(url, { method: 'OPTIONS' });
   
@@ -217,7 +218,7 @@ Deno.test('Resource returns 200 for defined method', async () => {
       return Result(HttpStatusCodes.Ok);
     }
   }
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const url = new URL('test', origin);
   const response = await app.hono.request(url);
   
@@ -308,8 +309,8 @@ Deno.test('Middleware decorator per resource registers middleware handler', asyn
     }
   }
 
-  const _resource = new TestResource(app, new Hono({ strict: true }));
-  const _resource2 = new SecondTestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
+  const _resource2 = new SecondTestResource(app, honoBuilder);
   const url = new URL('test', origin);
   const url2 = new URL('secondtest', origin);
   const response = await app.hono.request(url);
@@ -346,8 +347,8 @@ Deno.test('Middleware decorator per method registers middleware handler', async 
     }
   }
 
-  const _resource = new TestResource(app, new Hono({ strict: true }));
-  const _resource2 = new SecondTestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
+  const _resource2 = new SecondTestResource(app, honoBuilder);
   const url = new URL('test', origin);
   const url2 = new URL('secondtest', origin);
   const response = await app.hono.request(url);
@@ -370,7 +371,7 @@ Deno.test('Resource overrides route with Route decorator', async () => {
     }
   }
 
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const url = new URL('user', origin);
   const response = await app.hono.request(url);
 
@@ -387,7 +388,7 @@ Deno.test('FromRoute decorator registers route with optional param', async () =>
       return Result(HttpStatusCodes.Ok, { object });
     }
   }
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const id = crypto.randomUUID();
   let url = new URL(`test/${id}`, origin);
   let response = await app.hono.request(url);
@@ -416,7 +417,7 @@ Deno.test('Resource parses using FromRoute decorator', async () => {
       return Result(HttpStatusCodes.Ok, { object, id, object2 });
     }
   }
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const id = crypto.randomUUID();
   const id2 = 10;
   const url = new URL(`test/${id}/${id2}`, origin);
@@ -445,7 +446,7 @@ Deno.test('Resource parses using FromQuery decorator', async () => {
       return Result(HttpStatusCodes.Ok, { object, id, object2 });
     }
   }
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const id = crypto.randomUUID();
   const id2 = 10;
   const url = new URL('test', origin);
@@ -476,7 +477,7 @@ Deno.test('Resource parses using FromBody decorator', async () => {
       return Result(HttpStatusCodes.Ok, { object, id, object2 });
     }
   }
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const id = crypto.randomUUID();
   const id2 = 10;
   const url = new URL('test', origin);
@@ -514,7 +515,7 @@ Deno.test('Resource intersects non-object types using FromBody decorator', async
       return Result(HttpStatusCodes.Ok, { e, e2 });
     }
   }
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const url = new URL('test', origin);
   const body = JSON.stringify('type');
   const method = 'POST';
@@ -541,7 +542,7 @@ Deno.test('Resource throws if content type is missing', async () => {
     }
   }
 
-  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource = new TestResource(app, honoBuilder);
   const url = new URL('test', origin);
   const body = JSON.stringify('type');
   const method = 'POST';
