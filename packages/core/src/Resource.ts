@@ -197,7 +197,7 @@ export abstract class Resource implements IResource {
    * console.log(res.methods); // ['GET', 'POST']
    * ```
    */
-  protected readonly application;
+  protected readonly application: Application;
   public readonly methods: RequestMethod[] = Object.values(RequestMethod).filter((method => method in this));
   readonly #parameterMetadata = this.#collectParameterMetadata();
   readonly #bodySchema = this.#collectParameterSchema('body');

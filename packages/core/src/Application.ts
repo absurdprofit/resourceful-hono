@@ -25,7 +25,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
   /**
    * The root hono instance.
    */
-  public readonly hono = honoBuilder();
+  public readonly hono: Hono = honoBuilder();
   readonly #services = new ServiceMap();
   readonly #readyPromise;
   readonly #finishedPromise;

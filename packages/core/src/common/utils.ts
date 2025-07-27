@@ -87,7 +87,7 @@ export function generateHex(bytesCount: number): string {
  * @param instance Leaf instance
  * @returns new Hono app with base path fully qualified base path
  */
-export function honoBuilder(instance?: Resource) {
+export function honoBuilder(instance?: Resource): Hono {
   let parent = instance?.parent;
   const basePaths = new Array<string>();
   let baseApp = new Hono({ strict: true });
