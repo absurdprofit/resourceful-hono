@@ -66,8 +66,6 @@ export function Accept(acceptedContentTypes: ContentTypes[] | string[]): (target
  * ```
  */
 export function Route(path: string): <T extends ResourceLikeConstructor>(target: T) => void {
-  'use client';
-
   if (path.includes(':'))
     throw new Error('Your route includes a path param which must be a mistake. Path params are automatically inferred.');
   if (path.includes('*'))
@@ -134,8 +132,6 @@ export function FromRoute(schema: z.AnyZodObject): (target: Resource, propertyKe
  */
 export function FromRoute(key: string, schema: PrimitiveType | z.ZodOptional<PrimitiveType>): (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) => void;
 export function FromRoute(keyOrSchema: string | z.AnyZodObject, schemaOrUndefined?: PrimitiveType | z.ZodOptional<PrimitiveType>): (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) => void {
-  'use client';
-
   return function (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) {
     const metadata: ParameterMetadata[] = Reflect.getMetadata(PARAMETER_METADATA_KEY, target, propertyKey) ?? [];
     if (metadata[parameterIndex]) throw new Error('Parameter decorators cannot be composed');
@@ -209,8 +205,6 @@ export function FromQuery(schema: z.AnyZodObject): (target: Resource, propertyKe
  */
 export function FromQuery(key: string, schema: PrimitiveType | z.ZodOptional<PrimitiveType>): (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) => void;
 export function FromQuery(keyOrSchema: string | z.AnyZodObject, schemaOrUndefined?: PrimitiveType | z.ZodOptional<PrimitiveType>): (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) => void {
-  'use client';
-
   return function (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) {
     const metadata: ParameterMetadata[] = Reflect.getMetadata(PARAMETER_METADATA_KEY, target, propertyKey) ?? [];
     if (metadata[parameterIndex]) throw new Error('Parameter decorators cannot be composed');
@@ -265,8 +259,6 @@ export function FromBody(schema: z.ZodType): (target: Resource, propertyKey: Exc
  */
 export function FromBody(key: string, schema: z.ZodType): (target: Resource, propertyKey: Exclude<ResourceMethod, 'GET' | 'HEAD'>, parameterIndex: number) => void;
 export function FromBody(keyOrSchema: string | z.ZodType, schemaOrUndefined?: z.ZodType): (target: Resource, propertyKey: Exclude<ResourceMethod, 'GET' | 'HEAD'>, parameterIndex: number) => void {
-  'use client';
-
   return function (target: Resource, propertyKey: Exclude<ResourceMethod, 'GET' | 'HEAD'>, parameterIndex: number) {
     const metadata: ParameterMetadata<z.ZodType>[] = Reflect.getMetadata(PARAMETER_METADATA_KEY, target, propertyKey) ?? [];
     if (metadata[parameterIndex]) throw new Error('Parameter decorators cannot be composed');

@@ -50,7 +50,7 @@ export type ResourceClientInstance<R extends Resource> = {
       : never;
 }
 
-type ResourceConstructor<T extends Resource> = (abstract new () => T);
+type ResourceConstructor<T extends Resource> = (abstract new (...args: any[]) => T);
 
 interface ResourceClientConstructor {
   contentTypes: SimpleContentTypeRegistry;

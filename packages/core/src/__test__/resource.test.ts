@@ -23,7 +23,7 @@ app.addEventListener('ready', (e) => e.waitUntil(promiseWrapper.promise));
 const origin = 'http://localhost:8080';
 
 function cleanupResources() {
-  Object.defineProperty(Resource, 'hono', {
+  Object.defineProperty(app, 'hono', {
     value: new Hono({ strict: true }),
     writable: false,
   });
@@ -45,7 +45,7 @@ Deno.test('Resource service injection throws if service doesn\'t exist', () => {
       }
     }
   
-    const _resource = new TestResource();
+    const _resource = new TestResource(app, new Hono({ strict: true }));
     const _service = _resource.service;
   }).toThrow(
     'Service DummyService not found.'
@@ -68,7 +68,7 @@ Deno.test('Resource service injection works', () => {
   }
 
   app.registerService(DummyService, new DummyService());
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   expect(_resource.service).toBeInstanceOf(DummyService);
 });
 
@@ -88,7 +88,7 @@ Deno.test('@Inject throws if service type cannot be inferred', () => {
       }
     }
   
-    const _resource = new TestResource();
+    const _resource = new TestResource(app, new Hono({ strict: true }));
     const _service = _resource.service;
   }).toThrow(
     'Could not determine type for property service'
@@ -107,12 +107,12 @@ Deno.test('Resource waits on Application ready state before processing requests'
     }
   }
   
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const url = new URL('test', origin);
   let readyTime = Number();
 
   queueMicrotask(async () => {
-    const response = await Resource.hono.request(url);
+    const response = await app.hono.request(url);
     const json = await response.json();
     expect(json.responseTime).toBeGreaterThan(readyTime);
   });
@@ -135,7 +135,7 @@ Deno.test('Resources can\'t extend non-virtual resources', () => {
   }
 
   expect(() => {
-    const _resource = new TestResource();
+    const _resource = new TestResource(app, new Hono({ strict: true }));
   }).toThrow(
     'TestResource cannot extend BaseResource. Resources must extend abstract/virtual resources.'
   );
@@ -165,9 +165,9 @@ Deno.test('Resource has context, request and response injected', async () => {
       return Result(HttpStatusCodes.Ok);
     }
   }
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const url = new URL('test', origin);
-  await Resource.hono.request(url);
+  await app.hono.request(url);
 
   expect(request).toBeInstanceOf(Request);
   expect(response).toBeInstanceOf(Response);
@@ -186,7 +186,7 @@ Deno.test('Resource cannot Accept unregistered content type', () => {
   }
 
   expect(() => {
-    const _resource = new TestResource();
+    const _resource = new TestResource(app, new Hono({ strict: true }));
   }).toThrow(
     'A handler hasn\'t been registered for application/cbor'
   );
@@ -200,9 +200,9 @@ Deno.test('Resource returns only allowed methods in OPTIONS request', async () =
     public GET() {}
     public POST() {}
   }
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const url = new URL('test', origin);
-  const response = await Resource.hono.request(url, { method: 'OPTIONS' });
+  const response = await app.hono.request(url, { method: 'OPTIONS' });
   
   expect(response.status).toBe(HttpStatusCodes.NoContent);
   expect(response.headers.get(Headers.Allow)).toBe('GET, POST');
@@ -217,9 +217,9 @@ Deno.test('Resource returns 200 for defined method', async () => {
       return Result(HttpStatusCodes.Ok);
     }
   }
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const url = new URL('test', origin);
-  const response = await Resource.hono.request(url);
+  const response = await app.hono.request(url);
   
   expect(response.status).toBe(HttpStatusCodes.Ok);
 });
@@ -308,13 +308,13 @@ Deno.test('Middleware decorator per resource registers middleware handler', asyn
     }
   }
 
-  const _resource = new TestResource();
-  const _resource2 = new SecondTestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource2 = new SecondTestResource(app, new Hono({ strict: true }));
   const url = new URL('test', origin);
   const url2 = new URL('secondtest', origin);
-  const response = await Resource.hono.request(url);
-  const response2 = await Resource.hono.request(url, { method: 'POST' });
-  const response3 = await Resource.hono.request(url2);
+  const response = await app.hono.request(url);
+  const response2 = await app.hono.request(url, { method: 'POST' });
+  const response3 = await app.hono.request(url2);
 
   expect(response.headers.get(testHeader)).toBe('true');
   expect(response2.headers.get(testHeader)).toBe('true');
@@ -346,13 +346,13 @@ Deno.test('Middleware decorator per method registers middleware handler', async 
     }
   }
 
-  const _resource = new TestResource();
-  const _resource2 = new SecondTestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
+  const _resource2 = new SecondTestResource(app, new Hono({ strict: true }));
   const url = new URL('test', origin);
   const url2 = new URL('secondtest', origin);
-  const response = await Resource.hono.request(url);
-  const response2 = await Resource.hono.request(url, { method: 'POST' });
-  const response3 = await Resource.hono.request(url2);
+  const response = await app.hono.request(url);
+  const response2 = await app.hono.request(url, { method: 'POST' });
+  const response3 = await app.hono.request(url2);
 
   expect(response.headers.get(testHeader)).toBe('true');
   expect(response2.headers.get(testHeader)).toBe(null);
@@ -370,9 +370,9 @@ Deno.test('Resource overrides route with Route decorator', async () => {
     }
   }
 
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const url = new URL('user', origin);
-  const response = await Resource.hono.request(url);
+  const response = await app.hono.request(url);
 
   expect(response.status).toBe(HttpStatusCodes.Ok);
 });
@@ -387,15 +387,15 @@ Deno.test('FromRoute decorator registers route with optional param', async () =>
       return Result(HttpStatusCodes.Ok, { object });
     }
   }
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const id = crypto.randomUUID();
   let url = new URL(`test/${id}`, origin);
-  let response = await Resource.hono.request(url);
+  let response = await app.hono.request(url);
   
   expect(response.status).toBe(HttpStatusCodes.Ok);
 
   url = new URL('test', origin);
-  response = await Resource.hono.request(url);
+  response = await app.hono.request(url);
   
   expect(response.status).toBe(HttpStatusCodes.Ok);
 });
@@ -416,11 +416,11 @@ Deno.test('Resource parses using FromRoute decorator', async () => {
       return Result(HttpStatusCodes.Ok, { object, id, object2 });
     }
   }
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const id = crypto.randomUUID();
   const id2 = 10;
   const url = new URL(`test/${id}/${id2}`, origin);
-  const response = await Resource.hono.request(url);
+  const response = await app.hono.request(url);
   const json = await response.json();
   
   expect(response.status).toBe(HttpStatusCodes.Ok);
@@ -445,13 +445,13 @@ Deno.test('Resource parses using FromQuery decorator', async () => {
       return Result(HttpStatusCodes.Ok, { object, id, object2 });
     }
   }
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const id = crypto.randomUUID();
   const id2 = 10;
   const url = new URL('test', origin);
   url.searchParams.set('id', id);
   url.searchParams.set('id2', id2.toString());
-  const response = await Resource.hono.request(url);
+  const response = await app.hono.request(url);
   const json = await response.json();
   
   expect(response.status).toBe(HttpStatusCodes.Ok);
@@ -476,7 +476,7 @@ Deno.test('Resource parses using FromBody decorator', async () => {
       return Result(HttpStatusCodes.Ok, { object, id, object2 });
     }
   }
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const id = crypto.randomUUID();
   const id2 = 10;
   const url = new URL('test', origin);
@@ -484,7 +484,7 @@ Deno.test('Resource parses using FromBody decorator', async () => {
     id,
     id2,
   });
-  const response = await Resource.hono.request(
+  const response = await app.hono.request(
     url,
     { 
       body,
@@ -514,19 +514,19 @@ Deno.test('Resource intersects non-object types using FromBody decorator', async
       return Result(HttpStatusCodes.Ok, { e, e2 });
     }
   }
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const url = new URL('test', origin);
   const body = JSON.stringify('type');
   const method = 'POST';
   const headers = { [Headers.ContentType]: ContentTypes.Json };
-  const response = await Resource.hono.request(url, { body, method, headers });
+  const response = await app.hono.request(url, { body, method, headers });
   const json = await response.json();
 
   expect(json.e).toBe('type');
   expect(json.e2).toBe('type');
 
   const body2 = JSON.stringify('types');
-  const response2 = await Resource.hono.request(url, { body: body2, method, headers });
+  const response2 = await app.hono.request(url, { body: body2, method, headers });
 
   expect(response2.ok).toBe(false);
 });
@@ -541,13 +541,13 @@ Deno.test('Resource throws if content type is missing', async () => {
     }
   }
 
-  const _resource = new TestResource();
+  const _resource = new TestResource(app, new Hono({ strict: true }));
   const url = new URL('test', origin);
   const body = JSON.stringify('type');
   const method = 'POST';
   const request = new Request(url, { body, method });
   request.headers.delete(Headers.ContentType);
-  const response = await Resource.hono.request(request);
+  const response = await app.hono.request(request);
 
   expect(response.ok).toBe(false);
 });

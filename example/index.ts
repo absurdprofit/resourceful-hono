@@ -56,6 +56,8 @@ app.ready.then(() => {
 //   });
 // });
 
+console.log(app.hono)
+
 export default {
   fetch: app.fetch,
 };
