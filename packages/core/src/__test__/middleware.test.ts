@@ -53,7 +53,7 @@ app.registerResources([
 ]);
 
 Deno.test('ErrorHandler throws user error in TransactionScope', async () => {
-  const response = await Resource.hono.request('test', { method: 'POST' });
+  const response = await app.hono.request('test', { method: 'POST' });
 
   const error = await response.json();
   expect(response.status).toEqual(HttpStatusCodes.DependencyFailed);
@@ -61,7 +61,7 @@ Deno.test('ErrorHandler throws user error in TransactionScope', async () => {
 });
 
 Deno.test('ErrorHandler wraps arbitrary errors with InternalServerError', async () => {
-  const response = await Resource.hono.request('test', { method: 'PUT' });
+  const response = await app.hono.request('test', { method: 'PUT' });
 
   const error = await response.json();
   expect(response.status).toEqual(HttpStatusCodes.InternalServerError);
@@ -69,7 +69,7 @@ Deno.test('ErrorHandler wraps arbitrary errors with InternalServerError', async 
 });
 
 Deno.test('ErrorHandler wraps RollbackError with InternalServerError', async () => {
-  const response = await Resource.hono.request('test', { method: 'PATCH' });
+  const response = await app.hono.request('test', { method: 'PATCH' });
 
   const error = await response.json();
   expect(response.status).toEqual(HttpStatusCodes.InternalServerError);
@@ -77,7 +77,7 @@ Deno.test('ErrorHandler wraps RollbackError with InternalServerError', async () 
 });
 
 Deno.test('NotFoundHandler adds 404 response', async () => {
-  const response = await Resource.hono.request('secondtest');
+  const response = await app.hono.request('secondtest');
 
   const error = await response.json();
   expect(response.status).toEqual(HttpStatusCodes.NotFound);
@@ -95,7 +95,7 @@ Deno.test('TraceContext adds request traceparent to response traceparent', async
   };
   const method = 'DELETE';
 
-  const response = await Resource.hono.request('test', { method, headers });
+  const response = await app.hono.request('test', { method, headers });
   const [resVersion, resTraceId, resSpanId, resFlags] = response.headers.get(Headers.Traceparent)?.split('-') ?? [];
 
   expect(resVersion).toBe(version);
