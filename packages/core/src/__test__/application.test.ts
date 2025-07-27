@@ -1,6 +1,8 @@
 import { expect } from 'expect';
 import { Application, Resource } from '../index.ts';
 import { PromiseWrapper } from '../common/promise-wrapper.ts';
+import { Hono } from 'hono';
+import { honoBuilder } from '../common/utils.ts';
 
 const promiseWrapper = new PromiseWrapper<void>();
 Application.instance.addEventListener('ready', (e) => e.waitUntil(promiseWrapper.promise));
@@ -71,8 +73,8 @@ Deno.test('register resources with valid resource', () => {
   let constructed = false;
   // DummyResource extends Resource to pass the isResourceConstructor check.
   class DummyResource extends Resource {
-    constructor() {
-      super();
+    constructor(application: Application, Hono: typeof honoBuilder) {
+      super(application, Hono);
       constructed = true;
     }
   }
