@@ -49,7 +49,7 @@ export class ServerSentEvent extends Event {
     if (this.type)
       event += `event: ${this.type}\n`;
     if (this.data)
-      event += `data: ${typeof this.data === 'string' ? this.data : JSON.stringify(this.data)}\n`;
+      event += `data: ${JSON.stringify(this.data)}\n`;
     if (this.comment)
       event += `: ${this.comment}`;
 
