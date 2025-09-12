@@ -106,8 +106,8 @@ export class ContentTypeRegistry {
           // JSON parse and dispatch
           // TODO: fix types, event source types on resource client should now be inferred
           source.dispatchEvent = (event) => {
-            if (event?.data) {
-              event.data = JSON.parse(event.data);
+            if (event?.message) {
+              event.message = JSON.parse(event.message);
             }
             return originalDispatch(event);
           };
