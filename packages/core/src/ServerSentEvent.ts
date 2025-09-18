@@ -5,8 +5,8 @@
  * @property comment - Optional comment line (`: comment`) sent before the event.
  * @property id - Optional event ID for `Last-Event-ID` tracking.
  */
-export interface ServerSentEventInit<T> {
-  data?: T;
+export interface ServerSentEventInit {
+  data?: unknown;
   comment?: string;
   id?: number;
 }
@@ -30,12 +30,12 @@ export interface ServerSentEventInit<T> {
  * return Result(200, function* () { yield event; });
  * ```
  */
-export class ServerSentEvent<T> extends Event {
-  public readonly data?: T;
+export class ServerSentEvent extends Event {
+  public readonly data?: unknown;
   public readonly comment?: string;
   public readonly id?: number;
 
-  constructor(type: string, eventInitDict?: ServerSentEventInit<T>) {
+  constructor(type: string, eventInitDict?: ServerSentEventInit) {
     super(type, { bubbles: false, cancelable: false, composed: false });
     this.id = eventInitDict?.id;
     this.data = eventInitDict?.data;
@@ -49,15 +49,11 @@ export class ServerSentEvent<T> extends Event {
     if (this.type)
       event += `event: ${this.type}\n`;
     if (this.data)
-      event += `data: ${JSON.stringify(this.data)}\n`;
+      event += `data: ${typeof this.data === 'string' ? this.data : JSON.stringify(this.data)}\n`;
     if (this.comment)
       event += `: ${this.comment}`;
 
     event += '\n\n';
     return event;
-  }
-
-  public static from<T>(data: T, eventType = 'message', id?: number, comment?: string) {
-    return new ServerSentEvent<T>(eventType, { data, id, comment });
   }
 }
