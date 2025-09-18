@@ -39,7 +39,7 @@ export class AsyncConsoleLogService extends AsyncLogService {
       type: 'debug',
       data: [message, payload],
     };
-    if (!this.ref.current.context)
+    if (this.ref.current)
       return this.logImmediate(log);
     this.logs.push(log);
   }
@@ -50,7 +50,7 @@ export class AsyncConsoleLogService extends AsyncLogService {
       type: 'info',
       data: [message, payload],
     };
-    if (!this.ref.current.context)
+    if (this.ref.current)
       return this.logImmediate(log);
     this.logs.push(log);
   }
@@ -61,7 +61,7 @@ export class AsyncConsoleLogService extends AsyncLogService {
       type: 'warn',
       data: [message, error, payload],
     };
-    if (!this.ref.current.context)
+    if (this.ref.current)
       return this.logImmediate(log);
     this.logs.push(log);
   }
@@ -72,7 +72,7 @@ export class AsyncConsoleLogService extends AsyncLogService {
       type: 'error',
       data: [error, payload],
     };
-    if (!this.ref.current.context)
+    if (this.ref.current)
       return this.logImmediate(log);
     this.logs.push();
   }
