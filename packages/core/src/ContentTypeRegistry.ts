@@ -96,23 +96,10 @@ export class ContentTypeRegistry {
           else
             response = resource;
   
-          const source = new EventSource(
+          return new EventSource(
             resource.url,
             { fetch: () => Promise.resolve(response) }
           );
-
-          const originalDispatch = source.dispatchEvent.bind(source);
-
-          // JSON parse and dispatch
-          // TODO: fix types, event source types on resource client should now be inferred
-          source.dispatchEvent = (event) => {
-            if (event?.data) {
-              event.data = JSON.parse(event.data);
-            }
-            return originalDispatch(event);
-          };
-
-          return source;
         } else {
           return resource.body;
         }
