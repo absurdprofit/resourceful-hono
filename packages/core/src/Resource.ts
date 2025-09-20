@@ -63,6 +63,27 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
 export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, ___ = unknown> extends Response {
   readonly status: S;
 }
+
+// Cache the date header value to avoid regenerating it for every response within the same second.
+// This is a performance optimization based on the fact that the Date header only needs to be accurate to the second.
+function* DATE_GENERATOR(): Generator<string, string, unknown> {
+  let last = 0;
+  let value = new Date().toUTCString();
+
+  while (true) {
+    const now = Date.now();
+
+    if (now - last >= 1000) {
+      last = now;
+      value = new Date().toUTCString();
+    }
+
+    yield value;
+  }
+}
+const date = DATE_GENERATOR();
+const NO_CONTENT_RESULT = Result(HttpStatusCodes.NoContent);
+
 /**
  * Creates a typed HTTP response with optional encoding based on content type.
  *
@@ -99,33 +120,44 @@ export async function Result<
   content?: C,
   contentType?: T
 ): Promise<TypedResultResponse<S, C, T>> {
-  const headers = new globalThis.Headers();
-  let body;
-  if (isBodyInit(content)) {
-    body = content;
-  } else {
+  const headers = new globalThis.Headers({
+    [Headers.Date]: date.next().value,
+  });
+
+  let body: C | BodyInit | null | undefined = content;
+  if (!isBodyInit(body)) {
     if (!contentType) {
-      if (typeof content === 'function')
-        contentType = ContentTypes.OctetStream as T;
-      else if (typeof content !== 'undefined')
-        contentType = ContentTypes.Json as T;
+      switch (typeof content) {
+        case 'function':
+          contentType = ContentTypes.OctetStream as T;
+          headers.set(Headers.ContentType, ContentTypes.OctetStream);
+          break;
+        case 'undefined':
+          return new Response(undefined, { status, headers }) as TypedResultResponse<S, C, T>;
+        default:
+          contentType = ContentTypes.Json as T;
+          headers.set(Headers.ContentType, ContentTypes.Json);
+      }
     }
 
-    const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
-    if (encode)
-      body = await encode(content, contentType);
     if (
       contentType?.startsWith(ContentTypes.ServerSentEvent)
-      && body instanceof ReadableStream
     ) {
       headers.set(Headers.CacheControl, 'no-cache');
       headers.set(Headers.Connection, 'keep-alive');
     }
+
+    body = await Resource
+      .contentTypes
+      .get(contentType ?? '')
+      ?.encode(content, contentType);  
   }
-  if (contentType) headers.set(Headers.ContentType, contentType);
-  headers.set(Headers.Date, new Date().toUTCString());
-  return new Response(body, { status, headers }) as TypedResultResponse<S, C, T>;
+  return new Response(
+    body as BodyInit | null | undefined,
+    { status, headers }
+  ) as TypedResultResponse<S, C, T>;
 }
+
 export interface IResource {
   readonly route: string;
   readonly context: Context;
@@ -476,14 +508,13 @@ export abstract class Resource implements IResource {
       Resource.#activeRequests++;
       const method = context.req.method as RequestMethod;
       const clone = this.#clone(context);
-      const methodHandler = clone[method]?.bind(clone);
       const { parameters, issues } = await this.#collectParameters(context.req);
 
       if (issues.length)
         throw new BadRequestError('There were issues in your request.', { issues });
 
-      const response = await methodHandler?.(...parameters, context.req.raw.signal);
-      return response ?? Result(HttpStatusCodes.NoContent);
+      const response = await clone[method]?.call(clone, ...parameters, context.req.raw.signal);
+      return response ?? NO_CONTENT_RESULT;
     } finally {
       context.set('activeRequests', --Resource.#activeRequests);
       Application.instance.dispatchEvent(new ResponseEvent(context));
@@ -551,45 +582,43 @@ export abstract class Resource implements IResource {
     const issues: z.ZodIssue[] = [];
     let parameters: unknown[] = [];
 
-    if (parameterMetadata.length) {
-      const schemas: Record<ParameterMetadata['type'], z.ZodType | undefined> = {
-        route: this.#routeSchema.get(method),
-        query: this.#querySchema.get(method),
-        body: this.#bodySchema.get(method),
-      };
-      
-      const data = Object.fromEntries(
-        await Promise.all(
-          Object.entries(schemas).map(async ([type, schema]) => {
-            if (!schema) return [type, { [DEFAULT_PARAMETER_KEY]: undefined }];
-            const result = await schema.safeParseAsync(
-              await this.#parseParameters(type as ParameterMetadata['type'], request)
-            );
-            const parsedData = { ...(result['data'] ?? {}) };
-            parsedData[DEFAULT_PARAMETER_KEY] = result['data'];
-            if (!result.success)
-              issues.push(...result.error.issues);
-      
-            return [
-              type,
-              parsedData,
-            ];
-          })
-        )
-      );
-  
-      parameters = parameterMetadata.map(({ type, key, keys }) => {
-        if (!key && keys) {
-          // create object with only the expected key-value pairs
-          const object = data[type][DEFAULT_PARAMETER_KEY];
-          return keys.reduce((parameter, key) => {
-            parameter[key] = object?.[key];
-            return parameter;
-          }, {} as Record<string, unknown>);
-        }
-        return data[type][key ?? DEFAULT_PARAMETER_KEY];
-      });
-    }
+    const schemas: [ParameterMetadata['type'], z.ZodType | undefined][] = [
+      ['route', this.#routeSchema.get(method)],
+      ['query', this.#querySchema.get(method)],
+      ['body', this.#bodySchema.get(method)],
+    ];
+    
+    const data = Object.fromEntries(
+      await Promise.all(
+        schemas.map(async ([type, schema]) => {
+          if (!schema) return [type, { [DEFAULT_PARAMETER_KEY]: undefined }];
+          const result = await schema.safeParseAsync(
+            await this.#parseParameters(type as ParameterMetadata['type'], request)
+          );
+          const parsedData = { ...(result['data'] ?? {}) };
+          parsedData[DEFAULT_PARAMETER_KEY] = result['data'];
+          if (!result.success)
+            issues.push(...result.error.issues);
+    
+          return [
+            type,
+            parsedData,
+          ];
+        })
+      )
+    );
+
+    parameters = parameterMetadata.map(({ type, key, keys }) => {
+      if (!key && keys) {
+        // create object with only the expected key-value pairs
+        const object = data[type][DEFAULT_PARAMETER_KEY];
+        return keys.reduce((parameter, key) => {
+          parameter[key] = object?.[key];
+          return parameter;
+        }, {} as Record<string, unknown>);
+      }
+      return data[type][key ?? DEFAULT_PARAMETER_KEY];
+    });
 
     return {
       issues,
