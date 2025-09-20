@@ -66,14 +66,15 @@ export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unk
 
 // Cache the date header value to avoid regenerating it for every response within the same second.
 // This is a performance optimization based on the fact that the Date header only needs to be accurate to the second.
+const SECOND_IN_MS = 1000;
 function* DATE_GENERATOR(): Generator<string, string, unknown> {
-  let last = 0;
+  let last = SECOND_IN_MS;
   let value = new Date().toUTCString();
 
   while (true) {
     const now = Date.now();
 
-    if (now - last >= 1000) {
+    if (now - last >= SECOND_IN_MS) {
       last = now;
       value = new Date().toUTCString();
     }
@@ -593,7 +594,7 @@ export abstract class Resource implements IResource {
         schemas.map(async ([type, schema]) => {
           if (!schema) return [type, { [DEFAULT_PARAMETER_KEY]: undefined }];
           const result = await schema.safeParseAsync(
-            await this.#parseParameters(type as ParameterMetadata['type'], request)
+            await this.#parseParameters(type, request)
           );
           const parsedData = { ...(result['data'] ?? {}) };
           parsedData[DEFAULT_PARAMETER_KEY] = result['data'];

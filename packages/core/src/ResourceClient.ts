@@ -8,7 +8,6 @@ import { UnsupportedMediaTypeError } from './common/errors.ts';
 import type { EventSource } from 'eventsource';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
 import { HttpError } from './HttpError.ts';
-import { generateHex } from './common/utils.ts';
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -148,7 +147,6 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
     const url = new URL(pathname, this.origin);
     url.search = search;
 
-    headers.set(Headers.Traceparent, this.#createTraceContext());
     const response = await this.fetch(url, { signal, method, body, headers });
     const responseContentType = response.headers.get(Headers.ContentType);
     
@@ -165,14 +163,6 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
     }
     response.body?.cancel();
     throw new UnsupportedMediaTypeError(`Could not find a decoder for ${this.#resource.name}.${method}`);
-  }
-
-  #createTraceContext() {
-    const version = '00';
-    const traceId = generateHex(TRACE_ID_LENGTH);
-    const spanId = generateHex(SPAN_ID_LENGTH);
-    const flags = '01';
-    return `${version}-${traceId}-${spanId}-${flags}`;
   }
 
   #collectMethodMetadata<T>(key: symbol) {

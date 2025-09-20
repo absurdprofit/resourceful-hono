@@ -1,4 +1,4 @@
-import { HEX_RADIX, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
+import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
@@ -68,14 +68,4 @@ export function toFormData(input: unknown): FormData {
   }
 
   return formData;
-}
-
-// Helper to generate a random hex string
-export function generateHex(bytesCount: number): string {
-  const PAD_MAX_COUNT = 2;
-  const array = new Uint8Array(bytesCount);
-  crypto.getRandomValues(array);
-  return Array.from(array)
-    .map((b) => b.toString(HEX_RADIX).padStart(PAD_MAX_COUNT, '0'))
-    .join('');
 }

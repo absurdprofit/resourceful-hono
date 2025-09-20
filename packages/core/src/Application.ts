@@ -2,7 +2,7 @@ import type { ExecutionContext, Hono, MiddlewareHandler } from 'hono';
 import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from './ServiceMap.ts';
 import { type Constructor, isResourceConstructor } from './common/types.ts';
-import { ErrorHandler, NotFoundHandler, TraceContext } from './middleware/index.ts';
+import { ErrorHandler, NotFoundHandler } from './middleware/index.ts';
 import { FinishEvent, ReadyEvent, RequestEvent, type ResponseEvent } from './common/events.ts';
 import { PromiseWrapper } from './common/promise-wrapper.ts';
 import { TypedEventTarget } from './TypedEventTarget.ts';
@@ -35,7 +35,6 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
 
     this.#hono.onError(ErrorHandler);
     this.registerMiddlewares([
-      TraceContext,
       NotFoundHandler,
     ]);
 
