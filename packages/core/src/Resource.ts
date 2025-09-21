@@ -2,7 +2,7 @@ import type { HonoRequest, Handler, Context, MiddlewareHandler } from 'hono';
 import { mergePath } from 'hono/utils/url';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, FIRST_INDEX, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
 import type { DefaultContextVariables, ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
 import { isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
@@ -608,13 +608,12 @@ export abstract class Resource implements IResource {
     );
 
     const parameters: unknown[] = new Array(parameterMetadata.length);
-    const ARRAY_START = 0;
-    for (let i = ARRAY_START; i < parameterMetadata.length; i++) {
+    for (let i = FIRST_INDEX; i < parameterMetadata.length; i++) {
       const { type, key, keys } = parameterMetadata[i];
       if (!key && keys) {
         const obj = data[type][DEFAULT_PARAMETER_KEY] || {};
         const subset: Record<string, unknown> = {};
-        for (let j = ARRAY_START; j < keys.length; j++) {
+        for (let j = FIRST_INDEX; j < keys.length; j++) {
           const k = keys[j];
           subset[k] = obj[k];
         }
