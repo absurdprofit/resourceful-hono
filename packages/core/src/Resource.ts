@@ -581,7 +581,6 @@ export abstract class Resource implements IResource {
     const method = request.method as RequestMethod;
     const parameterMetadata = this.#parameterMetadata.get(method) ?? [];
     const issues: z.ZodIssue[] = [];
-    let parameters: unknown[] = [];
 
     const schemas: [ParameterMetadata['type'], z.ZodType | undefined][] = [
       ['route', this.#routeSchema.get(method)],
@@ -589,37 +588,41 @@ export abstract class Resource implements IResource {
       ['body', this.#bodySchema.get(method)],
     ];
     
-    const data = Object.fromEntries(
-      await Promise.all(
-        schemas.map(async ([type, schema]) => {
-          if (!schema) return [type, { [DEFAULT_PARAMETER_KEY]: undefined }];
-          const result = await schema.safeParseAsync(
-            await this.#parseParameters(type, request)
-          );
-          const parsedData = { ...(result['data'] ?? {}) };
-          parsedData[DEFAULT_PARAMETER_KEY] = result['data'];
-          if (!result.success)
-            issues.push(...result.error.issues);
+    type ParameterData = Record<string, unknown> & {
+      [DEFAULT_PARAMETER_KEY]: Record<string, unknown> | undefined;
+    };
+    const data: Record<string, ParameterData> = {};
+    await Promise.all(
+      schemas.map(async ([type, schema]) => {
+        if (!schema) return data[type] = { [DEFAULT_PARAMETER_KEY]: undefined };
+        const result = await schema.safeParseAsync(
+          await this.#parseParameters(type, request)
+        );
+        const parsedData = { ...(result['data'] ?? {}) };
+        parsedData[DEFAULT_PARAMETER_KEY] = result['data'];
+        if (!result.success)
+          issues.push(...result.error.issues);
     
-          return [
-            type,
-            parsedData,
-          ];
-        })
-      )
+        data[type] = parsedData;
+      })
     );
 
-    parameters = parameterMetadata.map(({ type, key, keys }) => {
+    const parameters: unknown[] = new Array(parameterMetadata.length);
+    const ARRAY_START = 0;
+    for (let i = ARRAY_START; i < parameterMetadata.length; i++) {
+      const { type, key, keys } = parameterMetadata[i];
       if (!key && keys) {
-        // create object with only the expected key-value pairs
-        const object = data[type][DEFAULT_PARAMETER_KEY];
-        return keys.reduce((parameter, key) => {
-          parameter[key] = object?.[key];
-          return parameter;
-        }, {} as Record<string, unknown>);
+        const obj = data[type][DEFAULT_PARAMETER_KEY] || {};
+        const subset: Record<string, unknown> = {};
+        for (let j = ARRAY_START; j < keys.length; j++) {
+          const k = keys[j];
+          subset[k] = obj[k];
+        }
+        parameters[i] = subset;
+      } else {
+        parameters[i] = data[type][key ?? DEFAULT_PARAMETER_KEY];
       }
-      return data[type][key ?? DEFAULT_PARAMETER_KEY];
-    });
+    }
 
     return {
       issues,

@@ -1,5 +1,7 @@
 // import { Hono } from 'hono';
 // import { Application, Resource, Result } from './index.ts';
+// import { FromBody } from './common/decorators.ts';
+// import { z } from 'zod';
 
 // Deno.bench('Result', async () => {
 //   await Result(200, 1);
@@ -15,9 +17,14 @@
 // const app = Application.instance;
 
 // class TestResource extends Resource {
+//   private static count = 0;
 //   GET() {
 //     // return new Response(JSON.stringify(1), { status: 200 });
-//     return Result(200, 1);
+//     return Result(200, { count: ++TestResource.count });
+//   }
+
+//   POST(@FromBody(z.object({ name: z.string() })) body: { name: string }) {
+//     return Result(201, { name: body.name });
 //   }
 // }
 
@@ -27,6 +34,14 @@
 // console.log(res.status, res.headers.get('Date'));
 // Deno.bench('fetch', async () => {
 //   await app.fetch(new Request('http://localhost/test'));
+// });
+
+// Deno.bench('fetch POST', async () => {
+//   await app.fetch(new Request('http://localhost/test', {
+//     method: 'POST',
+//     body: JSON.stringify({ name: 'test' }),
+//     headers: { 'Content-Type': 'application/json' },
+//   }));
 // });
 
 // const rootHono = new Hono({ strict: true });
