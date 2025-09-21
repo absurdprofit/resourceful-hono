@@ -121,9 +121,9 @@ export async function Result<
   content?: C,
   contentType?: T
 ): Promise<TypedResultResponse<S, C, T>> {
-  const headers = new globalThis.Headers({
+  const headers: Record<string, string> = {
     [Headers.Date]: date.next().value,
-  });
+  };
 
   let body: C | BodyInit | null | undefined = content;
   if (!isBodyInit(body)) {
@@ -131,21 +131,21 @@ export async function Result<
       switch (typeof content) {
         case 'function':
           contentType = ContentTypes.OctetStream as T;
-          headers.set(Headers.ContentType, ContentTypes.OctetStream);
+          headers[Headers.ContentType] = ContentTypes.OctetStream;
           break;
         case 'undefined':
           return new Response(undefined, { status, headers }) as TypedResultResponse<S, C, T>;
         default:
           contentType = ContentTypes.Json as T;
-          headers.set(Headers.ContentType, ContentTypes.Json);
+          headers[Headers.ContentType] = ContentTypes.Json;
       }
     }
 
     if (
       contentType?.startsWith(ContentTypes.ServerSentEvent)
     ) {
-      headers.set(Headers.CacheControl, 'no-cache');
-      headers.set(Headers.Connection, 'keep-alive');
+      headers[Headers.CacheControl] = 'no-cache';
+      headers[Headers.Connection] = 'keep-alive';
     }
 
     body = await Resource

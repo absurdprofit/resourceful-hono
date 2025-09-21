@@ -1,44 +1,50 @@
-import { Hono } from "hono";
-import { Application, Resource, Result } from "./index.ts";
+// import { Hono } from 'hono';
+// import { Application, Resource, Result } from './index.ts';
 
-Deno.bench('Result', async () => {
-	await Result(200, 1);
-});
+// Deno.bench('Result', async () => {
+//   await Result(200, 1);
+// });
 
-const app = Application.instance;
+// const contentType = Math.random() > 0.5 ? 'application/json' : 'text/plain';
+// Deno.bench('contentTypes.get', () => {
+//   Resource
+//     .contentTypes
+//     .get(contentType ?? '');
+// });
 
-class TestResource extends Resource {
-	increment = 0;
-	GET() {
-		return new Response(JSON.stringify(1), { status: 200 });
-		// return Result(200, ++this.increment);
-	}
-}
+// const app = Application.instance;
 
-app.registerResources([TestResource]);
+// class TestResource extends Resource {
+//   GET() {
+//     // return new Response(JSON.stringify(1), { status: 200 });
+//     return Result(200, 1);
+//   }
+// }
 
-let res = await app.fetch(new Request('http://localhost/test'));
-console.log(res.status, res.headers.get('Date'));
-Deno.bench('fetch', async () => {
-	await app.fetch(new Request('http://localhost/test'));
-});
+// app.registerResources([TestResource]);
 
-const rootHono = new Hono({ strict: true });
-const hono = new Hono({ strict: true }).basePath('/test');
-hono.get('', (c) => {
-	return c.json(1);
-});
-hono.options('*', (c) => {
-	return c.text('1');
-});
-hono.all('*', (c) => {
-	return c.text('2', { status: 405 });
-});
-rootHono.route('', hono);
+// let res = await app.fetch(new Request('http://localhost/test'));
+// console.log(res.status, res.headers.get('Date'));
+// Deno.bench('fetch', async () => {
+//   await app.fetch(new Request('http://localhost/test'));
+// });
 
-res = await rootHono.fetch(new Request('http://localhost/test'));
-console.log(rootHono.router, res.status);
+// const rootHono = new Hono({ strict: true });
+// const hono = new Hono({ strict: true }).basePath('/test');
+// hono.get('', (c) => {
+//   return c.json(1);
+// });
+// hono.options('*', (c) => {
+//   return c.text('1');
+// });
+// hono.all('*', (c) => {
+//   return c.text('2', { status: 405 });
+// });
+// rootHono.route('', hono);
 
-Deno.bench('hono fetch', async () => {
-	await rootHono.fetch(new Request('http://localhost/test'));
-});
+// res = await rootHono.fetch(new Request('http://localhost/test'));
+// console.log(rootHono.router, res.status);
+
+// Deno.bench('hono fetch', async () => {
+//   await rootHono.fetch(new Request('http://localhost/test'));
+// });
