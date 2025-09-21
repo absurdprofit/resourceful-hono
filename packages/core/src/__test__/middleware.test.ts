@@ -3,12 +3,10 @@ import { Application } from '../Application.ts';
 import { Logger } from '../middleware/Logger.ts';
 import { Resource } from '../Resource.ts';
 import { ConsoleLogService, LogService } from '../services/LogService/index.ts';
-import { Headers, HttpStatusCodes } from '../common/enums.ts';
+import { HttpStatusCodes } from '../common/enums.ts';
 import { expect } from 'expect';
 import { TransactionScope } from '../index.ts';
 import { DependencyFailedError, InternalServerError, NotFoundError } from '../common/errors.ts';
-import { generateHex } from '../common/utils.ts';
-import { SPAN_ID_LENGTH, TRACE_ID_LENGTH } from '../common/constants.ts';
 
 const app = Application.instance;
 app.registerMiddlewares([Logger]);

@@ -34,9 +34,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
       throw new TypeError('Illegal constructor');
 
     this.#hono.onError(ErrorHandler);
-    this.registerMiddlewares([
-      NotFoundHandler,
-    ]);
+    this.#hono.notFound(NotFoundHandler);
 
     this.#readyPromise = new PromiseWrapper<void>();
     this.#finishedPromise = new PromiseWrapper<void>();

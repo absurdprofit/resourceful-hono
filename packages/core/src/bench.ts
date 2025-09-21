@@ -36,6 +36,10 @@
 //   await app.fetch(new Request('http://localhost/test'));
 // });
 
+// Deno.bench('fetch NOT Found', async () => {
+//   await app.fetch(new Request('http://localhost/'));
+// });
+
 // Deno.bench('fetch POST', async () => {
 //   await app.fetch(new Request('http://localhost/test', {
 //     method: 'POST',

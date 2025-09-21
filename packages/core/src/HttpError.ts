@@ -32,7 +32,7 @@ export abstract class HttpError extends Error {
   public abstract readonly status: HttpStatusCodes | number;
   public abstract readonly type: string;
   public readonly title: string;
-  public readonly detail: string;
+  public detail: string;
   public instance: string | null = null;
   public traceparent: string | null = null;
 
