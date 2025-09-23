@@ -162,7 +162,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       return result;
     }
     response.body?.cancel();
-    throw new UnsupportedMediaTypeError(`Could not find a decoder for ${this.#resource.name}.${method}`);
+    throw new UnsupportedMediaTypeError(`Could not find a decoder for ${responseContentType}`);
   }
 
   #collectMethodMetadata<T>(key: symbol) {

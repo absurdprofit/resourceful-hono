@@ -130,15 +130,15 @@ export async function Result<
       switch (typeof content) {
         case 'function':
           contentType = ContentTypes.OctetStream as T;
-          headers.push([Headers.ContentType, ContentTypes.OctetStream]);
           break;
         case 'undefined':
           return new Response(undefined, { status, headers }) as TypedResultResponse<S, C, T>;
         default:
           contentType = ContentTypes.Json as T;
-          headers.push([Headers.ContentType, ContentTypes.Json]);
       }
     }
+
+    headers.push([Headers.ContentType, contentType!]);
 
     if (
       contentType?.startsWith(ContentTypes.ServerSentEvent)
