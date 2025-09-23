@@ -67,11 +67,11 @@ export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unk
 // Cache the date header value to avoid regenerating it for every response within the same second.
 // This is a performance optimization based on the fact that the Date header only needs to be accurate to the second.
 const SECOND_IN_MS = 1000;
-function* DATE_GENERATOR(): Generator<string, string, unknown> {
+function DATE_GENERATOR() {
   let last = SECOND_IN_MS;
   let value = new Date().toUTCString();
 
-  while (true) {
+  return () => {
     const now = Date.now();
 
     if (now - last >= SECOND_IN_MS) {
@@ -79,11 +79,10 @@ function* DATE_GENERATOR(): Generator<string, string, unknown> {
       value = new Date().toUTCString();
     }
 
-    yield value;
+    return value;
   }
 }
 const date = DATE_GENERATOR();
-const NO_CONTENT_RESULT = Result(HttpStatusCodes.NoContent);
 
 /**
  * Creates a typed HTTP response with optional encoding based on content type.
@@ -122,7 +121,7 @@ export async function Result<
   contentType?: T
 ): Promise<TypedResultResponse<S, C, T>> {
   const headers: [string, string][] = [
-    [Headers.Date, date.next().value],
+    [Headers.Date, date()],
   ];
 
   let body: C | BodyInit | null | undefined = content;
@@ -144,13 +143,15 @@ export async function Result<
     if (
       contentType?.startsWith(ContentTypes.ServerSentEvent)
     ) {
-      headers.push([Headers.CacheControl, 'no-cache']);
-      headers.push([Headers.Connection, 'keep-alive']);
+      headers.push(
+        [Headers.CacheControl, 'no-cache'],
+        [Headers.Connection, 'keep-alive']
+      );
     }
 
     body = await Resource
       .contentTypes
-      .get(contentType ?? '')
+      .get(contentType!)
       ?.encode(content, contentType);  
   }
   return new Response(
@@ -515,7 +516,7 @@ export abstract class Resource implements IResource {
         throw new BadRequestError('There were issues in your request.', { issues });
 
       const response = await clone[method]?.call(clone, ...parameters, context.req.raw.signal);
-      return response ?? NO_CONTENT_RESULT;
+      return response ?? Result(HttpStatusCodes.NoContent);
     } finally {
       context.set('activeRequests', --Resource.#activeRequests);
       Application.instance.dispatchEvent(new ResponseEvent(context));

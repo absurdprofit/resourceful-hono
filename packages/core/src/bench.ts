@@ -1,5 +1,5 @@
 // import { Hono } from 'hono';
-// import { Application, Resource, Result } from './index.ts';
+// import { Application, Inject, Resource, Result } from './index.ts';
 // import { FromBody } from './common/decorators.ts';
 // import { z } from 'zod';
 
@@ -19,33 +19,68 @@
 // class TestResource extends Resource {
 //   private static count = 0;
 //   GET() {
-//     // return new Response(JSON.stringify(1), { status: 200 });
 //     return Result(200, { count: ++TestResource.count });
 //   }
 
 //   POST(@FromBody(z.object({ name: z.string() })) body: { name: string }) {
 //     return Result(201, { name: body.name });
 //   }
+
+// 	DELETE() {}
 // }
 
 // app.registerResources([TestResource]);
 
-// let res = await app.fetch(new Request('http://localhost/test'));
+// class TestService {
+// 	hello() {
+// 		return 'hello';
+// 	}
+// }
+
+// class Test {
+// 	@Inject()
+// 	declare public service: TestService;
+// }
+
+// app.registerService(TestService, new TestService());
+
+// const fetch = new Request('http://localhost/test')
+// let res = await app.fetch(fetch);
+// res = await app.fetch(fetch);
 // console.log(res.status, res.headers.get('Date'));
 // Deno.bench('fetch', async () => {
-//   await app.fetch(new Request('http://localhost/test'));
+//   await app.fetch(fetch);
 // });
 
+// const notFound = new Request('http://localhost/');
 // Deno.bench('fetch NOT Found', async () => {
-//   await app.fetch(new Request('http://localhost/'));
+//   await app.fetch(notFound);
 // });
 
+// const post = new Request('http://localhost/test', {
+//   method: 'POST',
+//   body: JSON.stringify({ name: 'test' }),
+//   headers: { 'Content-Type': 'application/json' },
+// });
 // Deno.bench('fetch POST', async () => {
-//   await app.fetch(new Request('http://localhost/test', {
-//     method: 'POST',
-//     body: JSON.stringify({ name: 'test' }),
+//   await app.fetch(post.clone());
+// });
+
+// const noContent = new Request('http://localhost/test', {
+//     method: 'DELETE',
 //     headers: { 'Content-Type': 'application/json' },
-//   }));
+//   });
+// Deno.bench('fetch no content', async () => {
+//   await app.fetch(noContent);
+// });
+
+// Deno.bench('getService', () => {
+// 	app.getService(TestService);
+// });
+
+// const test = new Test();
+// Deno.bench('getService integrated', () => {
+// 	test.service;
 // });
 
 // const rootHono = new Hono({ strict: true });
@@ -61,9 +96,9 @@
 // });
 // rootHono.route('', hono);
 
-// res = await rootHono.fetch(new Request('http://localhost/test'));
+// res = await rootHono.fetch(fetch);
 // console.log(rootHono.router, res.status);
 
 // Deno.bench('hono fetch', async () => {
-//   await rootHono.fetch(new Request('http://localhost/test'));
+//   await rootHono.fetch(fetch);
 // });
