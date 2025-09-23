@@ -21,7 +21,8 @@ export function isBodyInit(value: unknown): value is BodyInit {
   return typeof value === 'string'
     || value instanceof Blob
     || value instanceof ArrayBuffer
-    || value instanceof FormData || value instanceof URLSearchParams
+    || value instanceof FormData
+    || value instanceof URLSearchParams
     || value instanceof ReadableStream;
 }
 

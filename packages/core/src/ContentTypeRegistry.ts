@@ -25,7 +25,7 @@ export class ContentTypeRegistry {
       pattern = pattern === '*/*' ? '*' : pattern;
       this.#router.add(
         method,
-        pattern,
+        pattern.toLowerCase(),
         handler
       );
     });
@@ -38,7 +38,7 @@ export class ContentTypeRegistry {
       contentType = contentType.slice(FIRST_INDEX, semicolonIndex);
     return this.#router.match(
       method,
-      contentType
+      contentType.toLowerCase()
     )
       .at(FIRST_INDEX)
       ?.at(LAST_INDEX)

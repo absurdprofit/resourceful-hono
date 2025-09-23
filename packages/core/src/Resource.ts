@@ -125,7 +125,7 @@ export async function Result<
   ];
 
   let body: C | BodyInit | null | undefined = content;
-  if (!isBodyInit(body)) {
+  if (contentType || !isBodyInit(body)) {
     if (!contentType) {
       switch (typeof content) {
         case 'function':
@@ -152,7 +152,7 @@ export async function Result<
     body = await Resource
       .contentTypes
       .get(contentType!)
-      ?.encode(content, contentType);  
+      ?.encode(content, contentType);
   }
   return new Response(
     body as BodyInit | null | undefined,
