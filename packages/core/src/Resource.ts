@@ -80,7 +80,7 @@ function DATE_GENERATOR() {
     }
 
     return value;
-  }
+  };
 }
 const date = DATE_GENERATOR();
 

@@ -23,20 +23,22 @@ export class ContentTypeRegistry {
 
     pattern.forEach(pattern => {
       pattern = pattern === '*/*' ? '*' : pattern;
-      pattern = pattern.split(';')[0];
       this.#router.add(
         method,
-        pattern.replaceAll(':', ';').toLowerCase(),
+        pattern,
         handler
       );
     });
   }
 
   public get(method: string, contentType: string) {
-    contentType = contentType.split(';')[0];
+    // Remove any parameters from the content type (e.g. charset)
+    const semicolonIndex = contentType.indexOf(';');
+    if (semicolonIndex !== LAST_INDEX) 
+      contentType = contentType.slice(FIRST_INDEX, semicolonIndex);
     return this.#router.match(
       method,
-      contentType.replaceAll(':', ';').toLowerCase()
+      contentType
     )
       .at(FIRST_INDEX)
       ?.at(LAST_INDEX)

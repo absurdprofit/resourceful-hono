@@ -26,25 +26,25 @@
 //     return Result(201, { name: body.name });
 //   }
 
-// 	DELETE() {}
+//   DELETE() {}
 // }
 
 // app.registerResources([TestResource]);
 
 // class TestService {
-// 	hello() {
-// 		return 'hello';
-// 	}
+//   hello() {
+//     return 'hello';
+//   }
 // }
 
 // class Test {
 // 	@Inject()
-// 	declare public service: TestService;
+//   declare public service: TestService;
 // }
 
 // app.registerService(TestService, new TestService());
 
-// const fetch = new Request('http://localhost/test')
+// const fetch = new Request('http://localhost/test');
 // let res = await app.fetch(fetch);
 // res = await app.fetch(fetch);
 // console.log(res.status, res.headers.get('Date'));
@@ -67,20 +67,20 @@
 // });
 
 // const noContent = new Request('http://localhost/test', {
-//     method: 'DELETE',
-//     headers: { 'Content-Type': 'application/json' },
-//   });
+//   method: 'DELETE',
+//   headers: { 'Content-Type': 'application/json' },
+// });
 // Deno.bench('fetch no content', async () => {
 //   await app.fetch(noContent);
 // });
 
 // Deno.bench('getService', () => {
-// 	app.getService(TestService);
+//   app.getService(TestService);
 // });
 
 // const test = new Test();
 // Deno.bench('getService integrated', () => {
-// 	test.service;
+//   test.service;
 // });
 
 // const rootHono = new Hono({ strict: true });
