@@ -50,7 +50,9 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
       this.ready.then(() => this.#state = 'running');
       this.finished.then(() => this.#state = 'finished');
       const readyEvent = new ReadyEvent(() => {
-        this.#readyPromise.resolve();
+        this.#services.ready.then(() => {
+          this.#readyPromise.resolve();
+        });
       });
       this.dispatchEvent(readyEvent);
     });
