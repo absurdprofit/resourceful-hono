@@ -39,8 +39,8 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
     if (brand !== Application.#brand)
       throw new TypeError('Illegal constructor');
 
-    this.#hono.onError(ErrorHandler);
-    this.#hono.notFound(NotFoundHandler);
+    this.hono.onError(ErrorHandler);
+    this.hono.notFound(NotFoundHandler);
 
     this.#readyPromise = new PromiseWrapper<void>();
     this.#finishedPromise = new PromiseWrapper<void>();
