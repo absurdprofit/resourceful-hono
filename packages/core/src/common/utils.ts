@@ -1,4 +1,6 @@
 import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
+import { Hono } from 'hono';
+import { Resource } from '../Resource.ts';
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
@@ -68,4 +70,25 @@ export function toFormData(input: unknown): FormData {
   }
 
   return formData;
+}
+
+/**
+ * Builds a new Hono instance given a 'leaf' Resource by travelling up the resource tree to build a fully qualified base path.
+ * @param instance Leaf instance
+ * @returns new Hono app with base path fully qualified base path
+ */
+export function honoBuilder(instance?: Resource): Hono {
+  let parent = instance?.parent;
+  const basePaths = new Array<string>();
+  let baseApp = new Hono({ strict: true });
+  // collect base routes
+  while (parent) {
+    basePaths.push(parent.route);
+    parent = parent.parent;
+  }
+  // attach base paths
+  for (const basePath of basePaths.toReversed()) {
+    baseApp = baseApp.basePath(basePath);
+  }
+  return baseApp.basePath(instance?.route ?? '');
 }
