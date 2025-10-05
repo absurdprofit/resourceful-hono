@@ -19,7 +19,8 @@ export const ErrorHandler: HonoErrorHandler = async (error, context) => {
   
   const httpError = error as HttpError;
   context.error = httpError;
-  httpError.traceparent = context.res.headers.get(Headers.Traceparent);
+  // TODO: Add support for tracesparent
+  httpError.traceparent = '00-00000000000000000000000000000000-0000000000000000-00';
   httpError.instance = context.req.url;
   Application.instance.dispatchEvent(
     new ErrorEvent('httpError', {

@@ -1,9 +1,13 @@
-import { HttpStatusCodes } from '../common/enums.ts';
 import { NotFoundError } from '../common/errors.ts';
-import type { MiddlewareHandler } from 'hono/types';
+import type { NotFoundHandler as INotFoundHandler } from 'hono/types';
+import { ErrorHandler } from './ErrorHandler.ts';
 
-export const NotFoundHandler: MiddlewareHandler = async (context, next) => {
-  await next();
-  if (context.res.status === HttpStatusCodes.NotFound && !context.error)
-    throw new NotFoundError('No Resource found at path: ' + context.req.path);
+const NOT_FOUND_ERROR = new NotFoundError();
+const NOT_FOUND_PREFIX = 'No Resource found at path: ';
+export const NotFoundHandler: INotFoundHandler = (context) => {
+  NOT_FOUND_ERROR.detail = NOT_FOUND_PREFIX + context.req.path;
+  return ErrorHandler(
+    NOT_FOUND_ERROR,
+    context
+  );
 };

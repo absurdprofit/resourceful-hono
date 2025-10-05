@@ -23,20 +23,22 @@ export class ContentTypeRegistry {
 
     pattern.forEach(pattern => {
       pattern = pattern === '*/*' ? '*' : pattern;
-      pattern = pattern.split(';')[0];
       this.#router.add(
         method,
-        pattern.replaceAll(':', ';').toLowerCase(),
+        pattern.toLowerCase(),
         handler
       );
     });
   }
 
   public get(method: string, contentType: string) {
-    contentType = contentType.split(';')[0];
+    // Remove any parameters from the content type (e.g. charset)
+    const semicolonIndex = contentType.indexOf(';');
+    if (semicolonIndex !== LAST_INDEX) 
+      contentType = contentType.slice(FIRST_INDEX, semicolonIndex);
     return this.#router.match(
       method,
-      contentType.replaceAll(':', ';').toLowerCase()
+      contentType.toLowerCase()
     )
       .at(FIRST_INDEX)
       ?.at(LAST_INDEX)
@@ -82,38 +84,43 @@ export class ContentTypeRegistry {
       },
     });
     router.use('*', [
-      ContentTypes.ServerSentEvent,
       ContentTypes.OctetStream,
     ], {
       decode(resource) {
-        if (resource.headers.get(Headers.ContentType)?.startsWith(ContentTypes.ServerSentEvent)) {
-          let response;
-          if (resource instanceof Request)
-            response = new Response(
-              resource.body,
-              { headers: resource.headers }
-            );
-          else
-            response = resource;
-  
-          return new EventSource(
-            resource.url,
-            { fetch: () => Promise.resolve(response) }
-          );
-        } else {
-          return resource.body;
-        }
+        return resource.body;
       },
-      encode(data, contentType) {
-        if (typeof data === 'function') {
-          let stream = createReadableFromIterable(data());
-          if (contentType?.startsWith(ContentTypes.ServerSentEvent))
-            stream = stream.pipeThrough(new TextEncoderStream());
-          return stream;
-        }
-        if (data instanceof ReadableStream)
+      encode(data) {
+        if (typeof data === 'function')
+          return createReadableFromIterable(data());
+        else if (data instanceof ReadableStream)
           return data;
         throw new TypeError('Only generators or ReadableStreams can be turned into Resource streams');
+      },
+    });
+    router.use('*', [
+      ContentTypes.ServerSentEvent,
+    ], {
+      decode(resource) {
+        let response;
+        if (resource instanceof Request)
+          response = new Response(
+            resource.body,
+            { headers: resource.headers }
+          );
+        else
+          response = resource;
+  
+        return new EventSource(
+          resource.url,
+          { fetch: () => Promise.resolve(response) }
+        );
+      },
+      encode(data) {
+        if (typeof data === 'function') {
+          return createReadableFromIterable(data())
+            .pipeThrough(new TextEncoderStream());
+        }
+        throw new TypeError('Only generators can be turned into Server Sent Event streams');
       },
     });
     router.use('*', [ContentTypes.PlainText], {

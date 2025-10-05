@@ -1,5 +1,5 @@
+import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 import { Hono } from 'hono';
-import { HEX_RADIX, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 import { Resource } from '../Resource.ts';
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
@@ -72,16 +72,6 @@ export function toFormData(input: unknown): FormData {
   return formData;
 }
 
-// Helper to generate a random hex string
-export function generateHex(bytesCount: number): string {
-  const PAD_MAX_COUNT = 2;
-  const array = new Uint8Array(bytesCount);
-  crypto.getRandomValues(array);
-  return Array.from(array)
-    .map((b) => b.toString(HEX_RADIX).padStart(PAD_MAX_COUNT, '0'))
-    .join('');
-}
-
 /**
  * Builds a new Hono instance given a 'leaf' Resource by travelling up the resource tree to build a fully qualified base path.
  * @param instance Leaf instance
@@ -100,6 +90,5 @@ export function honoBuilder(instance?: Resource): Hono {
   for (const basePath of basePaths.toReversed()) {
     baseApp = baseApp.basePath(basePath);
   }
-  console.log({ parent, basePaths });
   return baseApp.basePath(instance?.route ?? '');
 }

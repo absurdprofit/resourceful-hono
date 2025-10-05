@@ -7,7 +7,6 @@ export const TIMING_METRIC_DURATION_REGEX = /dur=([\d.]+)/;
 export const TEXT_ENCODER = new TextEncoder();
 export const FIRST_INDEX = 0;
 export const LAST_INDEX = -1;
-export const HEX_RADIX = 16;
 export const TRACE_ID_LENGTH = 16;
 export const SPAN_ID_LENGTH = 8;
 export const SINGLE_ELEMENT_LENGTH = 1;

@@ -1,7 +1,7 @@
 import type { Hono, HonoRequest, Handler, Context, MiddlewareHandler } from 'hono';
 import { mergePath } from 'hono/utils/url';
 import { z } from 'zod';
-import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, FIRST_INDEX, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
 import type { DefaultContextVariables, ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
 import { isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
@@ -62,6 +62,27 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
 export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, ___ = unknown> extends Response {
   readonly status: S;
 }
+
+// Cache the date header value to avoid regenerating it for every response within the same second.
+// This is a performance optimization based on the fact that the Date header only needs to be accurate to the second.
+const SECOND_IN_MS = 1000;
+function DATE_GENERATOR() {
+  let last = SECOND_IN_MS;
+  let value = new Date().toUTCString();
+
+  return () => {
+    const now = Date.now();
+
+    if (now - last >= SECOND_IN_MS) {
+      last = now;
+      value = new Date().toUTCString();
+    }
+
+    return value;
+  };
+}
+const date = DATE_GENERATOR();
+
 /**
  * Creates a typed HTTP response with optional encoding based on content type.
  *
@@ -98,33 +119,46 @@ export async function Result<
   content?: C,
   contentType?: T
 ): Promise<TypedResultResponse<S, C, T>> {
-  const headers = new globalThis.Headers();
-  let body;
-  if (isBodyInit(content)) {
-    body = content;
-  } else {
+  const headers: [string, string][] = [
+    [Headers.Date, date()],
+  ];
+
+  let body: C | BodyInit | null | undefined = content;
+  if (contentType || !isBodyInit(body)) {
     if (!contentType) {
-      if (typeof content === 'function')
-        contentType = ContentTypes.OctetStream as T;
-      else if (typeof content !== 'undefined')
-        contentType = ContentTypes.Json as T;
+      switch (typeof content) {
+        case 'function':
+          contentType = ContentTypes.OctetStream as T;
+          break;
+        case 'undefined':
+          return new Response(undefined, { status, headers }) as TypedResultResponse<S, C, T>;
+        default:
+          contentType = ContentTypes.Json as T;
+      }
     }
 
-    const { encode } = Resource.contentTypes.get(contentType ?? '') ?? {};
-    if (encode)
-      body = await encode(content, contentType);
+    headers.push([Headers.ContentType, contentType!]);
+
     if (
       contentType?.startsWith(ContentTypes.ServerSentEvent)
-      && body instanceof ReadableStream
     ) {
-      headers.set(Headers.CacheControl, 'no-cache');
-      headers.set(Headers.Connection, 'keep-alive');
+      headers.push(
+        [Headers.CacheControl, 'no-cache'],
+        [Headers.Connection, 'keep-alive']
+      );
     }
+
+    body = await Resource
+      .contentTypes
+      .get(contentType!)
+      ?.encode(content, contentType);
   }
-  if (contentType) headers.set(Headers.ContentType, contentType);
-  headers.set(Headers.Date, new Date().toUTCString());
-  return new Response(body, { status, headers }) as TypedResultResponse<S, C, T>;
+  return new Response(
+    body as BodyInit | null | undefined,
+    { status, headers }
+  ) as TypedResultResponse<S, C, T>;
 }
+
 export interface IResource {
   readonly route: string;
   readonly context: Context;
@@ -454,13 +488,12 @@ export abstract class Resource implements IResource {
       Resource.#activeRequests++;
       const method = context.req.method as RequestMethod;
       const clone = this.#clone(context);
-      const methodHandler = clone[method]?.bind(clone);
       const { parameters, issues } = await this.#collectParameters(context.req);
 
       if (issues.length)
         throw new BadRequestError('There were issues in your request.', { issues });
 
-      const response = await methodHandler?.(...parameters, context.req.raw.signal);
+      const response = await clone[method]?.call(clone, ...parameters, context.req.raw.signal);
       return response ?? Result(HttpStatusCodes.NoContent);
     } finally {
       context.set('activeRequests', --Resource.#activeRequests);
@@ -527,46 +560,46 @@ export abstract class Resource implements IResource {
     const method = request.method as RequestMethod;
     const parameterMetadata = this.#parameterMetadata.get(method) ?? [];
     const issues: z.ZodIssue[] = [];
-    let parameters: unknown[] = [];
 
-    if (parameterMetadata.length) {
-      const schemas: Record<ParameterMetadata['type'], z.ZodType | undefined> = {
-        route: this.#routeSchema.get(method),
-        query: this.#querySchema.get(method),
-        body: this.#bodySchema.get(method),
-      };
-      
-      const data = Object.fromEntries(
-        await Promise.all(
-          Object.entries(schemas).map(async ([type, schema]) => {
-            if (!schema) return [type, { [DEFAULT_PARAMETER_KEY]: undefined }];
-            const result = await schema.safeParseAsync(
-              await this.#parseParameters(type as ParameterMetadata['type'], request)
-            );
-            const parsedData = { ...(result['data'] ?? {}) };
-            parsedData[DEFAULT_PARAMETER_KEY] = result['data'];
-            if (!result.success)
-              issues.push(...result.error.issues);
-      
-            return [
-              type,
-              parsedData,
-            ];
-          })
-        )
-      );
-  
-      parameters = parameterMetadata.map(({ type, key, keys }) => {
-        if (!key && keys) {
-          // create object with only the expected key-value pairs
-          const object = data[type][DEFAULT_PARAMETER_KEY];
-          return keys.reduce((parameter, key) => {
-            parameter[key] = object?.[key];
-            return parameter;
-          }, {} as Record<string, unknown>);
+    const schemas: [ParameterMetadata['type'], z.ZodType | undefined][] = [
+      ['route', this.#routeSchema.get(method)],
+      ['query', this.#querySchema.get(method)],
+      ['body', this.#bodySchema.get(method)],
+    ];
+    
+    type ParameterData = Record<string, unknown> & {
+      [DEFAULT_PARAMETER_KEY]: Record<string, unknown> | undefined;
+    };
+    const data: Record<string, ParameterData> = {};
+    await Promise.all(
+      schemas.map(async ([type, schema]) => {
+        if (!schema) return data[type] = { [DEFAULT_PARAMETER_KEY]: undefined };
+        const result = await schema.safeParseAsync(
+          await this.#parseParameters(type, request)
+        );
+        const parsedData = { ...(result['data'] ?? {}) };
+        parsedData[DEFAULT_PARAMETER_KEY] = result['data'];
+        if (!result.success)
+          issues.push(...result.error.issues);
+    
+        data[type] = parsedData;
+      })
+    );
+
+    const parameters: unknown[] = new Array(parameterMetadata.length);
+    for (let i = FIRST_INDEX; i < parameterMetadata.length; i++) {
+      const { type, key, keys } = parameterMetadata[i];
+      if (!key && keys) {
+        const obj = data[type][DEFAULT_PARAMETER_KEY] || {};
+        const subset: Record<string, unknown> = {};
+        for (let j = FIRST_INDEX; j < keys.length; j++) {
+          const k = keys[j];
+          subset[k] = obj[k];
         }
-        return data[type][key ?? DEFAULT_PARAMETER_KEY];
-      });
+        parameters[i] = subset;
+      } else {
+        parameters[i] = data[type][key ?? DEFAULT_PARAMETER_KEY];
+      }
     }
 
     return {

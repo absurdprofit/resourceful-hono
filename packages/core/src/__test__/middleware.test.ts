@@ -3,12 +3,10 @@ import { Application } from '../Application.ts';
 import { Logger } from '../middleware/Logger.ts';
 import { Resource } from '../Resource.ts';
 import { ConsoleLogService, LogService } from '../services/LogService/index.ts';
-import { Headers, HttpStatusCodes } from '../common/enums.ts';
+import { HttpStatusCodes } from '../common/enums.ts';
 import { expect } from 'expect';
 import { TransactionScope } from '../index.ts';
 import { DependencyFailedError, InternalServerError, NotFoundError } from '../common/errors.ts';
-import { generateHex } from '../common/utils.ts';
-import { SPAN_ID_LENGTH, TRACE_ID_LENGTH } from '../common/constants.ts';
 
 const app = Application.instance;
 app.registerMiddlewares([Logger]);
@@ -82,24 +80,4 @@ Deno.test('NotFoundHandler adds 404 response', async () => {
   const error = await response.json();
   expect(response.status).toEqual(HttpStatusCodes.NotFound);
   expect(error.title).toEqual(NotFoundError.name);
-});
-
-Deno.test('TraceContext adds request traceparent to response traceparent', async () => {
-  const traceId = generateHex(TRACE_ID_LENGTH);
-  const version = '00';
-  const flags = '01';
-  const spanId = generateHex(SPAN_ID_LENGTH);
-  const traceparent = `${version}-${traceId}-${spanId}-${flags}`;
-  const headers = {
-    [Headers.Traceparent]: traceparent,
-  };
-  const method = 'DELETE';
-
-  const response = await app.hono.request('test', { method, headers });
-  const [resVersion, resTraceId, resSpanId, resFlags] = response.headers.get(Headers.Traceparent)?.split('-') ?? [];
-
-  expect(resVersion).toBe(version);
-  expect(resTraceId).toBe(traceId);
-  expect(resSpanId).toBe(spanId);
-  expect(resFlags).toBe(flags);
 });

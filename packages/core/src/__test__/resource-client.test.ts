@@ -199,6 +199,7 @@ Deno.test('ResourceClient can merge object types', async () => {
 Deno.test('ResourceClient throws for unsupported content types', async () => {
   const decodeError = await unsupportedContent.get().catch(e => e);
   const encodeError = await unsupportedContent.post('<svg></svg>').catch(e => e);
+  console.log({ decodeError, encodeError });
   expect(decodeError).toBeInstanceOf(UnsupportedMediaTypeError);
   expect(encodeError).toBeInstanceOf(UnsupportedMediaTypeError);
 });
@@ -209,15 +210,15 @@ Deno.test('ResourceClient returns undefined for void results', async () => {
   expect(result).toBe(undefined);
 });
 
-Deno.test('ResourceClient adds trace context to fetch', async () => {
-  let traceparent = null;
-  traceContext.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    traceparent = new globalThis
-      .Headers(init?.headers)
-      .get(Headers.Traceparent);
-    return fetch(input, init);
-  };
-  const result = await traceContext.get();
+// Deno.test('ResourceClient adds trace context to fetch', async () => {
+//   let traceparent = null;
+//   traceContext.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+//     traceparent = new globalThis
+//       .Headers(init?.headers)
+//       .get(Headers.Traceparent);
+//     return fetch(input, init);
+//   };
+//   const result = await traceContext.get();
 
-  expect(traceparent).toBe(`00-${result.traceId}-${result.parentId}-01`);
-});
+//   expect(traceparent).toBe(`00-${result.traceId}-${result.parentId}-01`);
+// });

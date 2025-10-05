@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { Resource } from './Resource.ts';
 import { type Service, ServiceMap } from './ServiceMap.ts';
 import { type Constructor, isResourceConstructor } from './common/types.ts';
-import { ErrorHandler, NotFoundHandler, TraceContext } from './middleware/index.ts';
+import { ErrorHandler, NotFoundHandler } from './middleware/index.ts';
 import { FinishEvent, ReadyEvent, RequestEvent, type ResponseEvent } from './common/events.ts';
 import { PromiseWrapper } from './common/promise-wrapper.ts';
 import { TypedEventTarget } from './TypedEventTarget.ts';
@@ -40,10 +40,7 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
       throw new TypeError('Illegal constructor');
 
     this.hono.onError(ErrorHandler);
-    this.registerMiddlewares([
-      TraceContext,
-      NotFoundHandler,
-    ]);
+    this.hono.notFound(NotFoundHandler);
 
     this.#readyPromise = new PromiseWrapper<void>();
     this.#finishedPromise = new PromiseWrapper<void>();
@@ -53,7 +50,9 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
       this.ready.then(() => this.#state = 'running');
       this.finished.then(() => this.#state = 'finished');
       const readyEvent = new ReadyEvent(() => {
-        this.#readyPromise.resolve();
+        this.#services.ready.then(() => {
+          this.#readyPromise.resolve();
+        });
       });
       this.dispatchEvent(readyEvent);
     });

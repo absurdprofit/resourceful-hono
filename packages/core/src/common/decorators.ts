@@ -307,10 +307,12 @@ export function FromBody(keyOrSchema: string | z.ZodType, schemaOrUndefined?: z.
 export function Inject(type?: Constructor<Service>): PropertyDecorator {
   return function (target: object, propertyKey: string | symbol) {
     type = type ?? Reflect.getMetadata('design:type', target, propertyKey);
+    let instance;
+    if (!type) throw new Error(`Could not determine type for property ${propertyKey.toString()}`);
     Object.defineProperty(target, propertyKey, {
       get: () => {
-        if (!type) throw new Error(`Could not determine type for property ${propertyKey.toString()}`);
-        return Application.instance.getService(type);
+        instance ??= Application.instance.getService(type!);
+        return instance;
       },
     });
   };
