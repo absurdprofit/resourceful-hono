@@ -94,7 +94,7 @@ export function honoBuilder(instance?: Resource): Hono {
 }
 
 function parseQueryIndex(segment: string) {
-  if (segment.startsWith('[') && segment.endsWith(']'))
+  if (segment.startsWith('(') && segment.endsWith(')'))
     return Number(segment.substring(
       SINGLE_ELEMENT_LENGTH,
       segment.length - SINGLE_ELEMENT_LENGTH
@@ -115,7 +115,7 @@ export function deserialiseQuery<T>(params: [string, string][]): T {
       if (index !== null)
         next = index;
       if (root[segment] === undefined) {
-        if (typeof segment === 'number') {
+        if (typeof next === 'number') {
           root[segment] = [];
         } else
           root[segment] = {};
