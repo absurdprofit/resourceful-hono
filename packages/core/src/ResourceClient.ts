@@ -268,7 +268,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
 
       if (Array.isArray(value)) {
         for (let i = FIRST_INDEX; i < value.length; i++) {
-          stack.push({ path: [...path, `(${i})`], value: value[i] });
+          stack.push({ path: [...path, `[${i}]`], value: value[i] });
         }
       } else if (value !== null && typeof value === 'object') {
         for (const [k, v] of Object.entries(value)) {
