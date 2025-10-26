@@ -94,7 +94,7 @@ export function honoBuilder(instance?: Resource): Hono {
 }
 
 function parseQueryIndex(segment: string) {
-  if (segment.startsWith('[') && segment.endsWith(']'))
+  if (segment.startsWith('(') && segment.endsWith(')'))
     return Number(segment.substring(
       SINGLE_ELEMENT_LENGTH,
       segment.length - SINGLE_ELEMENT_LENGTH
