@@ -115,7 +115,7 @@ export function deserialiseQuery<T>(params: [string, string][]): T {
       if (index !== null)
         next = index;
       if (root[segment] === undefined) {
-        if (typeof segment === 'number') {
+        if (typeof next === 'number') {
           root[segment] = [];
         } else
           root[segment] = {};
