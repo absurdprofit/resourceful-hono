@@ -1,4 +1,4 @@
-import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
+import { SINGLE_ELEMENT_LENGTH, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 import { Hono } from 'hono';
 import { Resource } from '../Resource.ts';
 
@@ -91,4 +91,40 @@ export function honoBuilder(instance?: Resource): Hono {
     baseApp = baseApp.basePath(basePath);
   }
   return baseApp.basePath(instance?.route ?? '');
+}
+
+function parseQueryIndex(segment: string) {
+  if (segment.startsWith('[') && segment.endsWith(']'))
+    return Number(segment.substring(
+      SINGLE_ELEMENT_LENGTH,
+      segment.length - SINGLE_ELEMENT_LENGTH
+    ));
+  return null;
+}
+
+export function deserialiseQuery<T>(params: [string, string][]): T {
+  const result: Record<string, unknown> = {};
+  
+  for (const [key, value] of params) {
+    const stack = key.split('.').reverse();
+    let root = result;
+    let segment: string | number = stack.pop()!;
+    while (stack.length) {
+      let next: string | number = stack.pop()!
+      const index = parseQueryIndex(next);
+      if (index !== null)
+        next = index;
+      if (root[segment] === undefined) {
+        if (typeof segment === 'number') {
+          root[segment] = [];
+        } else
+          root[segment] = {};
+      }
+      root = root[segment] as Record<string, unknown>;
+      segment = next;
+    }
+    root[segment] = value;
+  }
+
+  return result as T;
 }

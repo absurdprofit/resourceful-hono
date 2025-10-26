@@ -6,7 +6,7 @@ import type { DefaultContextVariables, ParameterMetadata, ResourceMethodReturn, 
 import { isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { type honoBuilder, literalToLowerCase } from './common/utils.ts';
+import { type honoBuilder, literalToLowerCase, deserialiseQuery } from './common/utils.ts';
 import type { Application } from './Application.ts';
 import { ResourceClient } from './ResourceClient.ts';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
@@ -507,7 +507,7 @@ export abstract class Resource implements IResource {
       case 'route':
         return request.param();
       case 'query':
-        return this.#decodeQueries(request.queries());
+        return deserialiseQuery(Object.entries(request.query()));
       case 'body': {
         if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
           const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
@@ -522,25 +522,6 @@ export abstract class Resource implements IResource {
       default:
         return {};
     }
-  }
-
-  #decodeQueries(queries: Record<string, string[]>) {
-    const result: Record<string, unknown> = {};
-    
-    for (const [key, value] of Object.entries(queries)) {
-      const stack = key.split('.').reverse();
-      let root = result;
-      let segment = stack.pop()!;
-      while (stack.length) {
-        if (root[segment] === undefined)
-          root[segment] = {};
-        root = root[segment] as Record<string, unknown>;
-        segment = stack.pop()!
-      }
-      root[segment] = value.length > SINGLE_ELEMENT_LENGTH ? value : value[0];
-    }
-
-    return result;
   }
 
   #collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
