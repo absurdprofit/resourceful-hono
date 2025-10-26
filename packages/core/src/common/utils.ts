@@ -1,4 +1,4 @@
-import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
+import { SINGLE_ELEMENT_LENGTH, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 import { Hono } from 'hono';
 import { Resource } from '../Resource.ts';
 
@@ -95,7 +95,10 @@ export function honoBuilder(instance?: Resource): Hono {
 
 function parseQueryIndex(segment: string) {
   if (segment.startsWith('[') && segment.endsWith(']'))
-    return Number(segment.substring(1, segment.length - 1));
+    return Number(segment.substring(
+      SINGLE_ELEMENT_LENGTH,
+      segment.length - SINGLE_ELEMENT_LENGTH
+    ));
   return null;
 }
 
