@@ -267,8 +267,8 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       const { path, value } = stack.pop()!;
 
       if (Array.isArray(value)) {
-        for (const v of value) {
-          params.push([path.join('.'), String(v)]);
+        for (let i = 0; i < value.length; i++) {
+          stack.push({ path: [...path, `[${i}]`], value: value[i] });
         }
       } else if (value !== null && typeof value === 'object') {
         for (const [k, v] of Object.entries(value)) {
