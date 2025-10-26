@@ -1,5 +1,5 @@
 import { mergePath } from 'hono/utils/url';
-import { ACCEPT_METADATA_KEY, LAST_INDEX, PARAMETER_METADATA_KEY, SPAN_ID_LENGTH, TRACE_ID_LENGTH } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, FIRST_INDEX, LAST_INDEX, PARAMETER_METADATA_KEY, SPAN_ID_LENGTH, TRACE_ID_LENGTH } from './common/constants.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from './common/types.ts';
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from './Resource.ts';
@@ -267,7 +267,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       const { path, value } = stack.pop()!;
 
       if (Array.isArray(value)) {
-        for (let i = 0; i < value.length; i++) {
+        for (let i = FIRST_INDEX; i < value.length; i++) {
           stack.push({ path: [...path, `[${i}]`], value: value[i] });
         }
       } else if (value !== null && typeof value === 'object') {
