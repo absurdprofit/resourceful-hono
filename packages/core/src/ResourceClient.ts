@@ -251,10 +251,35 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       headers.set(Headers.ContentType, matchedContentType);
     return {
       headers,
-      search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
+      search: this.#serialiseQuery((data?.query)).toString(),
       pathname: this.#serialiseRoute(data?.route, method),
       body: await this.#serialiseBody(data?.body, method, matchedContentType, matchedEncoder),
     };
+  }
+
+  #serialiseQuery(query: z.infer<z.ZodType>) {
+    const params: string[][] = [];
+    const stack: Array<{ path: string[], value: unknown }> = [
+      { path: [], value: query }
+    ];
+
+    while (stack.length) {
+      const { path, value } = stack.pop()!;
+
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          params.push([path.join('.'), String(v)]);
+        }
+      } else if (value !== null && typeof value === 'object') {
+        for (const [k, v] of Object.entries(value)) {
+          stack.push({ path: [...path, k], value: v });
+        }
+      } else if (value !== undefined) {
+        params.push([path.join('.'), String(value)]);
+      }
+    }
+
+    return new URLSearchParams(params).toString();
   }
 
   #serialiseRoute(route: z.infer<z.ZodType>, method: RequestMethod) {

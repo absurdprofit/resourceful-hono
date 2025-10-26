@@ -1,7 +1,7 @@
 import type { Hono, HonoRequest, Handler, Context, MiddlewareHandler } from 'hono';
 import { mergePath } from 'hono/utils/url';
 import { z } from 'zod';
-import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, FIRST_INDEX, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, FIRST_INDEX, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY, SINGLE_ELEMENT_LENGTH } from './common/constants.ts';
 import type { DefaultContextVariables, ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
 import { isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
@@ -507,7 +507,7 @@ export abstract class Resource implements IResource {
       case 'route':
         return request.param();
       case 'query':
-        return request.query();
+        return this.#decodeQueries(request.queries());
       case 'body': {
         if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
           const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
@@ -522,6 +522,25 @@ export abstract class Resource implements IResource {
       default:
         return {};
     }
+  }
+
+  #decodeQueries(queries: Record<string, string[]>) {
+    const result: Record<string, unknown> = {};
+    
+    for (const [key, value] of Object.entries(queries)) {
+      const stack = key.split('.').reverse();
+      let root = result;
+      let segment = stack.pop()!;
+      while (stack.length) {
+        if (root[segment] === undefined)
+          root[segment] = {};
+        root = root[segment] as Record<string, unknown>;
+        segment = stack.pop()!
+      }
+      root[segment] = value.length > SINGLE_ELEMENT_LENGTH ? value : value[0];
+    }
+
+    return result;
   }
 
   #collectParameterSchema<T extends z.ZodType>(type: ParameterMetadata['type']) {
