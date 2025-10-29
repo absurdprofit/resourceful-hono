@@ -19,9 +19,10 @@ export const ErrorHandler: HonoErrorHandler = async (error, context) => {
   
   const httpError = error as HttpError;
   context.error = httpError;
+  const problemDetails = httpError.toJSON();
   // TODO: Add support for tracesparent
-  httpError.traceparent = '00-00000000000000000000000000000000-0000000000000000-00';
-  httpError.instance = context.req.url;
+  // problemDetails.traceparent = '00-00000000000000000000000000000000-0000000000000000-00';
+  problemDetails.instance = context.req.url;
   Application.instance.dispatchEvent(
     new ErrorEvent('httpError', {
       error: httpError,
@@ -30,10 +31,10 @@ export const ErrorHandler: HonoErrorHandler = async (error, context) => {
   );
   const handler = Resource.contentTypes.get(ContentTypes.ProblemDetails);
   return new Response(
-    await handler?.encode(httpError),
+    await handler?.encode(problemDetails),
     {
-      status: httpError.status,
-      statusText: httpError.title,
+      status: problemDetails.status,
+      statusText: problemDetails.title,
       headers: {
         [Headers.ContentType]: ContentTypes.ProblemDetails,
       },

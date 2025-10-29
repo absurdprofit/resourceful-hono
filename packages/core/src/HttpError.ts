@@ -1,5 +1,19 @@
 import type { HttpStatusCodes } from './common/enums.ts';
 
+export interface ProblemDetails {
+  type: string;
+  title: string;
+  status: number;
+  detail?: string;
+  instance?: string;
+  traceparent?: string;
+}
+
+export interface HttpErrorOptions extends ErrorOptions {
+  instance?: string;
+  traceparent?: string;
+}
+
 /**
  * Base class for HTTP errors that serialize to Problem Details (RFC 7807).
  *
@@ -31,16 +45,34 @@ import type { HttpStatusCodes } from './common/enums.ts';
 export abstract class HttpError extends Error {
   public abstract readonly status: HttpStatusCodes | number;
   public abstract readonly type: string;
-  public readonly title: string;
-  public detail: string;
-  public instance: string | null = null;
-  public traceparent: string | null = null;
+  public instance?: string;
+  public traceparent?: string;
 
-  constructor(message?: string, options?: ErrorOptions) {
+  constructor(message?: string, options?: HttpErrorOptions) {
     super(message, options);
 
-    this.title = this.name = this.constructor.name;
-    this.detail = message ?? '';
+    this.name = this.constructor.name;
+  }
+
+  public static fromJSON(
+    this: new (message?: string, options?: HttpErrorOptions) => HttpError,
+    json: ProblemDetails
+  ): HttpError {
+    return new this(
+      json.detail,
+      { instance: json.instance, traceparent: json.traceparent }
+    );
+  }
+
+  public toJSON() {
+    return {
+      title: this.name,
+      detail: this.message,
+      traceparent: this.traceparent,
+      instance: this.instance,
+      type: this.type,
+      status: this.status,
+    };
   }
 
   /**

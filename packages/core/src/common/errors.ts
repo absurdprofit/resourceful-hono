@@ -27,19 +27,15 @@ import { HttpStatusCodes } from './enums.ts';
 export class GenericHttpError extends HttpError {
   public override readonly status: number;
   public override type: string;
-  public override title: string;
-  [key: string]: unknown;
-  constructor(details: { [P in keyof Omit<HttpError, keyof Error>]: Omit<HttpError, keyof Error>[P] }) {
-    const { detail, status, title, type, ...rest } = details;
-    super(detail);
-    this.status = status;
-    this.type = type;
-    this.title = title;
-    this.name = title;
+  public readonly json;
 
-    Object.entries(rest).forEach(([key, value]) => {
-      this[key] = value;
-    });
+  constructor(message: string, json: ReturnType<HttpError['toJSON']>) {
+    super(message, { instance: json.instance, traceparent: json.traceparent });
+
+    this.name = json.title;
+    this.status = json.status;
+    this.type = json.type;
+    this.json = json;
   }
 }
 
@@ -68,6 +64,17 @@ export class BadRequestError extends HttpError {
   ) {
     super(message, options);
     this.issues = options.issues;
+  }
+
+  public static override fromJSON(json: ProblemDetails & { issues: object[] }) {
+    return new BadRequestError(json.detail, { issues: json.issues });
+  }
+
+  public override toJSON() {
+    return {
+      ...super.toJSON(),
+      issues: this.issues,
+    };
   }
 }
 
