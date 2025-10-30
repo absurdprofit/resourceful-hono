@@ -1,20 +1,20 @@
 type BuilderCall<T> = {
-  [K in keyof T]: T[K] extends (...args: infer A) => unknown
+  [K in keyof T]: T[K] extends (...args: infer A) => T
     ? [K, ...A]
     : never;
 }[keyof T];
 
-type QueryBuilderInstance<QB extends object> = {
-  [K in keyof QB as QB[K] extends (...args: infer _A) => QB ? K : never]:
-    QB[K] extends (...args: infer A) => unknown
-      ? (...args: A) => QueryBuilderInstance<QB>
+type QueryBuilderInstance<T extends object> = {
+  [K in keyof T as T[K] extends (...args: infer _A) => T ? K : never]:
+    T[K] extends (...args: infer A) => unknown
+      ? (...args: A) => QueryBuilderInstance<T>
       : never;
 } & {
-  serialise: () => BuilderCall<QB>[];
+  serialise: () => BuilderCall<T>[];
 }
 
 interface QueryBuilderConstructor {
-  new <QB extends object>(): QueryBuilderInstance<QB>;
+  new <T extends object>(): QueryBuilderInstance<T>;
 }
 
 export const QueryBuilder: QueryBuilderConstructor = class <T> {
@@ -43,3 +43,14 @@ export const QueryBuilder: QueryBuilderConstructor = class <T> {
 		return proxy;
   }
 } as unknown as QueryBuilderConstructor;
+
+type Builder<T> = {
+  [K in keyof T as T[K] extends (...args: infer _A) => T ? K : never]: T[K];
+}
+export function WithBuilder<T extends Builder<T>>(
+  previousValue: T,
+  currentValue: BuilderCall<T>
+) {
+  const [methodName, ...args] = currentValue;
+  return previousValue[methodName](...args);
+}
