@@ -130,7 +130,7 @@ export function deserialiseQuery<T>(params: [string, string][]): T {
 }
 
 export function serialiseQuery(object: object) {
-  const params: string[][] = [];
+  const params: string[] = [];
   const stack: Array<{ path: string[], value: unknown }> = [
     { path: [], value: object }
   ];
@@ -147,9 +147,11 @@ export function serialiseQuery(object: object) {
         stack.push({ path: [...path, k], value: v });
       }
     } else if (value !== undefined) {
-      params.push([path.join('.'), String(value)]);
+      params.push(
+        `${encodeURIComponent(path.join('.'))}=${encodeURIComponent(String(value))}`
+      );
     }
   }
 
-  return new URLSearchParams(params).toString();
+  return params.join('&');
 }

@@ -80,13 +80,6 @@ Deno.bench('PagedResult', async () => {
   });
 });
 
-Deno.bench('URLSearchParams', () => {
-  new URLSearchParams([
-    ['hello', 'world'],
-    ['world', 'hello']
-  ]).toString();
-});
-
 Deno.bench('deserialiseQuery', () => {
   deserialiseQuery([
     ['hello', 'world'],
