@@ -1,0 +1,15 @@
+{
+  "name": "@resourceful-hono/openapi",
+  "version": "1.0.0",
+  "license": "MIT",
+  "exports": "./src/index.ts",
+  "exclude": [
+    "./src/__tests__/**/*.ts"
+  ],
+  "imports": {
+    "expect": "jsr:@std/expect",
+    "mock": "jsr:@std/testing/mock",
+    "zod": "npm:zod@3.24.1",
+    "zod-openapi": "npm:zod-openapi@4.2.4"
+  }
+}
