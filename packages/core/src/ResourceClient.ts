@@ -8,6 +8,7 @@ import { UnsupportedMediaTypeError } from './common/errors.ts';
 import type { EventSource } from 'eventsource';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
 import { HttpError } from './HttpError.ts';
+import { serialiseQuery } from "./common/utils.ts";
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -251,35 +252,10 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       headers.set(Headers.ContentType, matchedContentType);
     return {
       headers,
-      search: this.#serialiseQuery((data?.query)).toString(),
+      search: serialiseQuery((data?.query)).toString(),
       pathname: this.#serialiseRoute(data?.route, method),
       body: await this.#serialiseBody(data?.body, method, matchedContentType, matchedEncoder),
     };
-  }
-
-  #serialiseQuery(query: z.infer<z.ZodType>) {
-    const params: string[][] = [];
-    const stack: Array<{ path: string[], value: unknown }> = [
-      { path: [], value: query }
-    ];
-
-    while (stack.length) {
-      const { path, value } = stack.pop()!;
-
-      if (Array.isArray(value)) {
-        for (let i = FIRST_INDEX; i < value.length; i++) {
-          stack.push({ path: [...path, `[${i}]`], value: value[i] });
-        }
-      } else if (value !== null && typeof value === 'object') {
-        for (const [k, v] of Object.entries(value)) {
-          stack.push({ path: [...path, k], value: v });
-        }
-      } else if (value !== undefined) {
-        params.push([path.join('.'), String(value)]);
-      }
-    }
-
-    return new URLSearchParams(params).toString();
   }
 
   #serialiseRoute(route: z.infer<z.ZodType>, method: RequestMethod) {

@@ -6,7 +6,7 @@ import type { DefaultContextVariables, ParameterMetadata, ResourceMethodReturn, 
 import { isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { type honoBuilder, literalToLowerCase, deserialiseQuery } from './common/utils.ts';
+import { type honoBuilder, literalToLowerCase, deserialiseQuery, serialiseQuery } from './common/utils.ts';
 import type { Application } from './Application.ts';
 import { ResourceClient } from './ResourceClient.ts';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
@@ -122,6 +122,76 @@ export async function Result<
   const headers: [string, string][] = [
     [Headers.Date, date()],
   ];
+
+  let body: C | BodyInit | null | undefined = content;
+  if (contentType || !isBodyInit(body)) {
+    if (!contentType) {
+      switch (typeof content) {
+        case 'function':
+          contentType = ContentTypes.OctetStream as T;
+          break;
+        case 'undefined':
+          return new Response(undefined, { status, headers }) as TypedResultResponse<S, C, T>;
+        default:
+          contentType = ContentTypes.Json as T;
+      }
+    }
+
+    headers.push([Headers.ContentType, contentType!]);
+
+    if (
+      contentType?.startsWith(ContentTypes.ServerSentEvent)
+    ) {
+      headers.push(
+        [Headers.CacheControl, 'no-cache'],
+        [Headers.Connection, 'keep-alive']
+      );
+    }
+
+    body = await Resource
+      .contentTypes
+      .get(contentType!)
+      ?.encode(content, contentType);
+  }
+  return new Response(
+    body as BodyInit | null | undefined,
+    { status, headers }
+  ) as TypedResultResponse<S, C, T>;
+}
+
+export async function PagedResult<
+  S extends HttpStatusCodes | number,
+  C extends BodyInit | (() => Iterator<unknown, unknown, unknown>) | (() => AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
+  T extends ContentTypes | string | undefined = undefined
+>(
+  status: S,
+  content?: C,
+  contentType?: T,
+  meta?: {
+    url: string;
+    first?: object;
+    previous?: object;
+    next?: object;
+    last?: object;
+  }
+): Promise<TypedResultResponse<S, C, T>> {
+  const headers: [string, string][] = [
+    [Headers.Date, date()],
+  ];
+
+  if (meta) {
+    const { url, ...pagination } = meta;
+    const linkUrl = new URL(url);
+    const linkParts: string[] = [];
+    for (const [rel, link] of Object.entries(pagination)) {
+      if (!link) continue;
+      linkUrl.search = serialiseQuery(link);
+      linkParts.push(`<${linkUrl.href}>; rel="${rel}"`);
+    }
+
+    if (linkParts.length)
+      headers.push([Headers.Link, linkParts.join(', ')]);
+  }
 
   let body: C | BodyInit | null | undefined = content;
   if (contentType || !isBodyInit(body)) {

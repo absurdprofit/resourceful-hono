@@ -1,4 +1,4 @@
-import { SINGLE_ELEMENT_LENGTH, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
+import { FIRST_INDEX, SINGLE_ELEMENT_LENGTH, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 import { Hono } from 'hono';
 import { Resource } from '../Resource.ts';
 
@@ -127,4 +127,29 @@ export function deserialiseQuery<T>(params: [string, string][]): T {
   }
 
   return result as T;
+}
+
+export function serialiseQuery(object: object) {
+  const params: string[][] = [];
+  const stack: Array<{ path: string[], value: unknown }> = [
+    { path: [], value: object }
+  ];
+
+  while (stack.length) {
+    const { path, value } = stack.pop()!;
+
+    if (Array.isArray(value)) {
+      for (let i = FIRST_INDEX; i < value.length; i++) {
+        stack.push({ path: [...path, `[${i}]`], value: value[i] });
+      }
+    } else if (value !== null && typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) {
+        stack.push({ path: [...path, k], value: v });
+      }
+    } else if (value !== undefined) {
+      params.push([path.join('.'), String(value)]);
+    }
+  }
+
+  return new URLSearchParams(params).toString();
 }

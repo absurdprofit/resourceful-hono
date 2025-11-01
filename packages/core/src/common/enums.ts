@@ -10,6 +10,7 @@ export enum Headers {
   UserAgent = 'user-agent',
   Date = 'date',
   ServerTiming = 'server-timing',
+  Link = 'link',
 }
 
 export enum ContentTypes {
