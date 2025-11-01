@@ -169,10 +169,7 @@ export async function PagedResult<
   contentType?: T,
   meta?: {
     url: string;
-    first?: object;
-    previous?: object;
-    next?: object;
-    last?: object;
+    pagination?: object;
   }
 ): Promise<TypedResultResponse<S, C, T>> {
   const headers: [string, string][] = [
@@ -180,7 +177,7 @@ export async function PagedResult<
   ];
 
   if (meta) {
-    const { url, ...pagination } = meta;
+    const { url, pagination = {} } = meta;
     const linkUrl = new URL(url);
     const linkParts: string[] = [];
     for (const [rel, link] of Object.entries(pagination)) {

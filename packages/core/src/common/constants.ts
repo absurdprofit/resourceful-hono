@@ -10,3 +10,4 @@ export const LAST_INDEX = -1;
 export const TRACE_ID_LENGTH = 16;
 export const SPAN_ID_LENGTH = 8;
 export const SINGLE_ELEMENT_LENGTH = 1;
+export const REL_PREFIX = 'rel="';

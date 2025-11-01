@@ -3,6 +3,12 @@
 // import { FromBody } from './common/decorators.ts';
 // import { z } from 'zod';
 
+import { z } from 'zod';
+import { QueryBuilder } from './QueryBuilder.ts';
+import { PagedResult, Result } from './Resource.ts';
+import { HttpStatusCodes } from '@resourceful-hono/core';
+import { deserialiseQuery, serialiseQuery } from './common/utils.ts';
+
 // Deno.bench('Result', async () => {
 //   await Result(200, 1);
 // });
@@ -101,4 +107,82 @@
 
 // Deno.bench('hono fetch', async () => {
 //   await rootHono.fetch(fetch);
+// });
+
+// class MyBuilder {
+//   id: number | null = null;
+//   name: string | null = null;
+//   email: string | null = null;
+//   setUserId(id: number) {
+//     this.id = id;
+//     return this;
+//   }
+
+//   setUsername(name: string) {
+//     this.name = name;
+//     return this;
+//   }
+
+//   setEmail(email: string) {
+//     this.email = email;
+//     return this;
+//   }
+
+//   finalMethod() {
+//     return {
+//       id: this.id,
+//       name: this.name,
+//       email: this.email,
+//     };
+//   }
+// }
+
+// const builder = new QueryBuilder<MyBuilder>()
+//   .setUserId(10)
+//   .setUsername('john_doe')
+//   .setEmail('john@example.com')
+//   .serialise();
+
+// const BuilderCallSchema = z.union([
+//   z.tuple([z.literal('setUserId'), z.number()]),
+//   z.tuple([z.literal('setUsername'), z.string()]),
+//   z.tuple([z.literal('setEmail'), z.string()]),
+// ]);
+
+// const json: z.infer<typeof BuilderCallSchema>[] = builder;
+
+// Deno.bench('Result', async () => {
+//   await Result(HttpStatusCodes.Ok, json);
+// });
+
+// const url = 'https://api.example.com/users?page=2';
+// const pagination = {
+//   next: {
+//     page: 3,
+//     size: 12,
+//   },
+//   previous: {
+//     page: 1,
+//     size: 12,
+//   },
+// };
+// Deno.bench('PagedResult', async () => {
+//   await PagedResult(HttpStatusCodes.Ok, json, undefined, {
+//     url,
+//     pagination,
+//   });
+// });
+
+// Deno.bench('deserialiseQuery', () => {
+//   deserialiseQuery([
+//     ['hello', 'world'],
+//     ['world', 'hello'],
+//   ]);
+// });
+
+// Deno.bench('serialiseQuery', () => {
+//   serialiseQuery([
+//     ['hello', 'world'],
+//     ['world', 'hello'],
+//   ]);
 // });

@@ -1,4 +1,4 @@
-import { AsyncContextProvider, Application, AsyncLogger, AsyncConsoleLogService, AsyncLogService, type AsyncContextVariable } from '@resourceful-hono/core';
+import { AsyncContextProvider, Application, AsyncLogger, AsyncConsoleLogService, AsyncLogService, type AsyncContextVariable, QueryBuilder } from '@resourceful-hono/core';
 import BaseResource from './resources/BaseResource.ts';
 import SSEResource from './resources/SSEResource.ts';
 import JSONResource from './resources/JSONResource.ts';
@@ -6,6 +6,7 @@ import UserResource from './resources/UserResource.ts';
 import RedirectResource from './resources/RedirectResource.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { timing } from 'hono/timing';
+import { PagedResource, PageBuilder } from './resources/PagedResource.ts';
 
 class MyService {
   public [Symbol.dispose]() {
@@ -31,7 +32,7 @@ app.registerService(MyService, new MyService())
 
 const origin = 'http://localhost:8000';
 const jsonClient = JSONResource.createClient(origin);
-const page = 10;
+const page = 8;
 jsonClient.get({ id: '9491d710-3185-4e06-bea0-6a2f275345e0', name: 'nathan' }, { page });
 jsonClient.put({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, 'name');
 jsonClient.post('1');
@@ -41,8 +42,21 @@ const sseClient = SSEResource.createClient(origin);
 sseClient.get().then(eventSource => {
   eventSource.addEventListener('hello', console.log);
 });
+const pagedClient = PagedResource.createClient('http://localhost:8000');
+const skip = 5;
+const take = 10;
+const query = new QueryBuilder<PageBuilder>()
+  .leftJoinAndSelect('user.photos', 'photo')
+  .skip(skip)
+  .take(take)
+  .serialise();
+pagedClient.get(query).then((result) => {
+  console.log(result);
+  return (pagedClient as unknown as Record<string, () => void>).next();
+})
+  .then(console.log);
 
-app.registerResources([BaseResource, SSEResource, JSONResource, UserResource, RedirectResource]);
+app.registerResources([BaseResource, PagedResource, SSEResource, JSONResource, UserResource, RedirectResource]);
 
 app.ready.then(() => {
   console.log('Ready promise');
@@ -59,3 +73,5 @@ app.ready.then(() => {
 export default {
   fetch: app.fetch,
 };
+
+type MyTuple = [string, name: string]

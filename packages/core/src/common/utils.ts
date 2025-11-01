@@ -99,21 +99,20 @@ function parseQueryIndex(segment: string) {
       SINGLE_ELEMENT_LENGTH,
       segment.length - SINGLE_ELEMENT_LENGTH
     ));
-  return null;
+  return segment;
 }
 
 export function deserialiseQuery<T>(params: [string, string][]): T {
-  const result: Record<string, unknown> = {};
+  const state: Record<string, unknown> = {
+    result: undefined,
+  };
   
   for (const [key, value] of params) {
     const stack = key.split('.').reverse();
-    let root = result;
-    let segment: string | number = stack.pop()!;
+    let root = state;
+    let segment: string | number = 'result';
     while (stack.length) {
-      let next: string | number = stack.pop()!
-      const index = parseQueryIndex(next);
-      if (index !== null)
-        next = index;
+      const next = parseQueryIndex(stack.pop()!);
       if (root[segment] === undefined) {
         if (typeof next === 'number') {
           root[segment] = [];
@@ -126,13 +125,13 @@ export function deserialiseQuery<T>(params: [string, string][]): T {
     root[segment] = value;
   }
 
-  return result as T;
+  return state.result as T;
 }
 
 export function serialiseQuery(object: object) {
   const params: string[] = [];
   const stack: Array<{ path: string[], value: unknown }> = [
-    { path: [], value: object }
+    { path: [], value: object },
   ];
 
   while (stack.length) {

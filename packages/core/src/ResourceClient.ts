@@ -1,5 +1,5 @@
 import { mergePath } from 'hono/utils/url';
-import { ACCEPT_METADATA_KEY, FIRST_INDEX, LAST_INDEX, PARAMETER_METADATA_KEY, SPAN_ID_LENGTH, TRACE_ID_LENGTH } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, FIRST_INDEX, LAST_INDEX, PARAMETER_METADATA_KEY, REL_PREFIX, SINGLE_ELEMENT_LENGTH, SPAN_ID_LENGTH, TRACE_ID_LENGTH } from './common/constants.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from './common/types.ts';
 import type { Resource, TypedResultResponse, TypedRedirectResponse } from './Resource.ts';
@@ -8,7 +8,7 @@ import { UnsupportedMediaTypeError } from './common/errors.ts';
 import type { EventSource } from 'eventsource';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
 import { HttpError } from './HttpError.ts';
-import { serialiseQuery } from "./common/utils.ts";
+import { serialiseQuery, deserialiseQuery } from './common/utils.ts';
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -151,6 +151,10 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
     url.search = search;
 
     const response = await this.fetch(url, { signal, method, body, headers });
+    return this.#handleResponse(response);
+  }
+
+  async #handleResponse(response: Response) {
     const responseContentType = response.headers.get(Headers.ContentType);
     
     if (
@@ -162,6 +166,27 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       const result = await handler.decode(response);
       if (result instanceof HttpError)
         throw result;
+      
+      if (response.headers.has(Headers.Link)) {
+        const link = response.headers.get(Headers.Link) ?? '';
+        for (const anchor of link.split(', ')) {
+          const [urlPart, relPart] = anchor.split('; ');
+          const url = urlPart.substring(
+            SINGLE_ELEMENT_LENGTH,
+            urlPart.length - SINGLE_ELEMENT_LENGTH
+          );
+          const rel = relPart.substring(
+            REL_PREFIX.length,
+            relPart.length - SINGLE_ELEMENT_LENGTH
+          );
+
+          (this as Record<string, unknown>)[rel] = async (signal?: AbortSignal) => {
+            const response = await this.fetch(url, { signal });
+            return this.#handleResponse(response);
+          };
+        }
+      }
+
       return result;
     }
     response.body?.cancel();
