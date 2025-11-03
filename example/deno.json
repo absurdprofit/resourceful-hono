@@ -9,6 +9,6 @@
   },
   "exports": {},
   "tasks": {
-    "serve": "deno serve -A --watch-hmr --inspect-brk index.ts"
+    "serve": "deno serve -A --watch-hmr --inspect index.ts"
   }
 }

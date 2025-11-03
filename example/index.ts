@@ -52,7 +52,7 @@ const query = new QueryBuilder<PageBuilder>()
   .serialise();
 pagedClient.get(query).then((result) => {
   console.log(result);
-  return (pagedClient as unknown as Record<string, () => void>).next();
+  return pagedClient.next();
 })
   .then(console.log);
 

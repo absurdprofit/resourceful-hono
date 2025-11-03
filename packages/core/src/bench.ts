@@ -167,9 +167,12 @@ import { deserialiseQuery, serialiseQuery } from './common/utils.ts';
 //   },
 // };
 // Deno.bench('PagedResult', async () => {
-//   await PagedResult(HttpStatusCodes.Ok, json, undefined, {
-//     url,
-//     pagination,
+//   await PagedResult(HttpStatusCodes.Ok, {
+//     body: json,
+//     meta: {
+//       url,
+//       pagination,
+//     },
 //   });
 // });
 

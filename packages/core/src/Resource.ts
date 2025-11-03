@@ -59,7 +59,11 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
   }
 }
 
-export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, ___ = unknown> extends Response {
+export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, __ = unknown> extends Response {
+  readonly status: S;
+}
+
+export interface TypedPagedResultResponse<S extends HttpStatusCodes | number, _ = unknown, __ = unknown, ___ = unknown> extends Response {
   readonly status: S;
 }
 
@@ -151,7 +155,7 @@ export async function Result<
     body = await Resource
       .contentTypes
       .get(contentType!)
-      ?.encode(content, contentType);
+      ?.encode(body, contentType);
   }
   return new Response(
     body as BodyInit | null | undefined,
@@ -162,22 +166,26 @@ export async function Result<
 export async function PagedResult<
   S extends HttpStatusCodes | number,
   C extends BodyInit | (() => Iterator<unknown, unknown, unknown>) | (() => AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
+  P extends Record<string, unknown> = Record<string, unknown>,
   T extends ContentTypes | string | undefined = undefined
 >(
   status: S,
-  content?: C,
-  contentType?: T,
-  meta?: {
-    url: string;
-    pagination?: object;
-  }
-): Promise<TypedResultResponse<S, C, T>> {
+  content?: {
+    body: C;
+    meta?: {
+      url: string;
+      pagination?: P;
+    }
+  },
+  contentType?: T
+  
+): Promise<TypedPagedResultResponse<S, C, P, T>> {
   const headers: [string, string][] = [
     [Headers.Date, date()],
   ];
 
-  if (meta) {
-    const { url, pagination = {} } = meta;
+  if (content?.meta) {
+    const { url, pagination = {} } = content.meta;
     const linkUrl = new URL(url);
     const linkParts: string[] = [];
     for (const [rel, link] of Object.entries(pagination)) {
@@ -190,7 +198,7 @@ export async function PagedResult<
       headers.push([Headers.Link, linkParts.join(', ')]);
   }
 
-  let body: C | BodyInit | null | undefined = content;
+  let body: C | BodyInit | null | undefined = content?.body;
   if (contentType || !isBodyInit(body)) {
     if (!contentType) {
       switch (typeof content) {
@@ -198,7 +206,7 @@ export async function PagedResult<
           contentType = ContentTypes.OctetStream as T;
           break;
         case 'undefined':
-          return new Response(undefined, { status, headers }) as TypedResultResponse<S, C, T>;
+          return new Response(undefined, { status, headers }) as TypedPagedResultResponse<S, C, P, T>;
         default:
           contentType = ContentTypes.Json as T;
       }
@@ -218,12 +226,12 @@ export async function PagedResult<
     body = await Resource
       .contentTypes
       .get(contentType!)
-      ?.encode(content, contentType);
+      ?.encode(body, contentType);
   }
   return new Response(
     body as BodyInit | null | undefined,
     { status, headers }
-  ) as TypedResultResponse<S, C, T>;
+  ) as TypedPagedResultResponse<S, C, P, T>;
 }
 
 export interface IResource {

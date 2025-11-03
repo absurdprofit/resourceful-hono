@@ -23,10 +23,14 @@ export class PagedResource extends BaseResource {
     const queryBuilder = new PageBuilder()
       .createQueryBuilder('user');
     const result = await query.reduce(WithBuilder, queryBuilder).getManyAndCount();
-    return PagedResult(HttpStatusCodes.Ok, result, undefined, {
-      url: this.request.url,
-      pagination: {
-        next: query,
+    return PagedResult(HttpStatusCodes.Ok, {
+      body: result,
+      meta: {
+        url: this.request.url,
+        pagination: {
+          next: query,
+          last: query,
+        },
       },
     });
   }
@@ -78,7 +82,7 @@ export class PageBuilder {
   public getManyAndCount() {
     this.operations.push('getManyAndCount()');
     const result = [{ id: Number(), name: 'demo' }];
-    return Promise.resolve([result, result.length]);
+    return Promise.resolve([result, result.length] as const);
   }
 
   public build() {
