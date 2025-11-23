@@ -58,7 +58,7 @@ type Builder<T> = {
 export function WithBuilder<T extends Builder<T>>(
   previousValue: T,
   currentValue: BuilderCall<T>
-) {
+): T {
   const [methodName, ...args] = currentValue;
   return previousValue[methodName](...args);
 }
