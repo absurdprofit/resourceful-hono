@@ -9,7 +9,7 @@ import { FIRST_INDEX, LAST_INDEX, SINGLE_ELEMENT_LENGTH } from './common/constan
 
 export interface ContentTypeHandler {
   encode: (data: unknown, contentType?: string) => BodyInit | null | Promise<BodyInit | null>;
-  decode: (resource: Request | Response) => unknown | Promise<unknown>;
+  decode: (resource: Request | Response) => Promise<unknown>;
 }
 
 export class ContentTypeRegistry {
@@ -87,7 +87,9 @@ export class ContentTypeRegistry {
       ContentTypes.OctetStream,
     ], {
       decode(resource) {
-        return resource.body;
+        return Promise.resolve(
+          resource.body
+        );
       },
       encode(data) {
         if (typeof data === 'function')
@@ -110,9 +112,11 @@ export class ContentTypeRegistry {
         else
           response = resource;
   
-        return new EventSource(
-          resource.url,
-          { fetch: () => Promise.resolve(response) }
+        return Promise.resolve(
+          new EventSource(
+            resource.url,
+            { fetch: () => Promise.resolve(response) }
+          )
         );
       },
       encode(data) {

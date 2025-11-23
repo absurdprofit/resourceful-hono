@@ -102,7 +102,7 @@ function parseQueryIndex(segment: string) {
   return segment;
 }
 
-export function deserialiseQuery<T>(params: [string, string][]): T {
+export function decodeQuery<T>(params: [string, string][]): T {
   const state: Record<string, unknown> = {
     result: undefined,
   };
@@ -128,7 +128,7 @@ export function deserialiseQuery<T>(params: [string, string][]): T {
   return state.result as T;
 }
 
-export function serialiseQuery(object: object) {
+export function encodeQuery(object: object) {
   const params: string[] = [];
   const stack: Array<{ path: string[], value: unknown }> = [
     { path: [], value: object },

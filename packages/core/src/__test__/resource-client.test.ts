@@ -5,7 +5,7 @@ import { PagedResult, Redirect, Resource, Result } from '../Resource.ts';
 import { Accept, FromBody, FromQuery, FromRoute } from '../common/decorators.ts';
 import { z } from 'zod';
 import { NotFoundError, UnsupportedMediaTypeError } from '../common/errors.ts';
-import { QueryBuilder, WithBuilder } from "../QueryBuilder.ts";
+import { QueryBuilder, WithBuilder } from '../QueryBuilder.ts';
 
 class RedirectResource extends Resource {
   public GET() {
@@ -81,13 +81,18 @@ class UnsupportedContentResource extends Resource {
   }
 }
 
-const PAGED_DATA_LENGTH = 2
-const PAGED_DATA = new Array(PAGED_DATA_LENGTH).fill(0).map((_, index) => {
-  return {
-    id: index,
-    name: `demo-${index}`,
-  };
-});
+const PAGED_DATA_LENGTH = 2;
+const PAGED_DATA = new Array(PAGED_DATA_LENGTH)
+  .fill(Number())
+  .map((_, index) => {
+    return {
+      id: index,
+      name: `demo-${index}`,
+    };
+  });
+const COMPARE_EQUAL = 0;
+const COMPARE_AFTER = 1;
+const COMPARE_BEFORE = -1;
 class PageBuilder {
   #skip = MIN_SKIP;
   #take = MIN_TAKE;
@@ -127,9 +132,9 @@ class PageBuilder {
         const valB = b[column];
 
         // Handle null/undefined safely
-        if (valA == null && valB == null) return 0;
-        if (valA == null) return 1;
-        if (valB == null) return -1;
+        if (valA == null && valB == null) return COMPARE_EQUAL;
+        if (valA == null) return COMPARE_AFTER;
+        if (valB == null) return COMPARE_BEFORE;
 
         const bothNumbers = typeof valA === 'number' && typeof valB === 'number';
         const bothStrings = typeof valA === 'string' && typeof valB === 'string';
@@ -155,12 +160,6 @@ class PageBuilder {
   }
 }
 
-class PagedResource extends Resource {
-  GET() {
-    
-  }
-}
-
 const MIN_SKIP = 1;
 const MIN_TAKE = 10;
 const MAX_TAKE = 50;
@@ -171,12 +170,12 @@ const BuilderSchema = z.array(
     z.tuple([
       z.literal('orderBy'),
       z.string(),
-      z.union([z.literal('DESC'), z.literal('ASC')]),
+      z.union([z.literal('DESC'), z.literal('ASC'), z.undefined()]),
     ]),
   ])
 );
 class BuilderPagedResource extends Resource {
-  async GET(@FromQuery(BuilderSchema) query: z.infer<typeof BuilderSchema>) {
+  public async GET(@FromQuery(BuilderSchema) query: z.infer<typeof BuilderSchema>) {
     const result = await query
       .reduce(WithBuilder, new PageBuilder())
       .getManyAndCount();
@@ -192,18 +191,18 @@ class BuilderPagedResource extends Resource {
 
     const previous = skip
       ? new QueryBuilder<PageBuilder>()
-          .skip(Math.max(MIN_SKIP, skip - take))
-          .take(take)
-          .orderBy(orderBy)
-          .serialise()
+        .skip(Math.max(MIN_SKIP, skip - take))
+        .take(take)
+        .orderBy(orderBy)
+        .serialise()
       : undefined;
 
     const next = skip + take < count
       ? new QueryBuilder<PageBuilder>()
-          .skip(Math.min(count, skip + take))
-          .take(take)
-          .orderBy(orderBy)
-          .serialise()
+        .skip(Math.min(count, skip + take))
+        .take(take)
+        .orderBy(orderBy)
+        .serialise()
       : undefined;
     console.log({ next, previous });
     return PagedResult(
@@ -213,8 +212,8 @@ class BuilderPagedResource extends Resource {
           url: this.request.url,
           pagination: {
             next,
-            previous
-          }
+            previous,
+          },
         },
         body: result,
       }
@@ -242,7 +241,7 @@ Application.instance.registerResources([
   TestResource,
   UnsupportedContentResource,
   TraceContextResource,
-  BuilderPagedResource
+  BuilderPagedResource,
 ]);
 
 Deno.serve(Application.instance.fetch);

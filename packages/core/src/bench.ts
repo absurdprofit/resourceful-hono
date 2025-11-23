@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { QueryBuilder } from './QueryBuilder.ts';
 import { PagedResult, Result } from './Resource.ts';
 import { HttpStatusCodes } from '@resourceful-hono/core';
-import { deserialiseQuery, serialiseQuery } from './common/utils.ts';
+import { decodeQuery, encodeQuery } from './common/utils.ts';
 
 // Deno.bench('Result', async () => {
 //   await Result(200, 1);
@@ -176,15 +176,15 @@ import { deserialiseQuery, serialiseQuery } from './common/utils.ts';
 //   });
 // });
 
-// Deno.bench('deserialiseQuery', () => {
-//   deserialiseQuery([
+// Deno.bench('decodeQuery', () => {
+//   decodeQuery([
 //     ['hello', 'world'],
 //     ['world', 'hello'],
 //   ]);
 // });
 
-// Deno.bench('serialiseQuery', () => {
-//   serialiseQuery([
+// Deno.bench('encodeQuery', () => {
+//   encodeQuery([
 //     ['hello', 'world'],
 //     ['world', 'hello'],
 //   ]);

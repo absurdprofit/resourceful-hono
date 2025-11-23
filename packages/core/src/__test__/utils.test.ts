@@ -3,7 +3,7 @@ import { isBodyInit, isResourceConstructor, isSuppressedError } from '../common/
 import { Resource } from '../Resource.ts';
 import type { Context } from 'hono';
 import { setMetric } from 'hono/timing';
-import { parseTotalDuration, literalToLowerCase, literalToUpperCase, toFormData, deserialiseQuery, serialiseQuery } from '../common/utils.ts';
+import { parseTotalDuration, literalToLowerCase, literalToUpperCase, toFormData, decodeQuery, encodeQuery } from '../common/utils.ts';
 
 // Setup dummy Resource for testing isResourceConstructor
 class DummyResource extends Resource {}
@@ -114,8 +114,8 @@ Deno.test('Query serialisation preserves simple object structure', () => {
     id: '0',
   };
 
-  const params = new URLSearchParams(serialiseQuery(input));
-  const output = deserialiseQuery([...params.entries()]);
+  const params = new URLSearchParams(encodeQuery(input));
+  const output = decodeQuery([...params.entries()]);
 
   expect(output).toStrictEqual(input);
 });
@@ -126,8 +126,8 @@ Deno.test('Query serialisation preserves simple array structure', () => {
     '0',
   ];
 
-  const params = new URLSearchParams(serialiseQuery(input));
-  const output = deserialiseQuery([...params.entries()]);
+  const params = new URLSearchParams(encodeQuery(input));
+  const output = decodeQuery([...params.entries()]);
 
   expect(output).toStrictEqual(input);
 });
@@ -142,8 +142,8 @@ Deno.test('Query serialisation preserves nested object structure', () => {
     },
   };
 
-  const params = new URLSearchParams(serialiseQuery(input));
-  const output = deserialiseQuery([...params.entries()]);
+  const params = new URLSearchParams(encodeQuery(input));
+  const output = decodeQuery([...params.entries()]);
 
   expect(output).toStrictEqual(input);
 });
@@ -154,8 +154,8 @@ Deno.test('Query serialisation preserves nested array structure', () => {
     ['id', '0'],
   ];
 
-  const params = new URLSearchParams(serialiseQuery(input));
-  const output = deserialiseQuery([...params.entries()]);
+  const params = new URLSearchParams(encodeQuery(input));
+  const output = decodeQuery([...params.entries()]);
 
   expect(output).toStrictEqual(input);
 });
@@ -171,8 +171,8 @@ Deno.test('Query serialisation preserves nested array in object structure', () =
     },
   };
 
-  const params = new URLSearchParams(serialiseQuery(input));
-  const output = deserialiseQuery([...params.entries()]);
+  const params = new URLSearchParams(encodeQuery(input));
+  const output = decodeQuery([...params.entries()]);
 
   expect(output).toStrictEqual(input);
 });
@@ -183,8 +183,8 @@ Deno.test('Query serialisation preserves nested object in array structure', () =
     { id: '0' },
   ];
 
-  const params = new URLSearchParams(serialiseQuery(input));
-  const output = deserialiseQuery([...params.entries()]);
+  const params = new URLSearchParams(encodeQuery(input));
+  const output = decodeQuery([...params.entries()]);
 
   expect(output).toStrictEqual(input);
 });
@@ -195,31 +195,31 @@ Deno.test('Query serialisation ignores undefined', () => {
   const objectExpectedOutput = { name: 'Nathan' };
   const arrayExpectedOutput = ['id'];
 
-  const objectParams = new URLSearchParams(serialiseQuery(objectInput));
-  const arrayParams = new URLSearchParams(serialiseQuery(arrayInput));
-  const objectOutput = deserialiseQuery([...objectParams.entries()]);
-  const arrayOutput = deserialiseQuery([...arrayParams.entries()]);
+  const objectParams = new URLSearchParams(encodeQuery(objectInput));
+  const arrayParams = new URLSearchParams(encodeQuery(arrayInput));
+  const objectOutput = decodeQuery([...objectParams.entries()]);
+  const arrayOutput = decodeQuery([...arrayParams.entries()]);
 
   expect(objectOutput).toStrictEqual(objectExpectedOutput);
   expect(arrayOutput).toStrictEqual(arrayExpectedOutput);
 });
 
 Deno.test('Query deserialisation outputs undefined for empty query string', () => {
-  const output = deserialiseQuery([]);
+  const output = decodeQuery([]);
 
   expect(output).toBeUndefined();
 });
 
 Deno.test('Deep nesting is preserved', () => {
   const input = { a: [{ b: { c: { d: '1' } } }] };
-  const params = new URLSearchParams(serialiseQuery(input));
-  const output = deserialiseQuery([...params.entries()]);
+  const params = new URLSearchParams(encodeQuery(input));
+  const output = decodeQuery([...params.entries()]);
   expect(output).toStrictEqual(input);
 });
 
 Deno.test('Special characters are correctly escaped', () => {
   const input = { 'user name': 'Nathan & Co', query: 'a=b&c=d', emoji: '🦉' };
-  const params = new URLSearchParams(serialiseQuery(input));
-  const output = deserialiseQuery([...params.entries()]);
+  const params = new URLSearchParams(encodeQuery(input));
+  const output = decodeQuery([...params.entries()]);
   expect(output).toStrictEqual(input);
 });

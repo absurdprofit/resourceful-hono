@@ -1,12 +1,12 @@
 import type { Hono, HonoRequest, Handler, Context, MiddlewareHandler } from 'hono';
 import { mergePath } from 'hono/utils/url';
 import { z } from 'zod';
-import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, FIRST_INDEX, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY, SINGLE_ELEMENT_LENGTH } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, FIRST_INDEX, INVALID_PAYLOAD_ERROR, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY, SINGLE_ELEMENT_LENGTH } from './common/constants.ts';
 import type { DefaultContextVariables, ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
 import { isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { type honoBuilder, literalToLowerCase, deserialiseQuery, serialiseQuery } from './common/utils.ts';
+import { type honoBuilder, literalToLowerCase, decodeQuery, encodeQuery } from './common/utils.ts';
 import type { Application } from './Application.ts';
 import { ResourceClient } from './ResourceClient.ts';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
@@ -190,7 +190,7 @@ export async function PagedResult<
     const linkParts: string[] = [];
     for (const [rel, link] of Object.entries(pagination)) {
       if (!link) continue;
-      linkUrl.search = serialiseQuery(link);
+      linkUrl.search = encodeQuery(link);
       linkParts.push(`<${linkUrl.href}>; rel="${rel}"`);
     }
 
@@ -582,13 +582,16 @@ export abstract class Resource implements IResource {
       case 'route':
         return request.param();
       case 'query':
-        return deserialiseQuery(Object.entries(request.query()));
+        return decodeQuery(Object.entries(request.query()));
       case 'body': {
         if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
           const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
           const handler = this.contentTypeRegistry.get(method, contentType);
           if (handler)
-            return handler.decode(request.raw);
+            return handler.decode(request.raw)
+              .catch(() => {
+                throw INVALID_PAYLOAD_ERROR;
+              });
           request.raw.body?.cancel();
           throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
         }

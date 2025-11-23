@@ -8,7 +8,7 @@ import { UnsupportedMediaTypeError } from './common/errors.ts';
 import type { EventSource } from 'eventsource';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
 import { HttpError } from './HttpError.ts';
-import { serialiseQuery, deserialiseQuery } from './common/utils.ts';
+import { encodeQuery, decodeQuery } from './common/utils.ts';
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -292,7 +292,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       headers.set(Headers.ContentType, matchedContentType);
     return {
       headers,
-      search: serialiseQuery((data?.query)).toString(),
+      search: encodeQuery((data?.query)).toString(),
       pathname: this.#serialiseRoute(data?.route, method),
       body: await this.#serialiseBody(data?.body, method, matchedContentType, matchedEncoder),
     };
