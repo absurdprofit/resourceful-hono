@@ -1,10 +1,11 @@
 import { expect } from 'expect';
 import { Application } from '../Application.ts';
 import { Headers, HttpStatusCodes } from '../common/enums.ts';
-import { Redirect, Resource, Result } from '../Resource.ts';
+import { PagedResult, Redirect, Resource, Result } from '../Resource.ts';
 import { Accept, FromBody, FromQuery, FromRoute } from '../common/decorators.ts';
 import { z } from 'zod';
 import { NotFoundError, UnsupportedMediaTypeError } from '../common/errors.ts';
+import { QueryBuilder, WithBuilder } from '../QueryBuilder.ts';
 
 class RedirectResource extends Resource {
   public GET() {
@@ -80,6 +81,146 @@ class UnsupportedContentResource extends Resource {
   }
 }
 
+const PAGED_DATA_LENGTH = 2;
+const PAGED_DATA = new Array(PAGED_DATA_LENGTH)
+  .fill(Number())
+  .map((_, index) => {
+    return {
+      id: index,
+      name: `demo-${index}`,
+    };
+  });
+const COMPARE_EQUAL = 0;
+const COMPARE_AFTER = 1;
+const COMPARE_BEFORE = -1;
+class PageBuilder {
+  #skip = MIN_SKIP;
+  #take = MIN_TAKE;
+  #orderBy: [string, 'ASC' | 'DESC'] = ['name', 'ASC'];
+
+  public orderBy(column: string, direction: 'ASC' | 'DESC' = 'ASC') {
+    this.#orderBy = [column, direction];
+    return this;
+  }
+
+  public skip(value: number) {
+    this.#skip = value;
+    return this;
+  }
+
+  public take(value: number) {
+    this.#take = value;
+    return this;
+  }
+
+  public getManyAndCount() {
+    const result = this.#applyFilter(this.#applySort(PAGED_DATA));
+    return Promise.resolve([result, result.length] as const);
+  }
+
+  #applyFilter<T>(data: T[]) {
+    return data
+      .slice(this.#skip)
+      .slice(Number(), this.#take);
+  }
+
+  #applySort<T extends Record<string, unknown>>(data: T[]) {
+    return this.#orderBy.reduce((item, sort) => {
+      return item.toSorted((a, b) => {
+        const [column, order] = sort;
+        const valA = a[column];
+        const valB = b[column];
+
+        // Handle null/undefined safely
+        if (valA == null && valB == null) return COMPARE_EQUAL;
+        if (valA == null) return COMPARE_AFTER;
+        if (valB == null) return COMPARE_BEFORE;
+
+        const bothNumbers = typeof valA === 'number' && typeof valB === 'number';
+        const bothStrings = typeof valA === 'string' && typeof valB === 'string';
+
+        let result: number;
+        if (bothNumbers) {
+          result = valA - valB;
+        } else if (bothStrings) {
+          result = valA.localeCompare(valB, undefined, { numeric: true });
+        } else {
+          // fallback: convert to string and compare
+          result = String(valA)
+            .localeCompare(
+              String(valB),
+              undefined,
+              { numeric: true }
+            );
+        }
+
+        return order === 'ASC' ? result : -result;
+      });
+    }, data);
+  }
+}
+
+const MIN_SKIP = 1;
+const MIN_TAKE = 10;
+const MAX_TAKE = 50;
+const BuilderSchema = z.array(
+  z.union([
+    z.tuple([z.literal('skip'), z.coerce.number().min(MIN_SKIP)]),
+    z.tuple([z.literal('take'), z.coerce.number().min(MIN_TAKE).max(MAX_TAKE)]),
+    z.tuple([
+      z.literal('orderBy'),
+      z.string(),
+      z.union([z.literal('DESC'), z.literal('ASC'), z.undefined()]),
+    ]),
+  ])
+);
+class BuilderPagedResource extends Resource {
+  public async GET(@FromQuery(BuilderSchema) query: z.infer<typeof BuilderSchema>) {
+    const result = await query
+      .reduce(WithBuilder, new PageBuilder())
+      .getManyAndCount();
+
+    const params = query.reduce((result, param) => {
+      const [key, ...args] = param;
+      return result.set(key, args);
+    }, new Map());
+    const take = params.get('take');
+    const skip = params.get('skip');
+    const orderBy = params.get('orderBy');
+    const [_, count] = result;
+
+    const previous = skip
+      ? new QueryBuilder<PageBuilder>()
+        .skip(Math.max(MIN_SKIP, skip - take))
+        .take(take)
+        .orderBy(orderBy)
+        .serialise()
+      : undefined;
+
+    const next = skip + take < count
+      ? new QueryBuilder<PageBuilder>()
+        .skip(Math.min(count, skip + take))
+        .take(take)
+        .orderBy(orderBy)
+        .serialise()
+      : undefined;
+    console.log({ next, previous });
+    return PagedResult(
+      HttpStatusCodes.Ok,
+      {
+        meta: {
+          url: this.request.url,
+          pagination: {
+            next,
+            previous,
+          },
+        },
+        body: result,
+      }
+    );
+  }
+}
+
 Resource.contentTypes.use('image/svg+xml', {
   encode(data) {
     return String(data);
@@ -92,6 +233,7 @@ Resource.contentTypes.use('image/svg+xml', {
 const origin = 'http://localhost:8000';
 const test = TestResource.createClient(origin);
 const unsupportedContent = UnsupportedContentResource.createClient(origin);
+const builderPagedResource = BuilderPagedResource.createClient(origin);
 const traceContext = TraceContextResource.createClient(origin);
 
 Application.instance.registerResources([
@@ -99,6 +241,7 @@ Application.instance.registerResources([
   TestResource,
   UnsupportedContentResource,
   TraceContextResource,
+  BuilderPagedResource,
 ]);
 
 Deno.serve(Application.instance.fetch);
@@ -222,3 +365,24 @@ Deno.test('ResourceClient returns undefined for void results', async () => {
 
 //   expect(traceparent).toBe(`00-${result.traceId}-${result.parentId}-01`);
 // });
+
+Deno.test('ResourceClient handles pagination', async () => {
+  const [actualFirstPage] = await new PageBuilder()
+    .take(MIN_TAKE)
+    .orderBy('name', 'DESC')
+    .getManyAndCount();
+  const [actualSecondPage] = await new PageBuilder()
+    .take(MIN_TAKE + MIN_TAKE)
+    .orderBy('name', 'DESC')
+    .getManyAndCount();
+  const firstPage = await builderPagedResource.get(
+    new QueryBuilder<PageBuilder>()
+      .take(MIN_TAKE)
+      .orderBy('name', 'DESC')
+      .serialise()
+  );
+  const secondPage = await builderPagedResource.next();
+
+  expect(firstPage).toStrictEqual(actualFirstPage);
+  expect(secondPage).toStrictEqual(actualSecondPage);
+});

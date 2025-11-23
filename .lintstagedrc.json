@@ -1,3 +1,6 @@
 {
-  "packages/**": "deno task lint"
+  "packages/**": [
+    "deno task lint",
+    "deno check"
+  ]
 }
