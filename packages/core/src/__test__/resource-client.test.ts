@@ -81,7 +81,7 @@ class UnsupportedContentResource extends Resource {
   }
 }
 
-const PAGED_DATA_LENGTH = 2;
+const PAGED_DATA_LENGTH = 20;
 const PAGED_DATA = new Array(PAGED_DATA_LENGTH)
   .fill(Number())
   .map((_, index) => {
@@ -96,10 +96,10 @@ const COMPARE_BEFORE = -1;
 class PageBuilder {
   #skip = MIN_SKIP;
   #take = MIN_TAKE;
-  #orderBy: [string, 'ASC' | 'DESC'] = ['name', 'ASC'];
+  #orderBy: [string, 'ASC' | 'DESC'][] = [['id', 'ASC']];
 
   public orderBy(column: string, direction: 'ASC' | 'DESC' = 'ASC') {
-    this.#orderBy = [column, direction];
+    this.#orderBy.push([column, direction]);
     return this;
   }
 
@@ -115,7 +115,7 @@ class PageBuilder {
 
   public getManyAndCount() {
     const result = this.#applyFilter(this.#applySort(PAGED_DATA));
-    return Promise.resolve([result, result.length] as const);
+    return Promise.resolve([result, PAGED_DATA_LENGTH] as const);
   }
 
   #applyFilter<T>(data: T[]) {
@@ -160,13 +160,25 @@ class PageBuilder {
   }
 }
 
-const MIN_SKIP = 1;
+const MIN_SKIP = 0;
 const MIN_TAKE = 10;
 const MAX_TAKE = 50;
 const BuilderSchema = z.array(
   z.union([
-    z.tuple([z.literal('skip'), z.coerce.number().min(MIN_SKIP)]),
-    z.tuple([z.literal('take'), z.coerce.number().min(MIN_TAKE).max(MAX_TAKE)]),
+    z.tuple([
+      z.literal('skip'),
+      z.coerce
+        .number()
+        .min(MIN_SKIP),
+    ]),
+    z.tuple([
+      z.literal('take'),
+      z.coerce
+        .number()
+        .min(MIN_TAKE)
+        .max(MAX_TAKE)
+        .default(MAX_TAKE),
+    ]),
     z.tuple([
       z.literal('orderBy'),
       z.string(),
@@ -183,28 +195,30 @@ class BuilderPagedResource extends Resource {
     const params = query.reduce((result, param) => {
       const [key, ...args] = param;
       return result.set(key, args);
-    }, new Map());
-    const take = params.get('take');
-    const skip = params.get('skip');
-    const orderBy = params.get('orderBy');
+    // TODO: FIX THIS
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }, new Map<string, any[]>());
+    const take = params.get('take') ?? [MAX_TAKE];
+    const skip = params.get('skip') ?? [MIN_SKIP];
+    const orderBy = params.get('orderBy') ?? ['id', 'ASC'];
     const [_, count] = result;
 
-    const previous = skip
+    const previous = skip[0] - take[0] >= MIN_SKIP
       ? new QueryBuilder<PageBuilder>()
-        .skip(Math.max(MIN_SKIP, skip - take))
-        .take(take)
-        .orderBy(orderBy)
+        .skip(Math.max(MIN_SKIP, skip[0] - take[0]))
+        .take(take[0])
+        .orderBy(orderBy[0], orderBy[1])
         .serialise()
       : undefined;
 
-    const next = skip + take < count
+    const next = skip[0] + take[0] < count
       ? new QueryBuilder<PageBuilder>()
-        .skip(Math.min(count, skip + take))
-        .take(take)
-        .orderBy(orderBy)
+        .skip(Math.min(count, skip[0] + take[0]))
+        .take(Math.min(take[0], count - skip[0]))
+        .orderBy(orderBy[0], orderBy[1])
         .serialise()
       : undefined;
-    console.log({ next, previous });
+
     return PagedResult(
       HttpStatusCodes.Ok,
       {
@@ -342,7 +356,7 @@ Deno.test('ResourceClient can merge object types', async () => {
 Deno.test('ResourceClient throws for unsupported content types', async () => {
   const decodeError = await unsupportedContent.get().catch(e => e);
   const encodeError = await unsupportedContent.post('<svg></svg>').catch(e => e);
-  console.log({ decodeError, encodeError });
+
   expect(decodeError).toBeInstanceOf(UnsupportedMediaTypeError);
   expect(encodeError).toBeInstanceOf(UnsupportedMediaTypeError);
 });
@@ -367,12 +381,13 @@ Deno.test('ResourceClient returns undefined for void results', async () => {
 // });
 
 Deno.test('ResourceClient handles pagination', async () => {
-  const [actualFirstPage] = await new PageBuilder()
+  const actualFirstPage = await new PageBuilder()
     .take(MIN_TAKE)
     .orderBy('name', 'DESC')
     .getManyAndCount();
-  const [actualSecondPage] = await new PageBuilder()
-    .take(MIN_TAKE + MIN_TAKE)
+  const actualSecondPage = await new PageBuilder()
+    .skip(MIN_TAKE)
+    .take(MIN_TAKE)
     .orderBy('name', 'DESC')
     .getManyAndCount();
   const firstPage = await builderPagedResource.get(
@@ -382,7 +397,9 @@ Deno.test('ResourceClient handles pagination', async () => {
       .serialise()
   );
   const secondPage = await builderPagedResource.next();
+  const previousPage = await builderPagedResource.previous();
 
   expect(firstPage).toStrictEqual(actualFirstPage);
   expect(secondPage).toStrictEqual(actualSecondPage);
+  expect(previousPage).toStrictEqual(actualFirstPage);
 });
