@@ -1,4 +1,4 @@
-import { SINGLE_ELEMENT_LENGTH, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
+import { FIRST_INDEX, SINGLE_ELEMENT_LENGTH, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 import { Hono } from 'hono';
 import { Resource } from '../Resource.ts';
 
@@ -94,26 +94,25 @@ export function honoBuilder(instance?: Resource): Hono {
 }
 
 function parseQueryIndex(segment: string) {
-  if (segment.startsWith('(') && segment.endsWith(')'))
+  if (segment.startsWith('[') && segment.endsWith(']'))
     return Number(segment.substring(
       SINGLE_ELEMENT_LENGTH,
       segment.length - SINGLE_ELEMENT_LENGTH
     ));
-  return null;
+  return segment;
 }
 
-export function deserialiseQuery<T>(params: [string, string][]): T {
-  const result: Record<string, unknown> = {};
+export function decodeQuery<T>(params: [string, string][]): T {
+  const state: Record<string, unknown> = {
+    result: undefined,
+  };
   
   for (const [key, value] of params) {
     const stack = key.split('.').reverse();
-    let root = result;
-    let segment: string | number = stack.pop()!;
+    let root = state;
+    let segment: string | number = 'result';
     while (stack.length) {
-      let next: string | number = stack.pop()!
-      const index = parseQueryIndex(next);
-      if (index !== null)
-        next = index;
+      const next = parseQueryIndex(stack.pop()!);
       if (root[segment] === undefined) {
         if (typeof next === 'number') {
           root[segment] = [];
@@ -126,5 +125,32 @@ export function deserialiseQuery<T>(params: [string, string][]): T {
     root[segment] = value;
   }
 
-  return result as T;
+  return state.result as T;
+}
+
+export function encodeQuery(object: object) {
+  const params: string[] = [];
+  const stack: Array<{ path: string[], value: unknown }> = [
+    { path: [], value: object },
+  ];
+
+  while (stack.length) {
+    const { path, value } = stack.pop()!;
+
+    if (Array.isArray(value)) {
+      for (let i = FIRST_INDEX; i < value.length; i++) {
+        stack.push({ path: [...path, `[${i}]`], value: value[i] });
+      }
+    } else if (value !== null && typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) {
+        stack.push({ path: [...path, k], value: v });
+      }
+    } else if (value !== undefined) {
+      params.push(
+        `${encodeURIComponent(path.join('.'))}=${encodeURIComponent(String(value))}`
+      );
+    }
+  }
+
+  return params.join('&');
 }
