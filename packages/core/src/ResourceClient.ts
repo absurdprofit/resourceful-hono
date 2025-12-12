@@ -176,8 +176,8 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       if (result instanceof HttpError)
         throw result;
       
-      if (response.headers.has(Headers.Link)) {
-        const link = response.headers.get(Headers.Link) ?? '';
+      const link = response.headers.get(Headers.Link);
+      if (link) {
         for (const anchor of link.split(', ')) {
           const [urlPart, relPart] = anchor.split('; ');
           const url = urlPart.substring(
