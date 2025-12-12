@@ -189,16 +189,18 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
             relPart.length - SINGLE_ELEMENT_LENGTH
           );
 
-          Object.defineProperty(this, rel, {
-            get() {
-              return async (signal?: AbortSignal) => {
-                const response = await this.fetch(url, { signal });
-                return this.#handleResponse(response);
-              };
-            },
-            enumerable: true,
-            configurable: true,
-          });
+          if (URL.canParse(url) && rel) {
+            Object.defineProperty(this, rel, {
+              get() {
+                return async (signal?: AbortSignal) => {
+                  const response = await this.fetch(url, { signal });
+                  return this.#handleResponse(response);
+                };
+              },
+              enumerable: true,
+              configurable: true,
+            });
+          }
         }
       }
 
