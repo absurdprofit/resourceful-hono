@@ -96,7 +96,7 @@ jobs:
           done
 
       - name: Publish packages
-        if: ${{ steps.version.outputs.versioned == 'true' }}
+        if: ${{ steps.version.outputs.versioned == 'true' || env.TAG_NAME == 'latest' }}
         run: |
           TAG_NAME=${{ env.TAG_NAME }}
           deno publish --allow-dirty

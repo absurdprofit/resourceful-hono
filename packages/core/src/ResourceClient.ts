@@ -167,6 +167,11 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
     const responseContentType = response.headers.get(Headers.ContentType);
     
     if (
+        !response.ok
+        && responseContentType !== ContentTypes.ProblemDetails
+      )
+        throw new TypeError('The server responded with a non-reconstructible error.');
+    if (
       !responseContentType?.length
       || response.status === HttpStatusCodes.NoContent
     ) return;
