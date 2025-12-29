@@ -167,6 +167,11 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
     const responseContentType = response.headers.get(Headers.ContentType);
     
     if (
+        !response.ok
+        && responseContentType !== ContentTypes.ProblemDetails
+      )
+        throw new TypeError('The server responded with a non-reconstructible error.');
+    if (
       !responseContentType?.length
       || response.status === HttpStatusCodes.NoContent
     ) return;
@@ -176,8 +181,8 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       if (result instanceof HttpError)
         throw result;
       
-      if (response.headers.has(Headers.Link)) {
-        const link = response.headers.get(Headers.Link) ?? '';
+      const link = response.headers.get(Headers.Link);
+      if (link) {
         for (const anchor of link.split(', ')) {
           const [urlPart, relPart] = anchor.split('; ');
           const url = urlPart.substring(
@@ -189,16 +194,18 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
             relPart.length - SINGLE_ELEMENT_LENGTH
           );
 
-          Object.defineProperty(this, rel, {
-            get() {
-              return async (signal?: AbortSignal) => {
-                const response = await this.fetch(url, { signal });
-                return this.#handleResponse(response);
-              };
-            },
-            enumerable: true,
-            configurable: true,
-          });
+          if (URL.canParse(url) && rel) {
+            Object.defineProperty(this, rel, {
+              get() {
+                return async (signal?: AbortSignal) => {
+                  const response = await this.fetch(url, { signal });
+                  return this.#handleResponse(response);
+                };
+              },
+              enumerable: true,
+              configurable: true,
+            });
+          }
         }
       }
 
