@@ -7,7 +7,6 @@ export const MIDDLEWARE_METADATA_KEY = Symbol();
 export const DEFAULT_PARAMETER_KEY = Symbol();
 export const TIMING_METRIC_DURATION_REGEX = /dur=([\d.]+)/;
 export const TEXT_ENCODER = new TextEncoder();
-export const TEXT_ENCODER_STREAM = new TextEncoderStream();
 export const FIRST_INDEX = 0;
 export const LAST_INDEX = -1;
 export const TRACE_ID_LENGTH = 16;
