@@ -11,7 +11,7 @@ Deno.test('middlewares run in sequence (request + response)', async () => {
     () => {
       log.push('fetch');
       return Promise.resolve(new Response('ok'));
-    },
+    }
   );
 
   try {
@@ -47,32 +47,32 @@ Deno.test('middlewares run in sequence (request + response)', async () => {
 });
 
 Deno.test('response handlers run strictly in registration order', async () => {
-  const log: number[] = [];
+  const log: `${number}`[] = [];
 
   const fetchStub = stub(
     globalThis,
     'fetch',
-    () => Promise.resolve(new Response('ok')),
+    () => Promise.resolve(new Response('ok'))
   );
 
   try {
     const builder = new FetchBuilder()
       .with(() => (res) => {
-        log.push(1);
+        log.push('1');
         return res;
       })
       .with(() => (res) => {
-        log.push(2);
+        log.push('2');
         return res;
       })
       .with(() => (res) => {
-        log.push(3);
+        log.push('3');
         return res;
       });
 
     await builder.build()('https://example.com');
 
-    expect(log).toEqual([1, 2, 3]);
+    expect(log).toEqual(['1', '2', '3']);
   } finally {
     fetchStub.restore();
   }
@@ -84,7 +84,7 @@ Deno.test('build() is idempotent (no middleware duplication)', async () => {
   const fetchStub = stub(
     globalThis,
     'fetch',
-    () => Promise.resolve(new Response('ok')),
+    () => Promise.resolve(new Response('ok'))
   );
 
   try {
@@ -106,22 +106,22 @@ Deno.test('build() is idempotent (no middleware duplication)', async () => {
 });
 
 Deno.test('multiple fetch calls reuse the same middleware set', async () => {
-  const log: number[] = [];
+  const log: `${number}`[] = [];
 
   const fetchStub = stub(
     globalThis,
     'fetch',
-    () => Promise.resolve(new Response('ok')),
+    () => Promise.resolve(new Response('ok'))
   );
 
   try {
     const fetchFn = new FetchBuilder()
       .with(() => {
-        log.push(1);
+        log.push('1');
         return undefined;
       })
       .with(() => {
-        log.push(2);
+        log.push('2');
         return undefined;
       })
       .build();
@@ -129,7 +129,7 @@ Deno.test('multiple fetch calls reuse the same middleware set', async () => {
     await fetchFn('https://example.com/1');
     await fetchFn('https://example.com/2');
 
-    expect(log).toEqual([1, 2, 1, 2]);
+    expect(log).toEqual(['1', '2', '1', '2']);
   } finally {
     fetchStub.restore();
   }
