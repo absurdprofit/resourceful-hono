@@ -5,7 +5,7 @@ import { ContentTypes, Headers } from './common/enums.ts';
 import { GenericHttpError } from './common/errors.ts';
 import { createReadableFromIterable, toFormData } from './common/utils.ts';
 import { EventSource } from 'eventsource';
-import { FIRST_INDEX, LAST_INDEX, SINGLE_ELEMENT_LENGTH } from './common/constants.ts';
+import { FIRST_INDEX, LAST_INDEX, SINGLE_ELEMENT_LENGTH, TEXT_ENCODER, TEXT_ENCODER_STREAM } from './common/constants.ts';
 
 export interface ContentTypeHandler {
   encode: (data: unknown, contentType?: string) => BodyInit | null | Promise<BodyInit | null>;
@@ -122,7 +122,7 @@ export class ContentTypeRegistry {
       encode(data) {
         if (typeof data === 'function') {
           return createReadableFromIterable(data())
-            .pipeThrough(new TextEncoderStream());
+            .pipeThrough(TEXT_ENCODER_STREAM);
         }
         throw new TypeError('Only generators can be turned into Server Sent Event streams');
       },

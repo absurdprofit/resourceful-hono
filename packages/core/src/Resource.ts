@@ -71,7 +71,7 @@ export interface TypedPagedResultResponse<S extends HttpStatusCodes | number, _ 
 // This is a performance optimization based on the fact that the Date header only needs to be accurate to the second.
 const SECOND_IN_MS = 1000;
 function DATE_GENERATOR() {
-  let last = SECOND_IN_MS;
+  let last = Date.now();
   let value = new Date().toUTCString();
 
   return () => {
