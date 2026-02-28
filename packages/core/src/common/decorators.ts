@@ -2,11 +2,12 @@ import { MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ACCEPT_METADATA_KEY, R
 import { z } from 'zod';
 import { type ContentTypes, Headers, RequestMethod } from './enums.ts';
 import type { NonAbstractResourceLikeConstructor, Resource, ResourceLikeConstructor } from '../Resource.ts';
-import type { Constructor, ParameterMetadata, PrimitiveType, ResourceMethod, CacheControlOptions } from './types.ts';
+import type { Constructor, ParameterMetadata, PrimitiveType, ResourceMethod, CacheControlOptions, EtagOptions } from './types.ts';
 import { Application } from '../Application.ts';
 import type { Service } from '../ServiceMap.ts';
 import type { Env, MiddlewareHandler } from 'hono';
 import { cacheControlFromOptions } from './utils.ts';
+import { etag } from 'hono/etag';
 
 /**
  * Defines the accepted content types for a method handler.
@@ -375,4 +376,8 @@ export function CacheControl(options: CacheControlOptions) {
       cacheControlFromOptions(options)
     );
   });
+}
+
+export function Etag(options: EtagOptions) {
+  return Middleware(etag(options));
 }

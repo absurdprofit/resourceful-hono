@@ -3,6 +3,7 @@ import { type NonAbstractResourceLikeConstructor, Resource } from '../Resource.t
 import type { RequestMethod } from './enums.ts';
 import type { ServerSentEvent } from '../ServerSentEvent.ts';
 import type { ContentTypeHandler } from '../ContentTypeRegistry.ts';
+import { etag } from 'hono/etag';
 
 export type Constructor<T = unknown> = abstract new (...args: never[]) => T;
 export type PrimitiveType = z.ZodString | z.ZodNumber | z.ZodBoolean | z.ZodLiteral<unknown> | z.ZodNativeEnum<z.EnumLike> | z.ZodEnum<[string, ...string[]]>;
@@ -65,3 +66,5 @@ export interface CacheControlOptions {
   revalidate?: boolean;
   stale?: CacheStaleOptions;
 }
+
+export type EtagOptions = Parameters<typeof etag>[number];
