@@ -8,6 +8,8 @@ import type { Service } from '../ServiceMap.ts';
 import type { Env, MiddlewareHandler } from 'hono';
 import { cacheControlFromOptions } from './utils.ts';
 import { etag } from 'hono/etag';
+import { CacheService } from '../services/CacheService.ts';
+import { IResource } from '@resourceful-hono/core';
 
 /**
  * Defines the accepted content types for a method handler.
@@ -368,16 +370,66 @@ export function Middleware<E extends Env>(middleware: MiddlewareHandler<E>):
   };
 }
 
-export function CacheControl(options: CacheControlOptions) {
-  return Middleware(async (context, next) => {
-    await next();
-    context.res.headers.set(
-      Headers.CacheControl,
-      cacheControlFromOptions(options)
-    );
-  });
+export function CacheControl(options: CacheControlOptions = {}) {
+  return function(
+    _target: IResource,
+    _propertyKey: string,
+    descriptor: TypedPropertyDescriptor<IResource[RequestMethod]>
+  ) {
+    const originalMethod = descriptor.value;
+    descriptor.value = function (this: Resource, ...args: unknown[]) {
+      this.response.headers.set(
+        Headers.CacheControl,
+        cacheControlFromOptions(options)
+      );
+
+      return originalMethod?.(...args);
+    };
+  };
+}
+
+export function Vary(headers: string[] = ['Encoding']) {
+  return function(
+    _target: IResource,
+    _propertyKey: string,
+    descriptor: TypedPropertyDescriptor<IResource[RequestMethod]>
+  ) {
+    const originalMethod = descriptor.value;
+    descriptor.value = function (this: Resource, ...args: unknown[]) {
+      this.response.headers.set(
+        Headers.Vary,
+        headers.join(', ')
+      );
+
+      return originalMethod?.(...args);
+    };
+  };
 }
 
 export function Etag(options: EtagOptions) {
   return Middleware(etag(options));
+}
+
+export function Memo() {
+  let cache;
+  return Middleware(async (context, next) => {
+    cache ??= Application.instance.getService(CacheService);
+    const match = await cache.match(context.req.url);
+    if (match)
+      return match;
+    await next();
+    await cache.put(context.req.url, context.res);
+  });
+  // return function() {
+  //   const originalMethod = descriptor.value;
+  //   descriptor.value = async function (this: Resource, ...args: unknown[]) {
+  //     const match = await cache.match(target.request);
+  //     if (match)
+  //       return match;
+  //     const response = await originalMethod?.(...args);
+  //     if (!response) return;
+  //     await cache.put(target.request, response);
+  //     return response;
+  //   };
+  // }; 
 }

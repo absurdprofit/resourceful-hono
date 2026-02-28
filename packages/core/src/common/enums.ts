@@ -11,6 +11,7 @@ export enum Headers {
   Date = 'date',
   ServerTiming = 'server-timing',
   Link = 'link',
+  Vary = 'vary',
 }
 
 export enum ContentTypes {

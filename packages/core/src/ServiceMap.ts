@@ -5,9 +5,7 @@ export type Service = (Disposable | AsyncDisposable | object) & {
 };
 export class ServiceMap extends Map<Constructor<Service>, Service> {
   public override set<T extends Service>(key: Constructor<T>, value: T): this {
-    if (value instanceof key)
-      return super.set(key, value);
-    throw new TypeError(`Service ${key.name} should be initialised with an instance of ${key.name}.`);
+    return super.set(key, value);
   }
 
   public override get<T extends Service>(key: Constructor<T>): T {
