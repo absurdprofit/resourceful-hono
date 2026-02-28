@@ -1,6 +1,7 @@
 import { FIRST_INDEX, SINGLE_ELEMENT_LENGTH, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 import { Hono } from 'hono';
 import { Resource } from '../Resource.ts';
+import { CacheControlOptions } from './types.ts';
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
@@ -153,4 +154,51 @@ export function encodeQuery(object: object) {
   }
 
   return params.join('&');
+}
+
+export function cacheControlFromOptions(options: CacheControlOptions) {
+  if (!options) {
+    return 'no-store';
+  }
+
+  const directives: string[] = [];
+
+  const {
+    maxAge,
+    public: isPublic,
+    revalidate,
+    stale,
+  } = options;
+
+  // Visibility
+  if (isPublic) {
+    directives.push('public');
+  } else {
+    directives.push('private');
+  }
+
+  // max-age
+  if (typeof maxAge === 'number' && maxAge > Number()) {
+    directives.push(`max-age=${maxAge}`);
+  } else if (revalidate) {
+    // Revalidation logic
+    directives.push('no-cache');
+  }
+
+  if (revalidate === false) {
+    directives.push('immutable');
+  }
+
+  // Stale controls
+  if (stale?.ifError) {
+    directives.push(`stale-if-error=${stale.ifError}`);
+  }
+
+  if (stale?.whileRevalidate) {
+    directives.push(
+      `stale-while-revalidate=${stale.whileRevalidate}`
+    );
+  }
+
+  return directives.join(', ');
 }

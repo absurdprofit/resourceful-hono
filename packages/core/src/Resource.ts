@@ -51,6 +51,7 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
         status,
         headers: {
           [Headers.Location]: destination.toString(),
+          [Headers.CacheControl]: 'no-store',
         },
       }
     ) as TypedRedirectResponse<S, D>;
@@ -125,6 +126,7 @@ export async function Result<
 ): Promise<TypedResultResponse<S, C, T>> {
   const headers: [string, string][] = [
     [Headers.Date, date()],
+    [Headers.CacheControl, 'no-store'],
   ];
 
   let body: C | BodyInit | null | undefined = content;

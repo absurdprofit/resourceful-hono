@@ -53,3 +53,15 @@ export interface DefaultContextVariables {
     parentId: string;
   }
 }
+
+export interface CacheStaleOptions {
+  ifError?: number;
+  whileRevalidate?: number;
+}
+
+export interface CacheControlOptions {
+  maxAge?: number;
+  public?: boolean;
+  revalidate?: boolean;
+  stale?: CacheStaleOptions;
+}

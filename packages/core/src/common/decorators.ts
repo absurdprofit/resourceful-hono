@@ -1,11 +1,12 @@
 import { MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ACCEPT_METADATA_KEY, ROUTE_METADATA_KEY } from './constants.ts';
 import { z } from 'zod';
-import { type ContentTypes, RequestMethod } from './enums.ts';
+import { type ContentTypes, Headers, RequestMethod } from './enums.ts';
 import type { NonAbstractResourceLikeConstructor, Resource, ResourceLikeConstructor } from '../Resource.ts';
-import type { Constructor, ParameterMetadata, PrimitiveType, ResourceMethod } from './types.ts';
+import type { Constructor, ParameterMetadata, PrimitiveType, ResourceMethod, CacheControlOptions } from './types.ts';
 import { Application } from '../Application.ts';
 import type { Service } from '../ServiceMap.ts';
 import type { Env, MiddlewareHandler } from 'hono';
+import { cacheControlFromOptions } from './utils.ts';
 
 /**
  * Defines the accepted content types for a method handler.
@@ -40,8 +41,6 @@ import type { Env, MiddlewareHandler } from 'hono';
  * ```
  */
 export function Accept(acceptedContentTypes: ContentTypes[] | string[]): (target: Resource, propertyKey: string) => void {
-  'use client';
-
   return function(target: Resource, propertyKey: string) {
     Reflect.defineMetadata(ACCEPT_METADATA_KEY, acceptedContentTypes, target, propertyKey);
     Reflect.defineMetadata(ACCEPT_METADATA_KEY, acceptedContentTypes, target.constructor, propertyKey);
@@ -366,4 +365,14 @@ export function Middleware<E extends Env>(middleware: MiddlewareHandler<E>):
       Reflect.defineMetadata(MIDDLEWARE_METADATA_KEY, middlewares, target);
     }
   };
+}
+
+export function CacheControl(options: CacheControlOptions) {
+  return Middleware(async (context, next) => {
+    await next();
+    context.res.headers.set(
+      Headers.CacheControl,
+      cacheControlFromOptions(options)
+    );
+  });
 }
