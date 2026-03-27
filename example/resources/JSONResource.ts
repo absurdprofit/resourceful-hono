@@ -1,4 +1,4 @@
-import { ContentTypes, Result, HttpStatusCodes, FromRoute, FromBody, Accept, FromQuery, Middleware, Application, AsyncLogService, CacheControl } from '@resourceful-hono/core';
+import { ContentTypes, Result, HttpStatusCodes, FromRoute, FromBody, Accept, FromQuery, Middleware, Application, AsyncLogService, Memo, Etag, CacheControl, Vary } from '@resourceful-hono/core';
 import { z } from 'zod';
 import BaseResource from './BaseResource.ts';
 
@@ -18,14 +18,18 @@ const PUTBody = z.object({ name: z.string(), email: z.string().email(), displayN
   logger.debug('Middleware 2 End');
 })
 export default class JSONResource extends BaseResource {
+  @Memo()
+  @Etag()
+  @Vary()
   @CacheControl({
     public: true,
-    revalidate: true,
+    maxAge: 360,
   })
   public GET(
     @FromRoute(GETParam) param: z.infer<typeof GETParam>,
     @FromQuery(GETQuery) query: z.infer<typeof GETQuery>
   ) {
+    console.log('Func');
     return Result(HttpStatusCodes.Ok, { param, query });
   }
 

@@ -371,65 +371,45 @@ export function Middleware<E extends Env>(middleware: MiddlewareHandler<E>):
 }
 
 export function CacheControl(options: CacheControlOptions = {}) {
-  return function(
-    _target: IResource,
-    _propertyKey: string,
-    descriptor: TypedPropertyDescriptor<IResource[RequestMethod]>
-  ) {
-    const originalMethod = descriptor.value;
-    descriptor.value = function (this: Resource, ...args: unknown[]) {
-      this.response.headers.set(
-        Headers.CacheControl,
-        cacheControlFromOptions(options)
-      );
-
-      return originalMethod?.(...args);
-    };
-  };
+  return Middleware(async (context, next) => {
+    await next();
+    console.log('CacheControl');
+    context.res.headers.set(
+      Headers.CacheControl,
+      cacheControlFromOptions(options)
+    );
+  });
 }
 
 export function Vary(headers: string[] = ['Encoding']) {
-  return function(
-    _target: IResource,
-    _propertyKey: string,
-    descriptor: TypedPropertyDescriptor<IResource[RequestMethod]>
-  ) {
-    const originalMethod = descriptor.value;
-    descriptor.value = function (this: Resource, ...args: unknown[]) {
-      this.response.headers.set(
-        Headers.Vary,
-        headers.join(', ')
-      );
-
-      return originalMethod?.(...args);
-    };
-  };
+  return Middleware(async (context, next) => {
+    await next();
+    console.log('Vary');
+    context.res.headers.set(
+      Headers.Vary,
+      headers.join(', ')
+    );
+  });
 }
 
-export function Etag(options: EtagOptions) {
+export function Etag(options: EtagOptions = {}) {
   return Middleware(etag(options));
 }
 
 export function Memo() {
+  const app = Application.instance;
   let cache;
   return Middleware(async (context, next) => {
-    cache ??= Application.instance.getService(CacheService);
+    cache ??= app.getService(CacheService);
     const match = await cache.match(context.req.url);
     if (match)
       return match;
+    
     await next();
-    await cache.put(context.req.url, context.res);
+    queueMicrotask(() => {
+      console.log('Memo');
+    });
+    
+    // await cache.put(context.req.url, context.res.clone());
   });
-  // return function() {
-  //   const originalMethod = descriptor.value;
-  //   descriptor.value = async function (this: Resource, ...args: unknown[]) {
-  //     const match = await cache.match(target.request);
-  //     if (match)
-  //       return match;
-  //     const response = await originalMethod?.(...args);
-  //     if (!response) return;
-  //     await cache.put(target.request, response);
-  //     return response;
-  //   };
-  // }; 
 }

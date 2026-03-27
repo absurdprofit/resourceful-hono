@@ -7,12 +7,14 @@ import RedirectResource from './resources/RedirectResource.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { timing } from 'hono/timing';
 import { PagedResource, PageBuilder } from './resources/PagedResource.ts';
+import { CacheService } from '../packages/core/src/services/CacheService.ts';
 
 class MyService {
   public [Symbol.dispose]() {
     return console.log('Dispose MyService');
   }
 }
+await caches.delete('api');
 const app = Application.instance;
 app.registerMiddlewares([AsyncContextProvider(AsyncLocalStorage), AsyncLogger, timing()]);
 app.registerService(MyService, new MyService())
@@ -28,16 +30,17 @@ app.registerService(MyService, new MyService())
       },
     })
   )
-  .registerService(AsyncLocalStorage, new AsyncLocalStorage());
+  .registerService(AsyncLocalStorage, new AsyncLocalStorage())
+  .registerService(CacheService, await caches.open('api'));
 
 const origin = 'http://localhost:8000';
 const jsonClient = JSONResource.createClient(origin);
 const page = 8;
-jsonClient.get({ id: '9491d710-3185-4e06-bea0-6a2f275345e0', name: 'nathan' }, { page });
+// jsonClient.get({ id: '9491d710-3185-4e06-bea0-6a2f275345e0', name: 'nathan' }, { page });
 jsonClient.put({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, 'name');
 jsonClient.post('1');
 jsonClient.delete({ name: 'name', email: 'example@email.com', displayName: 'displayName' }, { page });
-jsonClient.get({ name: 'nathan', id: '9491d710-3185-4e06-bea0-6a2f275345e0' }, { page });
+// jsonClient.get({ name: 'nathan', id: '9491d710-3185-4e06-bea0-6a2f275345e0' }, { page });
 const sseClient = SSEResource.createClient(origin);
 sseClient.get().then(eventSource => {
   eventSource.addEventListener('hello', console.log);
