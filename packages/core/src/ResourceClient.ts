@@ -1,13 +1,14 @@
 import { mergePath } from 'hono/utils/url';
-import { ACCEPT_METADATA_KEY, LAST_INDEX, PARAMETER_METADATA_KEY, SPAN_ID_LENGTH, TRACE_ID_LENGTH } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, FIRST_INDEX, LAST_INDEX, PARAMETER_METADATA_KEY, REL_PREFIX, SINGLE_ELEMENT_LENGTH, SPAN_ID_LENGTH, TRACE_ID_LENGTH } from './common/constants.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
 import type { ParameterMetadata, ResourceMethod, ServerSentEventGenerator, SimpleContentTypeRegistry } from './common/types.ts';
-import type { Resource, TypedResultResponse, TypedRedirectResponse } from './Resource.ts';
+import type { Resource, TypedResultResponse, TypedRedirectResponse, TypedPagedResultResponse } from './Resource.ts';
 import { z } from 'zod';
 import { UnsupportedMediaTypeError } from './common/errors.ts';
 import type { EventSource } from 'eventsource';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
 import { HttpError } from './HttpError.ts';
+import { encodeQuery, decodeQuery } from './common/utils.ts';
 
 type Redirect<M, S, D> = D extends typeof Resource
   ? S extends HttpStatusCodes.TemporaryRedirect | HttpStatusCodes.PermanentRedirect
@@ -18,7 +19,7 @@ type Redirect<M, S, D> = D extends typeof Resource
       ? ReturnType<ResourceClientMethod<M, InstanceType<D>[RequestMethod.Get]>>
       : never
   : Promise<unknown>;
-type Result<S, C, T> = T extends ContentTypes.ServerSentEvent
+type Result<_S, C, T> = T extends ContentTypes.ServerSentEvent
     ? Promise<EventSource>
     : C extends ServerSentEventGenerator
       ? Promise<EventSource>
@@ -31,11 +32,20 @@ type ResourceClientMethod<HttpMethod, ResourceMethod> =
     ? (...parameters: [...A, signal?: AbortSignal]) =>
       R extends TypedRedirectResponse<infer S, infer D> | Promise<TypedRedirectResponse<infer S, infer D>>
         ? Redirect<HttpMethod, S, D>
-        : R extends TypedResultResponse<infer S, infer C, infer T> | Promise<TypedResultResponse<infer S, infer C, infer T>>
+        : R extends TypedResultResponse<infer S, infer C, infer T>
+                    | Promise<TypedResultResponse<infer S, infer C, infer T>>
+                    | TypedPagedResultResponse<infer S, infer C, infer _P, infer T>
+                    | Promise<TypedPagedResultResponse<infer S, infer C, infer _P, infer T>>
           ? Result<S, C, T>
           : Promise<R>
     : never;
 
+type Pagination<T extends Resource> =
+  T extends { GET: (...args: infer _A) => infer R }
+    ? R extends TypedPagedResultResponse<infer S, infer C, infer P, infer T> | Promise<TypedPagedResultResponse<infer S, infer C, infer P, infer T>>
+      ? { [K in keyof P]: (signal?: AbortSignal) => Result<S, C, T> }
+      : object
+    : object
 export type ResourceClientInstance<R extends Resource> = {
   readonly methods: RequestMethod[];
   fetch: typeof globalThis.fetch;
@@ -47,7 +57,7 @@ export type ResourceClientInstance<R extends Resource> = {
   ]: Uppercase<K> extends keyof R
       ? ResourceClientMethod<Uppercase<K>, R[Uppercase<K>]>
       : never;
-}
+} & Pagination<R>
 
 type ResourceConstructor<T extends Resource> = 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,8 +160,17 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
     url.search = search;
 
     const response = await this.fetch(url, { signal, method, body, headers });
+    return this.#handleResponse(response);
+  }
+
+  async #handleResponse(response: Response) {
     const responseContentType = response.headers.get(Headers.ContentType);
     
+    if (
+      !response.ok
+        && responseContentType !== ContentTypes.ProblemDetails
+    )
+      throw new TypeError('The server responded with a non-reconstructible error.');
     if (
       !responseContentType?.length
       || response.status === HttpStatusCodes.NoContent
@@ -161,6 +180,35 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       const result = await handler.decode(response);
       if (result instanceof HttpError)
         throw result;
+      
+      const link = response.headers.get(Headers.Link);
+      if (link) {
+        for (const anchor of link.split(', ')) {
+          const [urlPart, relPart] = anchor.split('; ');
+          const url = urlPart.substring(
+            SINGLE_ELEMENT_LENGTH,
+            urlPart.length - SINGLE_ELEMENT_LENGTH
+          );
+          const rel = relPart.substring(
+            REL_PREFIX.length,
+            relPart.length - SINGLE_ELEMENT_LENGTH
+          );
+
+          if (URL.canParse(url) && rel) {
+            Object.defineProperty(this, rel, {
+              get() {
+                return async (signal?: AbortSignal) => {
+                  const response = await this.fetch(url, { signal });
+                  return this.#handleResponse(response);
+                };
+              },
+              enumerable: true,
+              configurable: true,
+            });
+          }
+        }
+      }
+
       return result;
     }
     response.body?.cancel();
@@ -251,7 +299,7 @@ export const ResourceClient: ResourceClientConstructor = class <R extends Resour
       headers.set(Headers.ContentType, matchedContentType);
     return {
       headers,
-      search: new URLSearchParams((data?.query ?? {}) as Record<string, string>).toString(),
+      search: encodeQuery((data?.query)).toString(),
       pathname: this.#serialiseRoute(data?.route, method),
       body: await this.#serialiseBody(data?.body, method, matchedContentType, matchedEncoder),
     };

@@ -1,3 +1,5 @@
+import { BadRequestError } from './errors.ts';
+
 export const ACCEPT_METADATA_KEY = Symbol();
 export const ROUTE_METADATA_KEY = Symbol();
 export const PARAMETER_METADATA_KEY = Symbol();
@@ -10,3 +12,5 @@ export const LAST_INDEX = -1;
 export const TRACE_ID_LENGTH = 16;
 export const SPAN_ID_LENGTH = 8;
 export const SINGLE_ELEMENT_LENGTH = 1;
+export const REL_PREFIX = 'rel="';
+export const INVALID_PAYLOAD_ERROR = new BadRequestError('Invalid payload');

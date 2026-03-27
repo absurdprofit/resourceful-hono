@@ -6,6 +6,8 @@ import { Application, RollbackError } from '../index.ts';
 import { HttpError } from '../HttpError.ts';
 import { Resource } from '../Resource.ts';
 
+const ERROR_EVENT_TYPE = 'httpError';
+const INTERNAL_SERVER_ERROR = new InternalServerError('There was an error.');
 export const ErrorHandler: HonoErrorHandler = async (error, context) => {
   while (isSuppressedError(error)) {
     error = error.error instanceof RollbackError
@@ -14,16 +16,16 @@ export const ErrorHandler: HonoErrorHandler = async (error, context) => {
   }
 
   if (!HttpError[Symbol.hasInstance](error)) {
-    error = new InternalServerError('There was an error.', { cause: error });
+    INTERNAL_SERVER_ERROR.cause = error;
+    error = INTERNAL_SERVER_ERROR;
   }
   
   const httpError = error as HttpError;
   context.error = httpError;
-  // TODO: Add support for tracesparent
-  httpError.traceparent = '00-00000000000000000000000000000000-0000000000000000-00';
+
   httpError.instance = context.req.url;
   Application.instance.dispatchEvent(
-    new ErrorEvent('httpError', {
+    new ErrorEvent(ERROR_EVENT_TYPE, {
       error: httpError,
       message: httpError.message,
     })

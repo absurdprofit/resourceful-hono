@@ -1,12 +1,12 @@
 import type { Hono, HonoRequest, Handler, Context, MiddlewareHandler } from 'hono';
 import { mergePath } from 'hono/utils/url';
 import { z } from 'zod';
-import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, FIRST_INDEX, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY } from './common/constants.ts';
+import { ACCEPT_METADATA_KEY, DEFAULT_PARAMETER_KEY, FIRST_INDEX, INVALID_PAYLOAD_ERROR, MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ROUTE_METADATA_KEY, SINGLE_ELEMENT_LENGTH } from './common/constants.ts';
 import type { DefaultContextVariables, ParameterMetadata, ResourceMethodReturn, SimpleContentTypeRegistry } from './common/types.ts';
 import { isBodyInit } from './common/types.ts';
 import { BadRequestError, MethodNotAllowedError, UnsupportedMediaTypeError } from './common/errors.ts';
 import { ContentTypes, Headers, HttpStatusCodes, RequestMethod } from './common/enums.ts';
-import { type honoBuilder, literalToLowerCase } from './common/utils.ts';
+import { type honoBuilder, literalToLowerCase, decodeQuery, encodeQuery } from './common/utils.ts';
 import type { Application } from './Application.ts';
 import { ResourceClient } from './ResourceClient.ts';
 import { type ContentTypeHandler, ContentTypeRegistry } from './ContentTypeRegistry.ts';
@@ -51,6 +51,7 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
         status,
         headers: {
           [Headers.Location]: destination.toString(),
+          [Headers.CacheControl]: 'no-store',
         },
       }
     ) as TypedRedirectResponse<S, D>;
@@ -59,7 +60,11 @@ export function Redirect<S extends HttpStatusCodes | number, D extends URL | str
   }
 }
 
-export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, ___ = unknown> extends Response {
+export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unknown, __ = unknown> extends Response {
+  readonly status: S;
+}
+
+export interface TypedPagedResultResponse<S extends HttpStatusCodes | number, _ = unknown, __ = unknown, ___ = unknown> extends Response {
   readonly status: S;
 }
 
@@ -67,7 +72,7 @@ export interface TypedResultResponse<S extends HttpStatusCodes | number, _ = unk
 // This is a performance optimization based on the fact that the Date header only needs to be accurate to the second.
 const SECOND_IN_MS = 1000;
 function DATE_GENERATOR() {
-  let last = SECOND_IN_MS;
+  let last = Date.now();
   let value = new Date().toUTCString();
 
   return () => {
@@ -121,6 +126,7 @@ export async function Result<
 ): Promise<TypedResultResponse<S, C, T>> {
   const headers: [string, string][] = [
     [Headers.Date, date()],
+    [Headers.CacheControl, 'no-store'],
   ];
 
   let body: C | BodyInit | null | undefined = content;
@@ -151,12 +157,83 @@ export async function Result<
     body = await Resource
       .contentTypes
       .get(contentType!)
-      ?.encode(content, contentType);
+      ?.encode(body, contentType);
   }
   return new Response(
     body as BodyInit | null | undefined,
     { status, headers }
   ) as TypedResultResponse<S, C, T>;
+}
+
+export async function PagedResult<
+  S extends HttpStatusCodes | number,
+  C extends BodyInit | (() => Iterator<unknown, unknown, unknown>) | (() => AsyncIterator<unknown, unknown, unknown>) | number | boolean | object | null | undefined = undefined,
+  P extends Record<string, unknown> = Record<string, unknown>,
+  T extends ContentTypes | string | undefined = undefined
+>(
+  status: S,
+  content?: {
+    body: C;
+    meta?: {
+      url: string;
+      pagination?: P;
+    }
+  },
+  contentType?: T
+  
+): Promise<TypedPagedResultResponse<S, C, P, T>> {
+  const headers: [string, string][] = [
+    [Headers.Date, date()],
+  ];
+
+  if (content?.meta) {
+    const { url, pagination = {} } = content.meta;
+    const linkUrl = new URL(url);
+    const linkParts: string[] = [];
+    for (const [rel, link] of Object.entries(pagination)) {
+      if (!link) continue;
+      linkUrl.search = encodeQuery(link);
+      linkParts.push(`<${linkUrl.href}>; rel="${rel}"`);
+    }
+
+    if (linkParts.length)
+      headers.push([Headers.Link, linkParts.join(', ')]);
+  }
+
+  let body: C | BodyInit | null | undefined = content?.body;
+  if (contentType || !isBodyInit(body)) {
+    if (!contentType) {
+      switch (typeof content) {
+        case 'function':
+          contentType = ContentTypes.OctetStream as T;
+          break;
+        case 'undefined':
+          return new Response(undefined, { status, headers }) as TypedPagedResultResponse<S, C, P, T>;
+        default:
+          contentType = ContentTypes.Json as T;
+      }
+    }
+
+    headers.push([Headers.ContentType, contentType!]);
+
+    if (
+      contentType?.startsWith(ContentTypes.ServerSentEvent)
+    ) {
+      headers.push(
+        [Headers.CacheControl, 'no-cache'],
+        [Headers.Connection, 'keep-alive']
+      );
+    }
+
+    body = await Resource
+      .contentTypes
+      .get(contentType!)
+      ?.encode(body, contentType);
+  }
+  return new Response(
+    body as BodyInit | null | undefined,
+    { status, headers }
+  ) as TypedPagedResultResponse<S, C, P, T>;
 }
 
 export interface IResource {
@@ -507,13 +584,16 @@ export abstract class Resource implements IResource {
       case 'route':
         return request.param();
       case 'query':
-        return request.query();
+        return decodeQuery(Object.entries(request.query()));
       case 'body': {
         if (![RequestMethod.Get, RequestMethod.Head].includes(method)) {
           const contentType = request.raw.headers.get(Headers.ContentType) ?? '';
           const handler = this.contentTypeRegistry.get(method, contentType);
           if (handler)
-            return handler.decode(request.raw);
+            return handler.decode(request.raw)
+              .catch(() => {
+                throw INVALID_PAYLOAD_ERROR;
+              });
           request.raw.body?.cancel();
           throw new UnsupportedMediaTypeError(`Content type '${contentType}' is unsupported`);
         }

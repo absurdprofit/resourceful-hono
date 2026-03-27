@@ -1,6 +1,7 @@
-import { TIMING_METRIC_DURATION_REGEX } from './constants.ts';
+import { FIRST_INDEX, SINGLE_ELEMENT_LENGTH, TIMING_METRIC_DURATION_REGEX } from './constants.ts';
 import { Hono } from 'hono';
 import { Resource } from '../Resource.ts';
+import { CacheControlOptions } from './types.ts';
 
 export function literalToLowerCase<T extends string>(value: T): Lowercase<T> {
   return value.toLowerCase() as Lowercase<T>;
@@ -91,4 +92,113 @@ export function honoBuilder(instance?: Resource): Hono {
     baseApp = baseApp.basePath(basePath);
   }
   return baseApp.basePath(instance?.route ?? '');
+}
+
+function parseQueryIndex(segment: string) {
+  if (segment.startsWith('[') && segment.endsWith(']'))
+    return Number(segment.substring(
+      SINGLE_ELEMENT_LENGTH,
+      segment.length - SINGLE_ELEMENT_LENGTH
+    ));
+  return segment;
+}
+
+export function decodeQuery<T>(params: [string, string][]): T {
+  const state: Record<string, unknown> = {
+    result: undefined,
+  };
+  
+  for (const [key, value] of params) {
+    const stack = key.split('.').reverse();
+    let root = state;
+    let segment: string | number = 'result';
+    while (stack.length) {
+      const next = parseQueryIndex(stack.pop()!);
+      if (root[segment] === undefined) {
+        if (typeof next === 'number') {
+          root[segment] = [];
+        } else
+          root[segment] = {};
+      }
+      root = root[segment] as Record<string, unknown>;
+      segment = next;
+    }
+    root[segment] = value;
+  }
+
+  return state.result as T;
+}
+
+export function encodeQuery(object: object) {
+  const params: string[] = [];
+  const stack: Array<{ path: string[], value: unknown }> = [
+    { path: [], value: object },
+  ];
+
+  while (stack.length) {
+    const { path, value } = stack.pop()!;
+
+    if (Array.isArray(value)) {
+      for (let i = FIRST_INDEX; i < value.length; i++) {
+        stack.push({ path: [...path, `[${i}]`], value: value[i] });
+      }
+    } else if (value !== null && typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) {
+        stack.push({ path: [...path, k], value: v });
+      }
+    } else if (value !== undefined) {
+      params.push(
+        `${encodeURIComponent(path.join('.'))}=${encodeURIComponent(String(value))}`
+      );
+    }
+  }
+
+  return params.join('&');
+}
+
+export function cacheControlFromOptions(options: CacheControlOptions) {
+  if (!options) {
+    return 'no-store';
+  }
+
+  const directives: string[] = [];
+
+  const {
+    maxAge,
+    public: isPublic,
+    revalidate,
+    stale,
+  } = options;
+
+  // Visibility
+  if (isPublic) {
+    directives.push('public');
+  } else {
+    directives.push('private');
+  }
+
+  // max-age
+  if (typeof maxAge === 'number' && maxAge > Number()) {
+    directives.push(`max-age=${maxAge}`);
+  } else if (revalidate) {
+    // Revalidation logic
+    directives.push('no-cache');
+  }
+
+  if (revalidate === false) {
+    directives.push('immutable');
+  }
+
+  // Stale controls
+  if (stale?.ifError) {
+    directives.push(`stale-if-error=${stale.ifError}`);
+  }
+
+  if (stale?.whileRevalidate) {
+    directives.push(
+      `stale-while-revalidate=${stale.whileRevalidate}`
+    );
+  }
+
+  return directives.join(', ');
 }

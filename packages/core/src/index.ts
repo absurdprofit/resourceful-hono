@@ -12,6 +12,10 @@ export * from './HttpError.ts';
 export * from './common/errors.ts';
 export * from './services/LogService/index.ts';
 export * from './common/template-tags.ts';
+export * from './QueryBuilder.ts';
+export * from './FetchBuilder.ts';
+export * from './services/EnvironmentService.ts';
+export * from './InitialisationError.ts';
 export type { ContentTypeHandler } from './ContentTypeRegistry.ts';
 export {
   AsyncLogger,

@@ -1,11 +1,15 @@
 import { MIDDLEWARE_METADATA_KEY, PARAMETER_METADATA_KEY, ACCEPT_METADATA_KEY, ROUTE_METADATA_KEY } from './constants.ts';
 import { z } from 'zod';
-import { type ContentTypes, RequestMethod } from './enums.ts';
+import { type ContentTypes, Headers, RequestMethod } from './enums.ts';
 import type { NonAbstractResourceLikeConstructor, Resource, ResourceLikeConstructor } from '../Resource.ts';
-import type { Constructor, ParameterMetadata, PrimitiveType, ResourceMethod } from './types.ts';
+import type { Constructor, ParameterMetadata, PrimitiveType, ResourceMethod, CacheControlOptions, EtagOptions } from './types.ts';
 import { Application } from '../Application.ts';
 import type { Service } from '../ServiceMap.ts';
 import type { Env, MiddlewareHandler } from 'hono';
+import { cacheControlFromOptions } from './utils.ts';
+import { etag } from 'hono/etag';
+import { CacheService } from '../services/CacheService.ts';
+import { IResource } from '@resourceful-hono/core';
 
 /**
  * Defines the accepted content types for a method handler.
@@ -40,8 +44,6 @@ import type { Env, MiddlewareHandler } from 'hono';
  * ```
  */
 export function Accept(acceptedContentTypes: ContentTypes[] | string[]): (target: Resource, propertyKey: string) => void {
-  'use client';
-
   return function(target: Resource, propertyKey: string) {
     Reflect.defineMetadata(ACCEPT_METADATA_KEY, acceptedContentTypes, target, propertyKey);
     Reflect.defineMetadata(ACCEPT_METADATA_KEY, acceptedContentTypes, target.constructor, propertyKey);
@@ -174,7 +176,7 @@ export function FromRoute(keyOrSchema: string | z.AnyZodObject, schemaOrUndefine
  * }
  * ```
  */
-export function FromQuery(schema: z.AnyZodObject): (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) => void;
+export function FromQuery(schema: z.ZodType): (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) => void;
 /**
  * Decorator for declaring a query parameter using a key and Zod boolean, number or string-like schema.
  *
@@ -203,8 +205,8 @@ export function FromQuery(schema: z.AnyZodObject): (target: Resource, propertyKe
  * }
  * ```
  */
-export function FromQuery(key: string, schema: PrimitiveType | z.ZodOptional<PrimitiveType>): (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) => void;
-export function FromQuery(keyOrSchema: string | z.AnyZodObject, schemaOrUndefined?: PrimitiveType | z.ZodOptional<PrimitiveType>): (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) => void {
+export function FromQuery(key: string, schema: z.ZodType): (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) => void;
+export function FromQuery(keyOrSchema: string | z.ZodType, schemaOrUndefined?: z.ZodType): (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) => void {
   return function (target: Resource, propertyKey: ResourceMethod, parameterIndex: number) {
     const metadata: ParameterMetadata[] = Reflect.getMetadata(PARAMETER_METADATA_KEY, target, propertyKey) ?? [];
     if (metadata[parameterIndex]) throw new Error('Parameter decorators cannot be composed');
@@ -366,4 +368,68 @@ export function Middleware<E extends Env>(middleware: MiddlewareHandler<E>):
       Reflect.defineMetadata(MIDDLEWARE_METADATA_KEY, middlewares, target);
     }
   };
+}
+
+export function CacheControl(options: CacheControlOptions = {}) {
+  return function(
+    _target: IResource,
+    _propertyKey: string,
+    descriptor: TypedPropertyDescriptor<IResource[RequestMethod]>
+  ) {
+    const originalMethod = descriptor.value;
+    descriptor.value = function (this: Resource, ...args: unknown[]) {
+      this.response.headers.set(
+        Headers.CacheControl,
+        cacheControlFromOptions(options)
+      );
+
+      return originalMethod?.(...args);
+    };
+  };
+}
+
+export function Vary(headers: string[] = ['Encoding']) {
+  return function(
+    _target: IResource,
+    _propertyKey: string,
+    descriptor: TypedPropertyDescriptor<IResource[RequestMethod]>
+  ) {
+    const originalMethod = descriptor.value;
+    descriptor.value = function (this: Resource, ...args: unknown[]) {
+      this.response.headers.set(
+        Headers.Vary,
+        headers.join(', ')
+      );
+
+      return originalMethod?.(...args);
+    };
+  };
+}
+
+export function Etag(options: EtagOptions) {
+  return Middleware(etag(options));
+}
+
+export function Memo() {
+  let cache;
+  return Middleware(async (context, next) => {
+    cache ??= Application.instance.getService(CacheService);
+    const match = await cache.match(context.req.url);
+    if (match)
+      return match;
+    await next();
+    await cache.put(context.req.url, context.res);
+  });
+  // return function() {
+  //   const originalMethod = descriptor.value;
+  //   descriptor.value = async function (this: Resource, ...args: unknown[]) {
+  //     const match = await cache.match(target.request);
+  //     if (match)
+  //       return match;
+  //     const response = await originalMethod?.(...args);
+  //     if (!response) return;
+  //     await cache.put(target.request, response);
+  //     return response;
+  //   };
+  // }; 
 }

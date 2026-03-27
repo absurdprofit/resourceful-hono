@@ -8,6 +8,7 @@ import { Application } from '../Application.ts';
 import { ServerSentEvent } from '../ServerSentEvent.ts';
 import { PromiseWrapper } from '../common/promise-wrapper.ts';
 import { honoBuilder } from '../common/utils.ts';
+import { ErrorHandler, NotFoundHandler } from '../middleware/index.ts';
 
 class DummyService {
   public value = true;
@@ -28,6 +29,9 @@ function cleanupResources() {
     value: new Hono({ strict: true }),
     writable: false,
   });
+
+  app.hono.onError(ErrorHandler);
+  app.hono.notFound(NotFoundHandler);
 }
 
 Deno.test('Resource service injection throws if service doesn\'t exist', () => {
@@ -551,6 +555,31 @@ Deno.test('Resource throws if content type is missing', async () => {
   const response = await app.hono.request(request);
 
   expect(response.ok).toBe(false);
+  expect(response.status).toBe(HttpStatusCodes.UnsupportedMediaType);
+  expect((await response.json()).detail).toBe('Content type \'\' is unsupported');
+});
+
+Deno.test('Resource throws BadRequestError if payload is invalid', async () => {
+  // hack to remove resources
+  cleanupResources();
+
+  class TestResource extends Resource {
+    public POST(@FromBody(z.string()) data: string) {
+      return Result(HttpStatusCodes.Ok, data);
+    }
+  }
+
+  const _resource = new TestResource(app, honoBuilder);
+  const url = new URL('test', origin);
+  const body = '{"invalidJson": ';
+  const method = 'POST';
+  const headers = { [Headers.ContentType]: ContentTypes.Json };
+  const request = new Request(url, { body, method, headers });
+  const response = await app.hono.request(request);
+
+  expect(response.ok).toBe(false);
+  expect(response.status).toBe(HttpStatusCodes.BadRequest);
+  expect((await response.json()).detail).toBe('Invalid payload');
 });
 
 Deno.test('Result adds date header', async () => {
