@@ -20,7 +20,5 @@ export type { ContentTypeHandler } from './ContentTypeRegistry.ts';
 export {
   AsyncLogger,
   Logger,
-  AsyncContextProvider,
-  type AsyncContextService,
-  type AsyncContextVariable
+  AsyncContextProvider
 } from './middleware/index.ts';

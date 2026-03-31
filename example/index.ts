@@ -1,4 +1,4 @@
-import { AsyncContextProvider, Application, AsyncLogger, AsyncConsoleLogService, AsyncLogService, type AsyncContextVariable, QueryBuilder } from '@resourceful-hono/core';
+import { AsyncContextProvider, Application, AsyncLogger, AsyncConsoleLogService, AsyncLogService, QueryBuilder } from '@resourceful-hono/core';
 import BaseResource from './resources/BaseResource.ts';
 import SSEResource from './resources/SSEResource.ts';
 import JSONResource from './resources/JSONResource.ts';

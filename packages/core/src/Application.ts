@@ -8,6 +8,7 @@ import { FinishEvent, ReadyEvent, RequestEvent, type ResponseEvent } from './com
 import { PromiseWrapper } from './common/promise-wrapper.ts';
 import { TypedEventTarget } from './TypedEventTarget.ts';
 import { honoBuilder } from './common/utils.ts';
+import { asyncContext } from './middleware/AsyncContextProvider.ts';
 
 export interface ApplicationEventMap {
   'ready': ReadyEvent;
@@ -93,6 +94,10 @@ export class Application extends TypedEventTarget<ApplicationEventMap> {
 
   public get state(): ApplicationState {
     return this.#state;
+  }
+
+  public get context() {
+    return asyncContext.get();
   }
 
   public fetch = async (request: Request, Env?: unknown, executionCtx?: ExecutionContext): Promise<Response> => {
