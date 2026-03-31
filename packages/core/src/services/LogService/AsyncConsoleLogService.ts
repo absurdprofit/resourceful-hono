@@ -1,92 +1,104 @@
 import { Headers, HttpStatusCodes } from '../../common/enums.ts';
-import { type AsyncLogData, AsyncLogService } from './AsyncLogService.ts';
-import type { TimingVariables } from 'hono/timing';
+import { type LogData, LogService } from './LogService.ts';
 import { parseTotalDuration } from '../../common/utils.ts';
-import type { AsyncContextVariable } from '../../middleware/index.ts';
 import { StatusColour } from './common/enums.ts';
+import { Application, type ResponseEvent } from '@resourceful-hono/core';
 
 interface Log {
   type: 'debug' | 'warn' | 'info' | 'error';
   data: unknown[];
 }
 
-interface Ref {
-  current: {
-    get context(): AsyncContextVariable<{ logs?: Log[] } & TimingVariables> | null;
-  };
-}
-
-export class AsyncConsoleLogService extends AsyncLogService {
-  private readonly ref: Ref;
-
-  constructor(ref: Ref) {
+export class AsyncConsoleLogService extends LogService {
+  constructor() {
     super();
-    this.ref = ref;
+    Application.instance.addEventListener('response', this);
+    Application.instance.addEventListener('error', this);
   }
 
-  private get logs(): Log[] {
-    let store = this.ref.current.context?.get('logs');
+  public handleEvent(event: Event) {
+    switch (event.type) {
+      case 'response': {
+        const { context } = event as ResponseEvent;
+        this.flush(context);
+        break;
+      }
+      case 'error': {
+        const { error } = event as ErrorEvent;
+        this.error(error);
+        break;
+      }
+    }
+  }
+
+  private get logs() {
+    const { context } = Application.instance;
+    let store = context?.get('logs');
     if (!store) {
       store = [];
-      this.ref.current.context?.set('logs', store);
+      context?.set('logs', store);
     }
-    return store;
+    return store as Log[];
   }
 
-  public debug(message: string, data: AsyncLogData = {}): void {
+  public debug(message: string, data: LogData = {}): void {
     const { payload = '' } = data;
     const log: Log = {
       type: 'debug',
       data: [message, payload],
     };
-    if (!this.ref.current.context)
+    const { context } = Application.instance;
+    if (!context)
       return this.logImmediate(log);
     this.logs.push(log);
   }
 
-  public info(message: string, data: AsyncLogData = {}): void {
+  public info(message: string, data: LogData = {}): void {
     const { payload = '' } = data;
     const log: Log = {
       type: 'info',
       data: [message, payload],
     };
-    if (!this.ref.current.context)
+    const { context } = Application.instance;
+    if (!context)
       return this.logImmediate(log);
     this.logs.push(log);
   }
 
-  public warn(message: string, error?: Error | null, data: AsyncLogData = {}): void {
+  public warn(message: string, error?: Error | null, data: LogData = {}): void {
     const { payload = '' } = data;
     const log: Log = {
       type: 'warn',
       data: [message, error, payload],
     };
-    if (!this.ref.current.context)
+    const { context } = Application.instance;
+    if (!context)
       return this.logImmediate(log);
     this.logs.push(log);
   }
 
-  public error(error: Error, data: AsyncLogData = {}): void {
+  public error(error: Error, data: LogData = {}): void {
     const { payload = '' } = data;
     const log: Log = {
       type: 'error',
       data: [error, payload],
     };
-    if (!this.ref.current.context)
+    const { context } = Application.instance;
+    if (!context)
       return this.logImmediate(log);
     this.logs.push();
   }
 
-  private createAccessLog(context: AsyncContextVariable<TimingVariables>) {
+  private createAccessLog(context: ResponseEvent['context']) {
     const responseTimeMs = `${parseTotalDuration(context.get('metric')?.headers ?? [])}ms`;
-    const userAgent = context.request.headers.get(Headers.UserAgent);
-    const date = context.response.headers.get(Headers.Date);
-    const { origin, pathname, search } = new URL(context.request.url);
-    const log = `[${context.request.method} %c${context.response.status}%c] ${[origin, pathname, search].join('%c')} %c- ${[date, userAgent, responseTimeMs].join(' | ')}`;
+    const userAgent = context.req.raw.headers.get(Headers.UserAgent);
+    const date = context.res.headers.get(Headers.Date);
+    const { origin, pathname, search } = new URL(context.req.url);
+    const log = `[${context.req.method} %c${context.res.status}%c] ${[origin, pathname, search].join('%c')} %c- ${[date, userAgent, responseTimeMs].join(' | ')}`;
     let statusColour;
-    if (context.response.status < HttpStatusCodes.MultipleChoices) {
+    if (context.res.status < HttpStatusCodes.MultipleChoices) {
       statusColour = StatusColour.SUCCESS;
-    } else if (context.response.status < HttpStatusCodes.BadRequest) {
+    } else if (context.res.status < HttpStatusCodes.BadRequest) {
       statusColour = StatusColour.REDIRECT;
     } else {
       statusColour = StatusColour.ERROR;
@@ -98,10 +110,9 @@ export class AsyncConsoleLogService extends AsyncLogService {
     console[log.type](...log.data);
   }
 
-  public flush() {
-    const { context } = this.ref.current;
-    if (!context)
-      throw new ReferenceError('AsyncContext is unavailable. Is the AsyncContextProvider middleware registered?');
+  public flush(context: ResponseEvent['context']) {
+    // if (!context)
+    //   throw new ReferenceError('AsyncContext is unavailable. Is the AsyncContextProvider middleware registered?');
     const logs = this.logs;
     if (logs) {
       console.group(...this.createAccessLog(context));
@@ -112,5 +123,10 @@ export class AsyncConsoleLogService extends AsyncLogService {
     } else {
       console.log(this.createAccessLog(context));
     }
+  }
+
+  public [Symbol.dispose]() {
+    Application.instance.removeEventListener('response', this);
+    Application.instance.removeEventListener('error', this);
   }
 }

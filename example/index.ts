@@ -1,4 +1,4 @@
-import { AsyncContextProvider, Application, AsyncLogger, AsyncConsoleLogService, AsyncLogService, QueryBuilder } from '@resourceful-hono/core';
+import { AsyncContextProvider, Application, AsyncConsoleLogService, LogService, QueryBuilder } from '@resourceful-hono/core';
 import BaseResource from './resources/BaseResource.ts';
 import SSEResource from './resources/SSEResource.ts';
 import JSONResource from './resources/JSONResource.ts';
@@ -14,19 +14,11 @@ class MyService {
   }
 }
 const app = Application.instance;
-app.registerMiddlewares([AsyncContextProvider(AsyncLocalStorage), AsyncLogger, timing()]);
+app.registerMiddlewares([AsyncContextProvider(), timing()]);
 app.registerService(MyService, new MyService())
   .registerService(
-    AsyncLogService,
-    new AsyncConsoleLogService({
-      current: {
-        get context() {
-          return app
-            .getService(AsyncLocalStorage<AsyncContextVariable>)
-            .getStore()!;
-        },
-      },
-    })
+    LogService,
+    new AsyncConsoleLogService()
   )
   .registerService(AsyncLocalStorage, new AsyncLocalStorage());
 
@@ -73,5 +65,3 @@ app.ready.then(() => {
 export default {
   fetch: app.fetch,
 };
-
-type MyTuple = [string, name: string]

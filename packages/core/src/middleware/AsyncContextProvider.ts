@@ -1,8 +1,13 @@
 import type { Context, Next } from 'hono';
 import type { MiddlewareHandler } from 'hono/types';
 import { AsyncContext } from '../common/async-context.ts';
+import { DefaultContextVariables } from '../common/types.ts';
 
-export const asyncContext = new AsyncContext.Variable<Context>({
+export const asyncContext = new AsyncContext.Variable<
+  Context<{
+    Variables: DefaultContextVariables;
+  }>
+>({
   name: 'hono-context',
 });
 

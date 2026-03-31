@@ -18,7 +18,6 @@ export * from './services/EnvironmentService.ts';
 export * from './InitialisationError.ts';
 export type { ContentTypeHandler } from './ContentTypeRegistry.ts';
 export {
-  AsyncLogger,
   Logger,
   AsyncContextProvider
 } from './middleware/index.ts';

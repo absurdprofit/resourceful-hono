@@ -1,4 +1,4 @@
-import { ContentTypes, Result, HttpStatusCodes, FromRoute, FromBody, Accept, FromQuery, Middleware, Application, AsyncLogService, CacheControl } from '@resourceful-hono/core';
+import { ContentTypes, Result, HttpStatusCodes, FromRoute, FromBody, Accept, FromQuery, Middleware, Application, LogService, CacheControl } from '@resourceful-hono/core';
 import { z } from 'zod';
 import BaseResource from './BaseResource.ts';
 
@@ -6,13 +6,13 @@ const GETQuery = z.object({ page: z.coerce.number() });
 const GETParam = z.object({ name: z.string(), id: z.string().uuid() });
 const PUTBody = z.object({ name: z.string(), email: z.string().email(), displayName: z.string() });
 @Middleware(async (_context, next) => {
-  const logger = Application.instance.getService(AsyncLogService);
+  const logger = Application.instance.getService(LogService);
   logger.debug('Middleware 1 Start');
   await next();
   logger.debug('Middleware 1 End');
 })
 @Middleware(async (_context, next) => {
-  const logger = Application.instance.getService(AsyncLogService);
+  const logger = Application.instance.getService(LogService);
   logger.debug('Middleware 2 Start');
   await next();
   logger.debug('Middleware 2 End');
